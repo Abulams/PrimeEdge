@@ -1,0 +1,33 @@
+{
+  "manifest_schema_version": "1.0",
+  "batch_id": 8,
+  "batch_name": "XAUUSD (2021-2025 Upgraded)",
+  "execution_policy": "MARKET_ENTRY",
+  "start_date": "2021-01-01",
+  "end_date": "2025-12-31",
+  "instruments": [
+    "XAUUSD"
+  ],
+  "friction_pips": 2.5,
+  "database_schema_version": "v2.1",
+  "git_commit_hash": "UNKNOWN_GIT_COMMIT",
+  "source_engine_hashes": {
+    "engine.py": "da13c39fd047f229d6b07865e44411d2309bbcc20858e16f98121e85486f249d",
+    "replay_engine.py": "ef4f8ce77df1cceb92b0884e9ac25f2810908974d3a06ddb3a8982a01a6716c9",
+    "signature_builder.py": "43677f2403a09e597c9bfd8e9ae2be7fb74bfc5ced885d143a3e4c0b34178b71",
+    "models.py": "c25143c68356f1899a71738ac944d2834674eb1836ad0bb76f9d7027362440e6",
+    "replay_service.py": "f30a58ad69ebba759b5d4eb6af9c8a2185741190ac6a1f7229ac53aa46ed208b"
+  },
+  "total_setups_evaluated": 1301,
+  "total_trades_taken": 521,
+  "total_setups_passed": 780,
+  "population_checksum_hash": "bf3723254dd9c6fcf1c45f46f6844e3f1643c1d03c7e397b1da14b89efd0729e",
+  "exported_at": "2026-08-20T03:15:04.830853Z",
+  "file_manifest": {
+    "batch.json": "71a5f738ecbb7a5ea4dbd42ce21758cac99877063b11760e8cd2942e7ca59252",
+    "analytics.json": "a740d47a9fd762446c7a6a74043cd00ba402c7435efa3135616737eebae90f69",
+    "integrity.json": "f8672094eb56b0c4ad3b12c959230f07c728288767a5213f0ae9f1d4a578769c",
+    "setup_snapshots.csv": "91f7f7315c934342c76ef6209f3c0b17d1c6d9225cd1e55a62335f354e6b19a0",
+    "trade_records.csv": "3cb8d4ac3bdeb35814dd2f951b16cf6c7ca4df491948b4034645e52fe256fa58"
+  }
+}

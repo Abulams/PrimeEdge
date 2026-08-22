@@ -1,0 +1,111 @@
+{
+  "batch_id": 10,
+  "batch_name": "USDJPY (2021-2025 Upgraded)",
+  "execution_policy": "MARKET_ENTRY",
+  "population_checksum_hash": "ed0180b32bde1032a1fbea3dfb96b59b4ab3fd6af1c4070df151b01fb735bb4b",
+  "total_setups_evaluated": 1301,
+  "total_trades_taken": 584,
+  "total_setups_passed": 717,
+  "total_unfilled_missed": 0,
+  "denominators": {
+    "win_rate_fraction": "232/584",
+    "setup_success_fraction": "314/584",
+    "p90_survival_all_fraction": "361/584",
+    "p90_survival_wins_fraction": "232/232",
+    "opportunity_saved_losses_fraction": "627/717",
+    "opportunity_missed_wins_fraction": "90/717"
+  },
+  "expectancy_r": 0.519,
+  "average_winner_r": 2.02,
+  "average_loser_r": -0.47,
+  "profit_factor": 2.83,
+  "max_drawdown_r": 9.71,
+  "simulated_trader_win_rate": 39.7,
+  "net_r": 303.24,
+  "predicted_vs_actual_win_rate_delta": -18.5,
+  "setup_success_rate": 53.8,
+  "p90_invalidation_survival_rate": 61.8,
+  "p90_survival_winning_trades": 100.0,
+  "average_r_multiple": 0.52,
+  "max_r_distribution": {
+    "p25": 0.0,
+    "p50": 1.47,
+    "p75": 3.55,
+    "p90": 5.46
+  },
+  "r_milestone_reach_rates": {
+    "reach_0_5r_pct": 64.6,
+    "reach_1_0r_pct": 57.0,
+    "reach_1_5r_pct": 49.7,
+    "reach_2_0r_pct": 42.5,
+    "reach_2_5r_pct": 36.3,
+    "reach_3_0r_pct": 31.5
+  },
+  "average_mae_pips": 63.9,
+  "average_mfe_pips": 63.8,
+  "mae_distribution": {
+    "p25": 0.0,
+    "p50": 34.2,
+    "p75": 99.0,
+    "p90": 159.0
+  },
+  "mfe_distribution": {
+    "p25": 0.0,
+    "p50": 44.5,
+    "p75": 100.9,
+    "p90": 156.7
+  },
+  "opportunity_missed_wins": 90,
+  "opportunity_saved_losses": 627,
+  "opportunity_expired_neutral": 0,
+  "status_distribution": {
+    "READY": 0,
+    "WAIT": 762,
+    "NO EDGE": 173,
+    "NO SETUP": 366,
+    "INVALID": 0
+  },
+  "trajectory_milestones": {
+    "mfe_p25": 374,
+    "mfe_p50": 314,
+    "mfe_p75": 250,
+    "mfe_p90": 182,
+    "mae_p25": 360,
+    "mae_p50": 315,
+    "mae_p75": 275,
+    "mae_p90": 223,
+    "mfe_first": 245,
+    "mae_first": 339
+  },
+  "sl_first_pessimistic_exits": 2,
+  "friction_pips_applied": 2.5,
+  "performance_by_instrument": {
+    "USDJPY": {
+      "trades_taken": 584,
+      "win_rate": 39.7,
+      "average_r": 0.52,
+      "average_winner_r": 2.02,
+      "average_loser_r": -0.47,
+      "expectancy_r": 0.519,
+      "net_r": 303.24,
+      "profit_factor": 2.83,
+      "max_drawdown_r": 9.71,
+      "edge_status": "VALIDATED_EDGE",
+      "avg_mae_pips": 63.9,
+      "avg_mfe_pips": 63.8
+    }
+  },
+  "integrity_checksum": {
+    "status": "VERIFIED SCIENTIFIC HARNESS",
+    "checks": {
+      "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+      "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+      "NO_NEGATIVE_MAE": "PASS",
+      "NO_NEGATIVE_MFE": "PASS",
+      "EXIT_AFTER_ENTRY": "PASS",
+      "FROZEN_LEVELS_IMMUTABLE": "PASS",
+      "STATUS_POPULATION_RECONCILED": "PASS",
+      "DECISION_POPULATION_RECONCILED": "PASS"
+    }
+  }
+}

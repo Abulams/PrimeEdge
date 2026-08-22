@@ -1,0 +1,111 @@
+{
+  "batch_id": 7,
+  "batch_name": "EURUSD (2021-2025 Upgraded)",
+  "execution_policy": "MARKET_ENTRY",
+  "population_checksum_hash": "a2538ffbc9f3ff80e436acced1334cc63b93f2440da535d150c180bd47137204",
+  "total_setups_evaluated": 1301,
+  "total_trades_taken": 916,
+  "total_setups_passed": 385,
+  "total_unfilled_missed": 0,
+  "denominators": {
+    "win_rate_fraction": "287/916",
+    "setup_success_fraction": "448/916",
+    "p90_survival_all_fraction": "635/916",
+    "p90_survival_wins_fraction": "287/287",
+    "opportunity_saved_losses_fraction": "330/385",
+    "opportunity_missed_wins_fraction": "55/385"
+  },
+  "expectancy_r": 0.291,
+  "average_winner_r": 1.98,
+  "average_loser_r": -0.48,
+  "profit_factor": 1.89,
+  "max_drawdown_r": 13.63,
+  "simulated_trader_win_rate": 31.3,
+  "net_r": 267.3,
+  "predicted_vs_actual_win_rate_delta": -28.0,
+  "setup_success_rate": 48.9,
+  "p90_invalidation_survival_rate": 69.3,
+  "p90_survival_winning_trades": 100.0,
+  "average_r_multiple": 0.29,
+  "max_r_distribution": {
+    "p25": 0.0,
+    "p50": 1.04,
+    "p75": 2.78,
+    "p90": 4.74
+  },
+  "r_milestone_reach_rates": {
+    "reach_0_5r_pct": 60.3,
+    "reach_1_0r_pct": 50.5,
+    "reach_1_5r_pct": 42.8,
+    "reach_2_0r_pct": 36.0,
+    "reach_2_5r_pct": 28.1,
+    "reach_3_0r_pct": 22.1
+  },
+  "average_mae_pips": 44.9,
+  "average_mfe_pips": 41.3,
+  "mae_distribution": {
+    "p25": 0.0,
+    "p50": 34.0,
+    "p75": 68.4,
+    "p90": 107.1
+  },
+  "mfe_distribution": {
+    "p25": 0.0,
+    "p50": 25.2,
+    "p75": 65.6,
+    "p90": 102.0
+  },
+  "opportunity_missed_wins": 55,
+  "opportunity_saved_losses": 330,
+  "opportunity_expired_neutral": 0,
+  "status_distribution": {
+    "READY": 0,
+    "WAIT": 1120,
+    "NO EDGE": 181,
+    "NO SETUP": 0,
+    "INVALID": 0
+  },
+  "trajectory_milestones": {
+    "mfe_p25": 532,
+    "mfe_p50": 448,
+    "mfe_p75": 318,
+    "mfe_p90": 225,
+    "mae_p25": 624,
+    "mae_p50": 548,
+    "mae_p75": 446,
+    "mae_p90": 281,
+    "mfe_first": 310,
+    "mae_first": 606
+  },
+  "sl_first_pessimistic_exits": 2,
+  "friction_pips_applied": 2.5,
+  "performance_by_instrument": {
+    "EURUSD": {
+      "trades_taken": 916,
+      "win_rate": 31.3,
+      "average_r": 0.29,
+      "average_winner_r": 1.98,
+      "average_loser_r": -0.48,
+      "expectancy_r": 0.291,
+      "net_r": 267.3,
+      "profit_factor": 1.89,
+      "max_drawdown_r": 13.63,
+      "edge_status": "VALIDATED_EDGE",
+      "avg_mae_pips": 44.9,
+      "avg_mfe_pips": 41.3
+    }
+  },
+  "integrity_checksum": {
+    "status": "VERIFIED SCIENTIFIC HARNESS",
+    "checks": {
+      "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+      "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+      "NO_NEGATIVE_MAE": "PASS",
+      "NO_NEGATIVE_MFE": "PASS",
+      "EXIT_AFTER_ENTRY": "PASS",
+      "FROZEN_LEVELS_IMMUTABLE": "PASS",
+      "STATUS_POPULATION_RECONCILED": "PASS",
+      "DECISION_POPULATION_RECONCILED": "PASS"
+    }
+  }
+}

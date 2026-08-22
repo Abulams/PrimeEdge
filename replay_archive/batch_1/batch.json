@@ -1,0 +1,17 @@
+{
+  "id": 1,
+  "batch_name": "Backtest Simulation",
+  "start_date": "2020-10-01",
+  "end_date": "2026-01-31",
+  "instruments": [
+    "GBPUSD"
+  ],
+  "execution_policy": "MARKET_ENTRY",
+  "friction_pips": 1.0,
+  "total_setups_evaluated": 1388,
+  "total_trades_taken": 910,
+  "total_setups_passed": 478,
+  "status": "COMPLETED",
+  "created_at": "2026-08-19T13:15:15.725769",
+  "completed_at": "2026-08-19T13:17:42.245736"
+}

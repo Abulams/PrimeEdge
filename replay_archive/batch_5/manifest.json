@@ -1,0 +1,33 @@
+{
+  "manifest_schema_version": "1.0",
+  "batch_id": 5,
+  "batch_name": "Backtest Simulation",
+  "execution_policy": "MARKET_ENTRY",
+  "start_date": "2020-10-01",
+  "end_date": "2026-01-31",
+  "instruments": [
+    "USDJPY"
+  ],
+  "friction_pips": 1.0,
+  "database_schema_version": "v2.1",
+  "git_commit_hash": "UNKNOWN_GIT_COMMIT",
+  "source_engine_hashes": {
+    "engine.py": "04bd99af2dfac78567a48a957c2d20b75af174b914a4ad3d9df4107a2adb09ec",
+    "replay_engine.py": "1ca7700d17d8dc5d5fe5c8723ad7d0943928234268b6623f97d772bf63f1d25e",
+    "signature_builder.py": "43677f2403a09e597c9bfd8e9ae2be7fb74bfc5ced885d143a3e4c0b34178b71",
+    "models.py": "c25143c68356f1899a71738ac944d2834674eb1836ad0bb76f9d7027362440e6",
+    "replay_service.py": "f30a58ad69ebba759b5d4eb6af9c8a2185741190ac6a1f7229ac53aa46ed208b"
+  },
+  "total_setups_evaluated": 1388,
+  "total_trades_taken": 869,
+  "total_setups_passed": 519,
+  "population_checksum_hash": "dba035cd534e6f0307ac4da6af1822a026f50967726a6be236014a3bfdc5824e",
+  "exported_at": "2026-08-20T01:39:33.777696Z",
+  "file_manifest": {
+    "batch.json": "cdd0c46d462f6d63d2a97ed42495ce6f86bd17daf2d9194674e442e333f60806",
+    "analytics.json": "5b371a3ee89bbd1e6515d20b190ae256df2cb0167d395bcee4e27c825dae43e3",
+    "integrity.json": "f8672094eb56b0c4ad3b12c959230f07c728288767a5213f0ae9f1d4a578769c",
+    "setup_snapshots.csv": "a6b8cb947c048da0b73d1b24cd81cf55bcce09131d0c88e9a767604348940c49",
+    "trade_records.csv": "86cad2126d723d143c50979cb34bee4e57ff8b53e551ea49f7ab31f1bbb08c6e"
+  }
+}

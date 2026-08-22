@@ -1,0 +1,33 @@
+{
+  "manifest_schema_version": "1.0",
+  "batch_id": 6,
+  "batch_name": "GBPUSD (2021-2025 Upgraded)",
+  "execution_policy": "MARKET_ENTRY",
+  "start_date": "2021-01-01",
+  "end_date": "2025-12-31",
+  "instruments": [
+    "GBPUSD"
+  ],
+  "friction_pips": 2.5,
+  "database_schema_version": "v2.1",
+  "git_commit_hash": "UNKNOWN_GIT_COMMIT",
+  "source_engine_hashes": {
+    "engine.py": "da13c39fd047f229d6b07865e44411d2309bbcc20858e16f98121e85486f249d",
+    "replay_engine.py": "ef4f8ce77df1cceb92b0884e9ac25f2810908974d3a06ddb3a8982a01a6716c9",
+    "signature_builder.py": "43677f2403a09e597c9bfd8e9ae2be7fb74bfc5ced885d143a3e4c0b34178b71",
+    "models.py": "c25143c68356f1899a71738ac944d2834674eb1836ad0bb76f9d7027362440e6",
+    "replay_service.py": "f30a58ad69ebba759b5d4eb6af9c8a2185741190ac6a1f7229ac53aa46ed208b"
+  },
+  "total_setups_evaluated": 1301,
+  "total_trades_taken": 762,
+  "total_setups_passed": 539,
+  "population_checksum_hash": "2478fad527f1b892fb1dab68a9ef3946eb76b48fe7c68089f7beb7b4b9893c33",
+  "exported_at": "2026-08-20T03:15:12.562649Z",
+  "file_manifest": {
+    "batch.json": "f29bb4d0392d91070375d0118180d5a7eb8535e8d61aa94f67ac576fb8253387",
+    "analytics.json": "4640465cfa4464ca47ccb23950b725dd491a658939ee2f3878c12da3baddbec9",
+    "integrity.json": "f8672094eb56b0c4ad3b12c959230f07c728288767a5213f0ae9f1d4a578769c",
+    "setup_snapshots.csv": "27fef8cd6b5fa1ed5ff62ecf8fa1b9ea897a6dfdcd75f73edb9fbaa6ffac2b86",
+    "trade_records.csv": "4309113e6719833dde0384ecf0ea5b6fd45739f460941e79c36c8bb3ddbd1f47"
+  }
+}

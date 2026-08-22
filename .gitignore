@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+backend/venv/
+*.egg-info/
+.eggs/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Audit scripts (local tooling)
+backend/audit_*.py
+
+# Binaries
+cloudflared.exe

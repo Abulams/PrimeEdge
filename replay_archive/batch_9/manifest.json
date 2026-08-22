@@ -1,0 +1,33 @@
+{
+  "manifest_schema_version": "1.0",
+  "batch_id": 9,
+  "batch_name": "AUDUSD (2021-2025 Upgraded)",
+  "execution_policy": "MARKET_ENTRY",
+  "start_date": "2021-01-01",
+  "end_date": "2025-12-31",
+  "instruments": [
+    "AUDUSD"
+  ],
+  "friction_pips": 2.5,
+  "database_schema_version": "v2.1",
+  "git_commit_hash": "UNKNOWN_GIT_COMMIT",
+  "source_engine_hashes": {
+    "engine.py": "da13c39fd047f229d6b07865e44411d2309bbcc20858e16f98121e85486f249d",
+    "replay_engine.py": "ef4f8ce77df1cceb92b0884e9ac25f2810908974d3a06ddb3a8982a01a6716c9",
+    "signature_builder.py": "43677f2403a09e597c9bfd8e9ae2be7fb74bfc5ced885d143a3e4c0b34178b71",
+    "models.py": "c25143c68356f1899a71738ac944d2834674eb1836ad0bb76f9d7027362440e6",
+    "replay_service.py": "f30a58ad69ebba759b5d4eb6af9c8a2185741190ac6a1f7229ac53aa46ed208b"
+  },
+  "total_setups_evaluated": 1301,
+  "total_trades_taken": 878,
+  "total_setups_passed": 423,
+  "population_checksum_hash": "c334e68961d589fca6afd6baff53ac491207aca49e6be8dcc81539074e39966c",
+  "exported_at": "2026-08-20T03:15:01.516717Z",
+  "file_manifest": {
+    "batch.json": "ea5cef72182fbc43db60e737b4a22d2d72fa1e9f02da7cb44cf1eec934cb64fe",
+    "analytics.json": "65126caa7d264e3ac1c203bc15f2ed690fc1376cbc67b8cd0af098a0736a2cda",
+    "integrity.json": "f8672094eb56b0c4ad3b12c959230f07c728288767a5213f0ae9f1d4a578769c",
+    "setup_snapshots.csv": "2acfa843cfde7c33df86421c4c7c7e2f9fdb1435e191faeaaf1896413e93bce8",
+    "trade_records.csv": "bf3a50962f198c58ce88417a90d8bece939cf93fc2871727d9f9fc84328fa405"
+  }
+}

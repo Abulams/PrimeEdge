@@ -1,0 +1,33 @@
+{
+  "manifest_schema_version": "1.0",
+  "batch_id": 3,
+  "batch_name": "Backtest Simulation",
+  "execution_policy": "MARKET_ENTRY",
+  "start_date": "2020-10-01",
+  "end_date": "2026-01-31",
+  "instruments": [
+    "XAUUSD"
+  ],
+  "friction_pips": 1.0,
+  "database_schema_version": "v2.1",
+  "git_commit_hash": "UNKNOWN_GIT_COMMIT",
+  "source_engine_hashes": {
+    "engine.py": "04bd99af2dfac78567a48a957c2d20b75af174b914a4ad3d9df4107a2adb09ec",
+    "replay_engine.py": "1ca7700d17d8dc5d5fe5c8723ad7d0943928234268b6623f97d772bf63f1d25e",
+    "signature_builder.py": "43677f2403a09e597c9bfd8e9ae2be7fb74bfc5ced885d143a3e4c0b34178b71",
+    "models.py": "c25143c68356f1899a71738ac944d2834674eb1836ad0bb76f9d7027362440e6",
+    "replay_service.py": "f30a58ad69ebba759b5d4eb6af9c8a2185741190ac6a1f7229ac53aa46ed208b"
+  },
+  "total_setups_evaluated": 1388,
+  "total_trades_taken": 619,
+  "total_setups_passed": 769,
+  "population_checksum_hash": "ce82782a6b61d381c4f224e978b8f7a4becaa0d292633f4dd756b4749a19d6b2",
+  "exported_at": "2026-08-20T01:39:47.593167Z",
+  "file_manifest": {
+    "batch.json": "b9079f7abf7fe27e0f500bbcfb2b376adddf4624ea589b19e45ccad98163d120",
+    "analytics.json": "b6fbe217db6e93293dc8553b3793e44d4a607dd2e3609b27a9e60ac739254c1a",
+    "integrity.json": "f8672094eb56b0c4ad3b12c959230f07c728288767a5213f0ae9f1d4a578769c",
+    "setup_snapshots.csv": "12ce78b9711e39504c52d1af6479ee3dddb8372d289ee47059680081baa44c3f",
+    "trade_records.csv": "de556428142359a7f093aa08a9d8693ebe8e6cd94f00cfab2d2ef126860cf82e"
+  }
+}

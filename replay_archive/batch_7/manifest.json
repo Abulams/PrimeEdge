@@ -1,0 +1,33 @@
+{
+  "manifest_schema_version": "1.0",
+  "batch_id": 7,
+  "batch_name": "EURUSD (2021-2025 Upgraded)",
+  "execution_policy": "MARKET_ENTRY",
+  "start_date": "2021-01-01",
+  "end_date": "2025-12-31",
+  "instruments": [
+    "EURUSD"
+  ],
+  "friction_pips": 2.5,
+  "database_schema_version": "v2.1",
+  "git_commit_hash": "UNKNOWN_GIT_COMMIT",
+  "source_engine_hashes": {
+    "engine.py": "da13c39fd047f229d6b07865e44411d2309bbcc20858e16f98121e85486f249d",
+    "replay_engine.py": "ef4f8ce77df1cceb92b0884e9ac25f2810908974d3a06ddb3a8982a01a6716c9",
+    "signature_builder.py": "43677f2403a09e597c9bfd8e9ae2be7fb74bfc5ced885d143a3e4c0b34178b71",
+    "models.py": "c25143c68356f1899a71738ac944d2834674eb1836ad0bb76f9d7027362440e6",
+    "replay_service.py": "f30a58ad69ebba759b5d4eb6af9c8a2185741190ac6a1f7229ac53aa46ed208b"
+  },
+  "total_setups_evaluated": 1301,
+  "total_trades_taken": 916,
+  "total_setups_passed": 385,
+  "population_checksum_hash": "a2538ffbc9f3ff80e436acced1334cc63b93f2440da535d150c180bd47137204",
+  "exported_at": "2026-08-20T03:15:08.690113Z",
+  "file_manifest": {
+    "batch.json": "c60d4b905ee6fb3e13596f916045553f12945bb621e70fbb558c5777ed1bae6b",
+    "analytics.json": "d7165dd8643b6dd6b1f14e0bc7a12929b50fe137f9a93c7e4eede20e4cb2d9fa",
+    "integrity.json": "f8672094eb56b0c4ad3b12c959230f07c728288767a5213f0ae9f1d4a578769c",
+    "setup_snapshots.csv": "d6e14e3d263a11b9f8871b16e38cade69c131d38c2288a0dfa0c68ff9e621758",
+    "trade_records.csv": "8df94a06d801067156ecbf487519f0237215adee8cde1c58ea913e56ae4a63df"
+  }
+}

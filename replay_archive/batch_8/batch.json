@@ -1,0 +1,17 @@
+{
+  "id": 8,
+  "batch_name": "XAUUSD (2021-2025 Upgraded)",
+  "start_date": "2021-01-01",
+  "end_date": "2025-12-31",
+  "instruments": [
+    "XAUUSD"
+  ],
+  "execution_policy": "MARKET_ENTRY",
+  "friction_pips": 2.5,
+  "total_setups_evaluated": 1301,
+  "total_trades_taken": 521,
+  "total_setups_passed": 780,
+  "status": "COMPLETED",
+  "created_at": "2026-08-20T03:00:20.697918",
+  "completed_at": "2026-08-20T03:02:19.164956"
+}

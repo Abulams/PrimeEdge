@@ -1,0 +1,17 @@
+{
+  "id": 4,
+  "batch_name": "Backtest Simulation",
+  "start_date": "2020-10-01",
+  "end_date": "2026-01-31",
+  "instruments": [
+    "AUDUSD"
+  ],
+  "execution_policy": "MARKET_ENTRY",
+  "friction_pips": 1.0,
+  "total_setups_evaluated": 1388,
+  "total_trades_taken": 980,
+  "total_setups_passed": 408,
+  "status": "COMPLETED",
+  "created_at": "2026-08-19T13:23:54.987212",
+  "completed_at": "2026-08-19T13:26:21.712173"
+}

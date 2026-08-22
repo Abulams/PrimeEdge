@@ -1,0 +1,111 @@
+{
+  "batch_id": 3,
+  "batch_name": "Backtest Simulation",
+  "execution_policy": "MARKET_ENTRY",
+  "population_checksum_hash": "ce82782a6b61d381c4f224e978b8f7a4becaa0d292633f4dd756b4749a19d6b2",
+  "total_setups_evaluated": 1388,
+  "total_trades_taken": 619,
+  "total_setups_passed": 769,
+  "total_unfilled_missed": 0,
+  "denominators": {
+    "win_rate_fraction": "266/619",
+    "setup_success_fraction": "389/619",
+    "p90_survival_all_fraction": "455/619",
+    "p90_survival_wins_fraction": "266/266",
+    "opportunity_saved_losses_fraction": "655/769",
+    "opportunity_missed_wins_fraction": "114/769"
+  },
+  "expectancy_r": 0.467,
+  "average_winner_r": 2.44,
+  "average_loser_r": -1.02,
+  "profit_factor": 1.81,
+  "max_drawdown_r": 22.39,
+  "simulated_trader_win_rate": 43.0,
+  "net_r": 290.08,
+  "predicted_vs_actual_win_rate_delta": -13.3,
+  "setup_success_rate": 62.8,
+  "p90_invalidation_survival_rate": 73.5,
+  "p90_survival_winning_trades": 100.0,
+  "average_r_multiple": 0.47,
+  "max_r_distribution": {
+    "p25": 0.0,
+    "p50": 2.47,
+    "p75": 5.62,
+    "p90": 9.61
+  },
+  "r_milestone_reach_rates": {
+    "reach_0_5r_pct": 67.9,
+    "reach_1_0r_pct": 63.3,
+    "reach_1_5r_pct": 57.2,
+    "reach_2_0r_pct": 54.3,
+    "reach_2_5r_pct": 49.4,
+    "reach_3_0r_pct": 45.6
+  },
+  "average_mae_pips": 208.5,
+  "average_mfe_pips": 259.2,
+  "mae_distribution": {
+    "p25": 0.0,
+    "p50": 87.0,
+    "p75": 234.0,
+    "p90": 476.0
+  },
+  "mfe_distribution": {
+    "p25": 0.0,
+    "p50": 157.0,
+    "p75": 338.5,
+    "p90": 645.2
+  },
+  "opportunity_missed_wins": 114,
+  "opportunity_saved_losses": 655,
+  "opportunity_expired_neutral": 0,
+  "status_distribution": {
+    "READY": 29,
+    "WAIT": 823,
+    "NO EDGE": 95,
+    "NO SETUP": 441,
+    "INVALID": 0
+  },
+  "trajectory_milestones": {
+    "mfe_p25": 432,
+    "mfe_p50": 389,
+    "mfe_p75": 330,
+    "mfe_p90": 234,
+    "mae_p25": 356,
+    "mae_p50": 360,
+    "mae_p75": 274,
+    "mae_p90": 164,
+    "mfe_first": 245,
+    "mae_first": 340
+  },
+  "sl_first_pessimistic_exits": 65,
+  "friction_pips_applied": 1.0,
+  "performance_by_instrument": {
+    "XAUUSD": {
+      "trades_taken": 619,
+      "win_rate": 43.0,
+      "average_r": 0.47,
+      "average_winner_r": 2.44,
+      "average_loser_r": -1.02,
+      "expectancy_r": 0.467,
+      "net_r": 290.08,
+      "profit_factor": 1.81,
+      "max_drawdown_r": 22.39,
+      "edge_status": "VALIDATED_EDGE",
+      "avg_mae_pips": 208.5,
+      "avg_mfe_pips": 259.2
+    }
+  },
+  "integrity_checksum": {
+    "status": "VERIFIED SCIENTIFIC HARNESS",
+    "checks": {
+      "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+      "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+      "NO_NEGATIVE_MAE": "PASS",
+      "NO_NEGATIVE_MFE": "PASS",
+      "EXIT_AFTER_ENTRY": "PASS",
+      "FROZEN_LEVELS_IMMUTABLE": "PASS",
+      "STATUS_POPULATION_RECONCILED": "PASS",
+      "DECISION_POPULATION_RECONCILED": "PASS"
+    }
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "batch_id": 5,
+  "batch_name": "Backtest Simulation",
+  "execution_policy": "MARKET_ENTRY",
+  "population_checksum_hash": "dba035cd534e6f0307ac4da6af1822a026f50967726a6be236014a3bfdc5824e",
+  "total_setups_evaluated": 1388,
+  "total_trades_taken": 869,
+  "total_setups_passed": 519,
+  "total_unfilled_missed": 0,
+  "denominators": {
+    "win_rate_fraction": "346/869",
+    "setup_success_fraction": "488/869",
+    "p90_survival_all_fraction": "523/869",
+    "p90_survival_wins_fraction": "346/346",
+    "opportunity_saved_losses_fraction": "447/519",
+    "opportunity_missed_wins_fraction": "72/519"
+  },
+  "expectancy_r": 0.246,
+  "average_winner_r": 2.19,
+  "average_loser_r": -1.04,
+  "profit_factor": 1.39,
+  "max_drawdown_r": 24.88,
+  "simulated_trader_win_rate": 39.8,
+  "net_r": 213.09,
+  "predicted_vs_actual_win_rate_delta": -18.5,
+  "setup_success_rate": 56.2,
+  "p90_invalidation_survival_rate": 60.2,
+  "p90_survival_winning_trades": 100.0,
+  "average_r_multiple": 0.25,
+  "max_r_distribution": {
+    "p25": 0.0,
+    "p50": 1.68,
+    "p75": 3.97,
+    "p90": 6.22
+  },
+  "r_milestone_reach_rates": {
+    "reach_0_5r_pct": 65.5,
+    "reach_1_0r_pct": 58.9,
+    "reach_1_5r_pct": 52.7,
+    "reach_2_0r_pct": 46.0,
+    "reach_2_5r_pct": 39.8,
+    "reach_3_0r_pct": 33.5
+  },
+  "average_mae_pips": 69.3,
+  "average_mfe_pips": 72.9,
+  "mae_distribution": {
+    "p25": 0.0,
+    "p50": 43.2,
+    "p75": 103.9,
+    "p90": 175.6
+  },
+  "mfe_distribution": {
+    "p25": 0.0,
+    "p50": 46.8,
+    "p75": 108.8,
+    "p90": 177.2
+  },
+  "opportunity_missed_wins": 72,
+  "opportunity_saved_losses": 447,
+  "opportunity_expired_neutral": 0,
+  "status_distribution": {
+    "READY": 0,
+    "WAIT": 1022,
+    "NO EDGE": 366,
+    "NO SETUP": 0,
+    "INVALID": 0
+  },
+  "trajectory_milestones": {
+    "mfe_p25": 557,
+    "mfe_p50": 488,
+    "mfe_p75": 397,
+    "mfe_p90": 295,
+    "mae_p25": 583,
+    "mae_p50": 524,
+    "mae_p75": 442,
+    "mae_p90": 346,
+    "mfe_first": 310,
+    "mae_first": 559
+  },
+  "sl_first_pessimistic_exits": 61,
+  "friction_pips_applied": 1.0,
+  "performance_by_instrument": {
+    "USDJPY": {
+      "trades_taken": 869,
+      "win_rate": 39.8,
+      "average_r": 0.25,
+      "average_winner_r": 2.19,
+      "average_loser_r": -1.04,
+      "expectancy_r": 0.246,
+      "net_r": 213.09,
+      "profit_factor": 1.39,
+      "max_drawdown_r": 24.88,
+      "edge_status": "VALIDATED_EDGE",
+      "avg_mae_pips": 69.3,
+      "avg_mfe_pips": 72.9
+    }
+  },
+  "integrity_checksum": {
+    "status": "VERIFIED SCIENTIFIC HARNESS",
+    "checks": {
+      "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+      "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+      "NO_NEGATIVE_MAE": "PASS",
+      "NO_NEGATIVE_MFE": "PASS",
+      "EXIT_AFTER_ENTRY": "PASS",
+      "FROZEN_LEVELS_IMMUTABLE": "PASS",
+      "STATUS_POPULATION_RECONCILED": "PASS",
+      "DECISION_POPULATION_RECONCILED": "PASS"
+    }
+  }
+}

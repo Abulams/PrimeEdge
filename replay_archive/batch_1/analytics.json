@@ -1,0 +1,111 @@
+{
+  "batch_id": 1,
+  "batch_name": "Backtest Simulation",
+  "execution_policy": "MARKET_ENTRY",
+  "population_checksum_hash": "eadab5e6e68ce53b69c6a56ca566d440f50567075862000fb65b9460b85f413c",
+  "total_setups_evaluated": 1388,
+  "total_trades_taken": 910,
+  "total_setups_passed": 478,
+  "total_unfilled_missed": 0,
+  "denominators": {
+    "win_rate_fraction": "320/910",
+    "setup_success_fraction": "455/910",
+    "p90_survival_all_fraction": "625/910",
+    "p90_survival_wins_fraction": "320/320",
+    "opportunity_saved_losses_fraction": "408/478",
+    "opportunity_missed_wins_fraction": "70/478"
+  },
+  "expectancy_r": 0.039,
+  "average_winner_r": 2.01,
+  "average_loser_r": -1.03,
+  "profit_factor": 1.05,
+  "max_drawdown_r": 46.94,
+  "simulated_trader_win_rate": 35.2,
+  "net_r": 33.32,
+  "predicted_vs_actual_win_rate_delta": -23.2,
+  "setup_success_rate": 50.0,
+  "p90_invalidation_survival_rate": 68.7,
+  "p90_survival_winning_trades": 100.0,
+  "average_r_multiple": 0.04,
+  "max_r_distribution": {
+    "p25": 0.0,
+    "p50": 1.3,
+    "p75": 3.02,
+    "p90": 4.79
+  },
+  "r_milestone_reach_rates": {
+    "reach_0_5r_pct": 62.9,
+    "reach_1_0r_pct": 54.5,
+    "reach_1_5r_pct": 46.9,
+    "reach_2_0r_pct": 40.0,
+    "reach_2_5r_pct": 32.1,
+    "reach_3_0r_pct": 25.3
+  },
+  "average_mae_pips": 63.1,
+  "average_mfe_pips": 61.3,
+  "mae_distribution": {
+    "p25": 2.1,
+    "p50": 50.2,
+    "p75": 94.1,
+    "p90": 143.0
+  },
+  "mfe_distribution": {
+    "p25": 0.0,
+    "p50": 38.7,
+    "p75": 96.5,
+    "p90": 151.2
+  },
+  "opportunity_missed_wins": 70,
+  "opportunity_saved_losses": 408,
+  "opportunity_expired_neutral": 0,
+  "status_distribution": {
+    "READY": 0,
+    "WAIT": 1091,
+    "NO EDGE": 297,
+    "NO SETUP": 0,
+    "INVALID": 0
+  },
+  "trajectory_milestones": {
+    "mfe_p25": 531,
+    "mfe_p50": 455,
+    "mfe_p75": 365,
+    "mfe_p90": 228,
+    "mae_p25": 639,
+    "mae_p50": 586,
+    "mae_p75": 433,
+    "mae_p90": 285,
+    "mfe_first": 298,
+    "mae_first": 612
+  },
+  "sl_first_pessimistic_exits": 49,
+  "friction_pips_applied": 1.0,
+  "performance_by_instrument": {
+    "GBPUSD": {
+      "trades_taken": 910,
+      "win_rate": 35.2,
+      "average_r": 0.04,
+      "average_winner_r": 2.01,
+      "average_loser_r": -1.03,
+      "expectancy_r": 0.039,
+      "net_r": 33.32,
+      "profit_factor": 1.05,
+      "max_drawdown_r": 46.94,
+      "edge_status": "NEUTRAL_BREAKEVEN",
+      "avg_mae_pips": 63.1,
+      "avg_mfe_pips": 61.3
+    }
+  },
+  "integrity_checksum": {
+    "status": "VERIFIED SCIENTIFIC HARNESS",
+    "checks": {
+      "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+      "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+      "NO_NEGATIVE_MAE": "PASS",
+      "NO_NEGATIVE_MFE": "PASS",
+      "EXIT_AFTER_ENTRY": "PASS",
+      "FROZEN_LEVELS_IMMUTABLE": "PASS",
+      "STATUS_POPULATION_RECONCILED": "PASS",
+      "DECISION_POPULATION_RECONCILED": "PASS"
+    }
+  }
+}
