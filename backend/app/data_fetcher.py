@@ -14,6 +14,8 @@ TICKER_MAP = {
     "XAUUSD": "GC=F",
     "AUDUSD": "AUDUSD=X",
     "USDJPY": "USDJPY=X",
+    "US100":  "NQ=F",
+    "AUDJPY": "AUDJPY=X",
 }
 
 MACRO_TICKERS = {
@@ -23,6 +25,7 @@ MACRO_TICKERS = {
 }
 
 ALL_INSTRUMENTS = list(TICKER_MAP.keys())
+
 
 
 import time
@@ -271,7 +274,9 @@ def fetch_macro_snapshot() -> Dict[str, Dict]:
 
 def get_pip_size(instrument: str) -> float:
     """Returns the pip size for the instrument (used for MAE/MFE calculations)."""
-    if "JPY" in instrument:
+    if "US100" in instrument or "NAS100" in instrument:
+        return 1.0    # Index point = 1.0
+    elif "JPY" in instrument:
         return 0.01   # JPY pairs: 2 decimal places
     elif "XAU" in instrument or "GOLD" in instrument:
         return 0.1    # Gold: 1 decimal place movement = 1 pip
