@@ -67,7 +67,7 @@ const INSTRUMENT_DEFAULTS: Record<string, { entry: number; stop: number; target:
   USDJPY: { entry: 154.50, stop: 154.10, target: 155.40 }
 };
 
-const API_BASE = "http://localhost:8000/api/v1";
+const API_BASE = (import.meta.env.VITE_API_URL ?? "") + "/api/v1";
 
 export const TradePlanner: React.FC = () => {
   const [symbol, setSymbol] = useState<string>('GBPUSD');

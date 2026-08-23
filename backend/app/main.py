@@ -3,6 +3,7 @@ import os
 import numpy as np
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse as StaticFileResponse
 from sqlalchemy.orm import Session
@@ -59,6 +60,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Enable GZip compression (60-70% bandwidth reduction on JSON payloads)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Auth & Cloud Execution Routers
 from .routers.auth_router import router as auth_router
