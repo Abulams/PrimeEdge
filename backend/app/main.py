@@ -36,8 +36,9 @@ from .schemas import (
 from .engine import DecisionIntelligenceEngine, TradePlannerEngine
 from .journal_service import JournalService
 from .replay_service import ReplayService
-from .data_fetcher import fetch_realtime_quotes
+from .data_fetcher import ALL_INSTRUMENTS, TICKER_MAP, fetch_realtime_quotes
 from . import analyst_engine
+
 from .realtime import realtime_service
 
 @asynccontextmanager
@@ -166,13 +167,17 @@ def get_macro_regime(db: Session = Depends(get_db)):
 def get_watchlist(db: Session = Depends(get_db)):
     today = datetime.date.today()
     regime = sync_live_macro_regime(db)
-    instruments = ["GBPUSD", "EURUSD", "XAUUSD", "AUDUSD", "USDJPY"]
+    instruments = ["XAUUSD", "US100", "EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "AUDJPY"]
     watchlist = []
+
+
 
     for inst in instruments:
         trend = DecisionIntelligenceEngine.get_current_trend(db, inst)
         profile_data = DecisionIntelligenceEngine.generate_daily_profile_v2(db, inst, today, trend)
+        print(f"DEBUG WATCHLIST: {inst} -> trend: {trend}, profile: {profile_data is not None}", flush=True)
         if profile_data:
+
             watchlist.append(
                 WatchlistInstrument(
                     instrument=profile_data["instrument"],
@@ -349,7 +354,7 @@ def run_replay_batch(req: ReplayRunRequest, background_tasks: BackgroundTasks, d
     Initiates an isolated historical replay simulation batch across a date range.
     Enforces strict point-in-time anti-look-ahead data slicing (t <= T₀).
     """
-    instruments = req.instruments or ["GBPUSD", "EURUSD", "XAUUSD", "AUDUSD", "USDJPY"]
+    instruments = req.instruments or ALL_INSTRUMENTS
     batch = ReplayService.create_batch(
         db=db,
         start_date=req.start_date,
@@ -653,10 +658,11 @@ def chat_assistant(req: ChatRequest, db: Session = Depends(get_db)):
     
     # Determine symbol
     symbol = None
-    for sym in ["GBPUSD", "EURUSD", "XAUUSD", "AUDUSD", "USDJPY"]:
-        if sym in msg or (sym == "XAUUSD" and "GOLD" in msg):
+    for sym in ALL_INSTRUMENTS:
+        if sym in msg or (sym == "XAUUSD" and "GOLD" in msg) or (sym == "US100" and ("NAS" in msg or "NASDAQ" in msg or "NQ" in msg)):
             symbol = sym
             break
+
             
     if (is_buy_intent or is_sell_intent) and symbol:
         # Check current daily profile score
@@ -782,12 +788,11 @@ def get_chart_overlays(symbol: str, timeframe: str = "1d", db: Session = Depends
     inst = symbol.upper()
     tf_clean = timeframe.lower().strip()
 
-    # --- 1. OHLC Candle Series (Intraday vs Daily) ---
-    candles = []
     try:
         import yfinance as yf
-        ticker_map = {"GBPUSD": "GBPUSD=X", "EURUSD": "EURUSD=X", "XAUUSD": "GC=F", "AUDUSD": "AUDUSD=X", "USDJPY": "USDJPY=X"}
-        symbol_yf = ticker_map.get(inst, f"{inst}=X")
+        symbol_yf = TICKER_MAP.get(inst, f"{inst}=X")
+
+
         
         if tf_clean == "5m":
             period_str, yf_interval = "5d", "5m"

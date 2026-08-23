@@ -2,7 +2,9 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./market_os.db")
+_DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "market_os.db")).replace("\\", "/")
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{_DB_PATH}")
+
 
 # SQLite needs connect_args={"check_same_thread": False, "timeout": 60} to handle concurrent access
 if DATABASE_URL.startswith("sqlite"):

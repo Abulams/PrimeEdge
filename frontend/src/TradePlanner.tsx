@@ -64,8 +64,11 @@ const INSTRUMENT_DEFAULTS: Record<string, { entry: number; stop: number; target:
   EURUSD: { entry: 1.0880, stop: 1.0860, target: 1.0930 },
   XAUUSD: { entry: 2410.0, stop: 2398.0, target: 2435.0 },
   AUDUSD: { entry: 0.6680, stop: 0.6660, target: 0.6725 },
-  USDJPY: { entry: 154.50, stop: 154.10, target: 155.40 }
+  USDJPY: { entry: 154.50, stop: 154.10, target: 155.40 },
+  US100:  { entry: 19850.0, stop: 19780.0, target: 20000.0 },
+  AUDJPY: { entry: 98.50, stop: 98.10, target: 99.30 }
 };
+
 
 const API_BASE = (import.meta.env.VITE_API_URL ?? "") + "/api/v1";
 
@@ -182,9 +185,12 @@ export const TradePlanner: React.FC = () => {
                   <option value="GBPUSD">GBPUSD</option>
                   <option value="EURUSD">EURUSD</option>
                   <option value="XAUUSD">XAUUSD (Gold)</option>
+                  <option value="US100">US100 (Nasdaq)</option>
+                  <option value="AUDJPY">AUDJPY</option>
                   <option value="AUDUSD">AUDUSD</option>
                   <option value="USDJPY">USDJPY</option>
                 </select>
+
               </div>
 
               <div className="form-group" style={{ margin: 0 }}>
