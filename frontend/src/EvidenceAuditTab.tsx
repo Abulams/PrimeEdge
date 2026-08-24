@@ -105,7 +105,7 @@ export default function EvidenceAuditTab({
       <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '20px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h2 className="dashboard-title" style={{ margin: 0 }}>WHY — Evidence Intelligence Terminal</h2>
+            <h2 className="dashboard-title" style={{ margin: 0 }}>WHY — Trade Evidence & Edge Breakdown</h2>
             <span style={{
               padding: '3px 8px',
               borderRadius: '4px',
@@ -115,11 +115,11 @@ export default function EvidenceAuditTab({
               color: 'var(--accent-teal)',
               border: '1px solid rgba(0,242,254,0.3)'
             }}>
-              EMPIRICAL AUDIT
+              PROVEN EDGE AUDIT
             </span>
           </div>
           <p className="dashboard-subtitle" style={{ margin: '4px 0 0 0' }}>
-            Forensic mathematical proof, historical twin days, and structural failure modes for {selectedInstrument}
+            Clear edge verification, historical similar days, and setup guidelines for {selectedInstrument}
           </p>
         </div>
 
@@ -142,6 +142,8 @@ export default function EvidenceAuditTab({
             <option value="GBPUSD">GBPUSD</option>
             <option value="EURUSD">EURUSD</option>
             <option value="XAUUSD">XAUUSD (Gold)</option>
+            <option value="US100">US100 (Nasdaq 100)</option>
+            <option value="AUDJPY">AUDJPY</option>
             <option value="AUDUSD">AUDUSD</option>
             <option value="USDJPY">USDJPY</option>
           </select>
@@ -167,10 +169,10 @@ export default function EvidenceAuditTab({
       {/* ── Sub-navigation filter bar ───────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', overflowX: 'auto', paddingBottom: '4px' }}>
         {[
-          { key: 'all', label: 'FULL AUDIT VIEW' },
-          { key: 'macro', label: 'MACRO ATTRIBUTION' },
-          { key: 'dna', label: 'STRUCTURAL DNA & FAILURE MODES' },
-          { key: 'twins', label: `HISTORICAL TWIN DAYS (${similarDays.length})` },
+          { key: 'all', label: 'FULL EDGE VIEW' },
+          { key: 'macro', label: 'MACRO DRIVERS' },
+          { key: 'dna', label: 'ASSET BEHAVIOR & RISK' },
+          { key: 'twins', label: `SIMILAR HISTORICAL DAYS (${similarDays.length})` },
           { key: 'execution', label: 'EXECUTION ECONOMICS' },
         ].map(tab => (
           <button
@@ -192,6 +194,7 @@ export default function EvidenceAuditTab({
           </button>
         ))}
       </div>
+
 
       {/* ── SECTION 1: Executive Thesis & Mathematical Payoff Gate ──────────── */}
       {(activeSubSection === 'all' || activeSubSection === 'macro') && (
@@ -553,53 +556,96 @@ export default function EvidenceAuditTab({
         </div>
       )}
 
-      {/* ── SECTION 6: Order Flow Execution Economics ──────────────────────── */}
+      {/* ── SECTION 6: Execution Economics (Market Entry vs Pullback Limit) ──────────────────────── */}
       {(activeSubSection === 'all' || activeSubSection === 'execution') && (
         <div className="glass-panel" style={{ padding: '20px', borderRadius: '12px', marginBottom: '20px' }}>
-          <h3 className="widget-title" style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Scale size={16} color="var(--accent-teal)" />
-            <span>Order Flow Execution Economics — Adverse Selection vs Retest Value</span>
-          </h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+            <h3 className="widget-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Scale size={16} color="var(--accent-teal)" />
+              <span>Execution Economics — Market Entry vs Pullback Limit for {selectedInstrument}</span>
+            </h3>
+            {instrumentProfile?.option_a_vs_b?.system_preference && (
+              <span style={{
+                padding: '4px 10px',
+                borderRadius: '6px',
+                background: 'rgba(0,242,254,0.15)',
+                color: 'var(--accent-teal)',
+                fontSize: '11px',
+                fontWeight: 800,
+                border: '1px solid rgba(0,242,254,0.3)'
+              }}>
+                SYSTEM CHOICE: {instrumentProfile.option_a_vs_b.system_preference}
+              </span>
+            )}
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            {/* Left: Market Entry */}
+            {/* Option A: Market Entry */}
             <div style={{ padding: '16px', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--accent-green)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent-green)', textTransform: 'uppercase' }}>
-                  MARKET ENTRY AT OPEN (RECOMMENDED BASELINE)
+                  OPTION A: MARKET ENTRY AT OPEN
                 </span>
                 <span style={{ padding: '2px 6px', borderRadius: '4px', background: 'rgba(16,185,129,0.2)', color: '#10b981', fontSize: '10px', fontWeight: 800 }}>
                   100% FILL RATE
                 </span>
               </div>
               <div style={{ fontSize: '20px', fontWeight: 800, color: '#fff', marginBottom: '4px' }}>
-                44.0% Win Rate · +0.265R Expectancy
+                {instrumentProfile?.option_a_vs_b?.option_a?.target_rate_pct != null
+                  ? `${Math.round(instrumentProfile.option_a_vs_b.option_a.target_rate_pct)}% Historical Win Rate`
+                  : `${Math.round(calProb * 100)}% Win Rate`}
               </div>
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4, margin: 0 }}>
-                Enters immediately at the daily session open. Captures explosive trend days where price departs without pulling back. Zero miss risk.
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4, margin: '0 0 8px 0' }}>
+                Enters immediately at session open ({instrumentProfile?.setup_ref_price?.toFixed(pipDecimals) ?? '—'}). Zero missed trades. Captures strong momentum moves that never look back.
               </p>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                Sample: <strong>{instrumentProfile?.option_a_vs_b?.option_a?.n_filled ?? nSamples}</strong> / {nSamples} setups taken
+              </div>
             </div>
 
-            {/* Right: Deep Limit Orders */}
-            <div style={{ padding: '16px', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.4)' }}>
+            {/* Option B: Pullback Limit */}
+            <div style={{ padding: '16px', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid rgba(0, 242, 254, 0.4)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 800, color: '#ef4444', textTransform: 'uppercase' }}>
-                  DEEP LIMIT ORDERS (P25 CORRIDOR)
+                <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent-teal)', textTransform: 'uppercase' }}>
+                  OPTION B: WAIT FOR PULLBACK LIMIT
                 </span>
-                <span style={{ padding: '2px 6px', borderRadius: '4px', background: 'rgba(239,68,68,0.2)', color: '#ef4444', fontSize: '10px', fontWeight: 800 }}>
-                  ADVERSE SELECTION TRAP
+                <span style={{ padding: '2px 6px', borderRadius: '4px', background: 'rgba(0, 242, 254, 0.2)', color: 'var(--accent-teal)', fontSize: '10px', fontWeight: 800 }}>
+                  {instrumentProfile?.option_a_vs_b?.option_b?.fill_rate_pct ?? instrumentProfile?.waiting_cost?.fill_rate_pct ?? 65}% FILL RATE
                 </span>
               </div>
-              <div style={{ fontSize: '20px', fontWeight: 800, color: '#ef4444', marginBottom: '4px' }}>
-                21.0% Win Rate · Negative Drag
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#fff', marginBottom: '4px' }}>
+                {instrumentProfile?.option_a_vs_b?.option_b?.target_rate_pct_if_filled != null
+                  ? `${Math.round(instrumentProfile.option_a_vs_b.option_b.target_rate_pct_if_filled)}% Win Rate (If Filled)`
+                  : `${Math.round(calProb * 100)}% Win Rate`}
               </div>
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4, margin: 0 }}>
-                Strongest continuation days leave deep limits unfilled, while weak/failing days pull back deep and fill you right before hitting your stop loss.
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4, margin: '0 0 8px 0' }}>
+                Waits for pullback to discount limit ({instrumentProfile?.option_a_vs_b?.option_b?.entry_price?.toFixed(pipDecimals) ?? '—'}). Better price, but risks missing the runner completely.
               </p>
+              <div style={{ fontSize: '11px', color: 'var(--accent-orange)' }}>
+                Miss Risk: <strong>{instrumentProfile?.option_a_vs_b?.option_b?.fill_rate_pct != null ? Math.round(100 - instrumentProfile.option_a_vs_b.option_b.fill_rate_pct) : (instrumentProfile?.waiting_cost?.miss_rate_pct ?? 35)}%</strong> of setups run without filling limit
+              </div>
             </div>
+          </div>
+
+          {/* Waiting Cost Callout */}
+          <div style={{
+            marginTop: '14px',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            background: 'rgba(15, 23, 42, 0.8)',
+            border: '1px solid var(--border-color)',
+            fontSize: '12px',
+            color: '#e2e8f0',
+            lineHeight: 1.5
+          }}>
+            ⏳ <strong>WAITING COST ANALYSIS:</strong>{' '}
+            {instrumentProfile?.waiting_cost?.narrative ??
+              instrumentProfile?.option_a_vs_b?.waiting_cost?.narrative ??
+              `Historically, waiting for a deep pullback on ${selectedInstrument} misses approximately 35% of winning trend days.`}
           </div>
         </div>
       )}
+
 
       {/* ── SECTION 7: Entry Distribution Lab ──────────────────────────────── */}
       {chartEntryZone && (

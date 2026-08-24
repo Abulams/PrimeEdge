@@ -111,7 +111,8 @@ interface MSDTradingViewChartProps {
   onDataLoaded?: (data: ChartOverlayData) => void;
 }
 
-const INSTRUMENTS = ['GBPUSD', 'EURUSD', 'XAUUSD', 'AUDUSD', 'USDJPY'];
+const INSTRUMENTS = ['GBPUSD', 'EURUSD', 'XAUUSD', 'AUDUSD', 'USDJPY', 'US100', 'AUDJPY'];
+const API_BASE = (import.meta.env.VITE_API_URL ?? "") + "/api/v1";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function healthColor(status: string) {
@@ -152,12 +153,19 @@ export default function MSDTradingViewChart({ symbol, onSymbolChange, onDataLoad
     healthHUD: true,
   });
 
+  // Keep activeSymbol in sync with parent prop
+  useEffect(() => {
+    if (symbol) {
+      setActiveSymbol(symbol);
+    }
+  }, [symbol]);
+
   // ── Fetch overlay data from backend ───────────────────────────────────────
   const fetchData = useCallback(async (sym: string, tf: string = '1d') => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/chart/${sym}/overlays?timeframe=${tf}`);
+      const res = await fetch(`${API_BASE}/chart/${sym}/overlays?timeframe=${tf}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: ChartOverlayData = await res.json();
       setData(json);
@@ -168,6 +176,7 @@ export default function MSDTradingViewChart({ symbol, onSymbolChange, onDataLoad
       setLoading(false);
     }
   }, []); // stable — callback accessed via ref, not closure
+
 
   useEffect(() => {
     fetchData(activeSymbol, timeframe);

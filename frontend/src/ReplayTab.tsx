@@ -114,8 +114,9 @@ export function ReplayTab() {
   const [startDate, setStartDate] = useState<string>('2024-01-01');
   const [endDate, setEndDate] = useState<string>('2024-06-01');
   const [selectedInstruments, setSelectedInstruments] = useState<string[]>([
-    'GBPUSD', 'EURUSD', 'XAUUSD', 'AUDUSD', 'USDJPY'
+    'GBPUSD', 'EURUSD', 'XAUUSD', 'AUDUSD', 'USDJPY', 'US100', 'AUDJPY'
   ]);
+
   const [executionPolicy, setExecutionPolicy] = useState<string>('MARKET_ENTRY');
   const [frictionPips, setFrictionPips] = useState<string>('2.5');
 
@@ -428,7 +429,8 @@ export function ReplayTab() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <span style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, marginRight: '6px' }}>Instruments:</span>
-              {['GBPUSD', 'EURUSD', 'XAUUSD', 'AUDUSD', 'USDJPY'].map(inst => (
+              {['GBPUSD', 'EURUSD', 'XAUUSD', 'AUDUSD', 'USDJPY', 'US100', 'AUDJPY'].map(inst => (
+
                 <button
                   type="button"
                   key={inst}

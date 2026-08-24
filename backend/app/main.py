@@ -36,7 +36,7 @@ from .schemas import (
 from .engine import DecisionIntelligenceEngine, TradePlannerEngine
 from .journal_service import JournalService
 from .replay_service import ReplayService
-from .data_fetcher import ALL_INSTRUMENTS, TICKER_MAP, fetch_realtime_quotes
+from .data_fetcher import ALL_INSTRUMENTS, TICKER_MAP, fetch_realtime_quotes, get_pip_size
 from . import analyst_engine
 
 from .realtime import realtime_service
@@ -175,9 +175,7 @@ def get_watchlist(db: Session = Depends(get_db)):
     for inst in instruments:
         trend = DecisionIntelligenceEngine.get_current_trend(db, inst)
         profile_data = DecisionIntelligenceEngine.generate_daily_profile_v2(db, inst, today, trend)
-        print(f"DEBUG WATCHLIST: {inst} -> trend: {trend}, profile: {profile_data is not None}", flush=True)
         if profile_data:
-
             watchlist.append(
                 WatchlistInstrument(
                     instrument=profile_data["instrument"],
@@ -787,10 +785,13 @@ def get_chart_overlays(symbol: str, timeframe: str = "1d", db: Session = Depends
     """
     inst = symbol.upper()
     tf_clean = timeframe.lower().strip()
+    candles = []
 
     try:
         import yfinance as yf
+        import pandas as pd
         symbol_yf = TICKER_MAP.get(inst, f"{inst}=X")
+
 
 
         
@@ -877,12 +878,14 @@ def get_chart_overlays(symbol: str, timeframe: str = "1d", db: Session = Depends
     cal_res = DecisionIntelligenceEngine.calibrate_win_probability(raw_win_rate, db)
     calibrated_win_rate = cal_res["calibrated_prob"]
 
-    pip_size = 0.01 if "JPY" in inst else 0.1 if "XAU" in inst else 0.0001
+    pip_size = get_pip_size(inst)
 
     is_gold = "XAU" in inst or "GOLD" in inst
     is_jpy = "JPY" in inst
-    fallback_maes = [30.0, 60.0, 100.0, 150.0] if is_gold else ([12.0, 25.0, 40.0, 60.0] if is_jpy else [8.0, 15.0, 25.0, 35.0])
-    fallback_mfes = [100.0, 180.0, 300.0] if is_gold else ([40.0, 80.0, 130.0] if is_jpy else [25.0, 50.0, 85.0])
+    is_nas = "US100" in inst or "NAS100" in inst
+    fallback_maes = [150.0, 300.0, 500.0, 800.0] if is_nas else ([30.0, 60.0, 100.0, 150.0] if is_gold else ([12.0, 25.0, 40.0, 60.0] if is_jpy else [8.0, 15.0, 25.0, 35.0]))
+    fallback_mfes = [400.0, 800.0, 1500.0] if is_nas else ([100.0, 180.0, 300.0] if is_gold else ([40.0, 80.0, 130.0] if is_jpy else [25.0, 50.0, 85.0]))
+
 
     # --- 3. Empirical MAE & MFE Bounds with 1,000-Iteration Bootstrap 95% CIs ---
     all_maes = [s.mae_pips for s in matching_sigs] if matching_sigs else fallback_maes
