@@ -1,0 +1,891 @@
+{
+  "EURUSD": {
+    "batch_id": 25,
+    "analytics": {
+      "batch_id": 25,
+      "batch_name": "EURUSD Strict Audit v2 (2021-2025)",
+      "execution_policy": "MARKET_ENTRY",
+      "population_checksum_hash": "a2538ffbc9f3ff80e436acced1334cc63b93f2440da535d150c180bd47137204",
+      "total_setups_evaluated": 1301,
+      "total_trades_taken": 916,
+      "total_setups_passed": 385,
+      "total_unfilled_missed": 0,
+      "denominators": {
+        "win_rate_fraction": "287/916",
+        "setup_success_fraction": "448/916",
+        "p90_survival_all_fraction": "635/916",
+        "p90_survival_wins_fraction": "287/287",
+        "opportunity_saved_losses_fraction": "330/385",
+        "opportunity_missed_wins_fraction": "55/385"
+      },
+      "expectancy_r": 0.291,
+      "average_winner_r": 1.98,
+      "average_loser_r": -0.48,
+      "profit_factor": 1.89,
+      "max_drawdown_r": 13.63,
+      "simulated_trader_win_rate": 31.3,
+      "net_r": 267.3,
+      "predicted_vs_actual_win_rate_delta": -26.2,
+      "setup_success_rate": 48.9,
+      "p90_invalidation_survival_rate": 69.3,
+      "p90_survival_winning_trades": 100.0,
+      "average_r_multiple": 0.29,
+      "max_r_distribution": {
+        "p25": 0.0,
+        "p50": 1.04,
+        "p75": 2.78,
+        "p90": 4.74
+      },
+      "r_milestone_reach_rates": {
+        "reach_0_5r_pct": 60.3,
+        "reach_1_0r_pct": 50.5,
+        "reach_1_5r_pct": 42.8,
+        "reach_2_0r_pct": 36.0,
+        "reach_2_5r_pct": 28.1,
+        "reach_3_0r_pct": 22.1
+      },
+      "average_mae_pips": 44.9,
+      "average_mfe_pips": 41.3,
+      "mae_distribution": {
+        "p25": 0.0,
+        "p50": 34.0,
+        "p75": 68.4,
+        "p90": 107.1
+      },
+      "mfe_distribution": {
+        "p25": 0.0,
+        "p50": 25.2,
+        "p75": 65.6,
+        "p90": 102.0
+      },
+      "opportunity_missed_wins": 55,
+      "opportunity_saved_losses": 330,
+      "opportunity_expired_neutral": 0,
+      "status_distribution": {
+        "READY": 0,
+        "WAIT": 1120,
+        "NO EDGE": 181,
+        "NO SETUP": 0,
+        "INVALID": 0
+      },
+      "trajectory_milestones": {
+        "mfe_p25": 532,
+        "mfe_p50": 448,
+        "mfe_p75": 318,
+        "mfe_p90": 225,
+        "mae_p25": 624,
+        "mae_p50": 548,
+        "mae_p75": 446,
+        "mae_p90": 281,
+        "mfe_first": 310,
+        "mae_first": 606
+      },
+      "sl_first_pessimistic_exits": 2,
+      "friction_pips_applied": 2.5,
+      "performance_by_instrument": {
+        "EURUSD": {
+          "trades_taken": 916,
+          "win_rate": 31.3,
+          "average_r": 0.29,
+          "average_winner_r": 1.98,
+          "average_loser_r": -0.48,
+          "expectancy_r": 0.291,
+          "net_r": 267.3,
+          "profit_factor": 1.89,
+          "max_drawdown_r": 13.63,
+          "edge_status": "VALIDATED_EDGE",
+          "avg_mae_pips": 44.9,
+          "avg_mfe_pips": 41.3
+        }
+      },
+      "integrity_checksum": {
+        "status": "VERIFIED SCIENTIFIC HARNESS",
+        "checks": {
+          "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+          "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+          "NO_NEGATIVE_MAE": "PASS",
+          "NO_NEGATIVE_MFE": "PASS",
+          "EXIT_AFTER_ENTRY": "PASS",
+          "FROZEN_LEVELS_IMMUTABLE": "PASS",
+          "STATUS_POPULATION_RECONCILED": "PASS",
+          "DECISION_POPULATION_RECONCILED": "PASS"
+        }
+      }
+    },
+    "integrity": {
+      "status": "VERIFIED SCIENTIFIC HARNESS",
+      "checks": {
+        "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+        "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+        "NO_NEGATIVE_MAE": "PASS",
+        "NO_NEGATIVE_MFE": "PASS",
+        "EXIT_AFTER_ENTRY": "PASS",
+        "FROZEN_LEVELS_IMMUTABLE": "PASS",
+        "STATUS_POPULATION_RECONCILED": "PASS",
+        "DECISION_POPULATION_RECONCILED": "PASS"
+      }
+    }
+  },
+  "GBPUSD": {
+    "batch_id": 26,
+    "analytics": {
+      "batch_id": 26,
+      "batch_name": "GBPUSD Strict Audit v2 (2021-2025)",
+      "execution_policy": "MARKET_ENTRY",
+      "population_checksum_hash": "2478fad527f1b892fb1dab68a9ef3946eb76b48fe7c68089f7beb7b4b9893c33",
+      "total_setups_evaluated": 1301,
+      "total_trades_taken": 762,
+      "total_setups_passed": 539,
+      "total_unfilled_missed": 0,
+      "denominators": {
+        "win_rate_fraction": "248/762",
+        "setup_success_fraction": "328/762",
+        "p90_survival_all_fraction": "529/762",
+        "p90_survival_wins_fraction": "248/248",
+        "opportunity_saved_losses_fraction": "473/539",
+        "opportunity_missed_wins_fraction": "66/539"
+      },
+      "expectancy_r": 0.104,
+      "average_winner_r": 1.23,
+      "average_loser_r": -0.44,
+      "profit_factor": 1.35,
+      "max_drawdown_r": 13.81,
+      "simulated_trader_win_rate": 32.5,
+      "net_r": 79.54,
+      "predicted_vs_actual_win_rate_delta": -23.9,
+      "setup_success_rate": 43.0,
+      "p90_invalidation_survival_rate": 69.4,
+      "p90_survival_winning_trades": 100.0,
+      "average_r_multiple": 0.1,
+      "max_r_distribution": {
+        "p25": 0.0,
+        "p50": 0.8,
+        "p75": 2.53,
+        "p90": 4.49
+      },
+      "r_milestone_reach_rates": {
+        "reach_0_5r_pct": 57.2,
+        "reach_1_0r_pct": 45.8,
+        "reach_1_5r_pct": 38.2,
+        "reach_2_0r_pct": 33.1,
+        "reach_2_5r_pct": 25.6,
+        "reach_3_0r_pct": 20.2
+      },
+      "average_mae_pips": 60.5,
+      "average_mfe_pips": 54.8,
+      "mae_distribution": {
+        "p25": 0.0,
+        "p50": 44.5,
+        "p75": 96.0,
+        "p90": 144.8
+      },
+      "mfe_distribution": {
+        "p25": 0.0,
+        "p50": 27.1,
+        "p75": 86.5,
+        "p90": 147.6
+      },
+      "opportunity_missed_wins": 66,
+      "opportunity_saved_losses": 473,
+      "opportunity_expired_neutral": 0,
+      "status_distribution": {
+        "READY": 0,
+        "WAIT": 1017,
+        "NO EDGE": 284,
+        "NO SETUP": 0,
+        "INVALID": 0
+      },
+      "trajectory_milestones": {
+        "mfe_p25": 403,
+        "mfe_p50": 328,
+        "mfe_p75": 295,
+        "mfe_p90": 171,
+        "mae_p25": 502,
+        "mae_p50": 428,
+        "mae_p75": 336,
+        "mae_p90": 233,
+        "mfe_first": 268,
+        "mae_first": 494
+      },
+      "sl_first_pessimistic_exits": 0,
+      "friction_pips_applied": 2.5,
+      "performance_by_instrument": {
+        "GBPUSD": {
+          "trades_taken": 762,
+          "win_rate": 32.5,
+          "average_r": 0.1,
+          "average_winner_r": 1.23,
+          "average_loser_r": -0.44,
+          "expectancy_r": 0.104,
+          "net_r": 79.54,
+          "profit_factor": 1.35,
+          "max_drawdown_r": 13.81,
+          "edge_status": "VALIDATED_EDGE",
+          "avg_mae_pips": 60.5,
+          "avg_mfe_pips": 54.8
+        }
+      },
+      "integrity_checksum": {
+        "status": "VERIFIED SCIENTIFIC HARNESS",
+        "checks": {
+          "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+          "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+          "NO_NEGATIVE_MAE": "PASS",
+          "NO_NEGATIVE_MFE": "PASS",
+          "EXIT_AFTER_ENTRY": "PASS",
+          "FROZEN_LEVELS_IMMUTABLE": "PASS",
+          "STATUS_POPULATION_RECONCILED": "PASS",
+          "DECISION_POPULATION_RECONCILED": "PASS"
+        }
+      }
+    },
+    "integrity": {
+      "status": "VERIFIED SCIENTIFIC HARNESS",
+      "checks": {
+        "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+        "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+        "NO_NEGATIVE_MAE": "PASS",
+        "NO_NEGATIVE_MFE": "PASS",
+        "EXIT_AFTER_ENTRY": "PASS",
+        "FROZEN_LEVELS_IMMUTABLE": "PASS",
+        "STATUS_POPULATION_RECONCILED": "PASS",
+        "DECISION_POPULATION_RECONCILED": "PASS"
+      }
+    }
+  },
+  "AUDUSD": {
+    "batch_id": 27,
+    "analytics": {
+      "batch_id": 27,
+      "batch_name": "AUDUSD Strict Audit v2 (2021-2025)",
+      "execution_policy": "MARKET_ENTRY",
+      "population_checksum_hash": "c334e68961d589fca6afd6baff53ac491207aca49e6be8dcc81539074e39966c",
+      "total_setups_evaluated": 1301,
+      "total_trades_taken": 878,
+      "total_setups_passed": 423,
+      "total_unfilled_missed": 0,
+      "denominators": {
+        "win_rate_fraction": "265/878",
+        "setup_success_fraction": "398/878",
+        "p90_survival_all_fraction": "618/878",
+        "p90_survival_wins_fraction": "265/265",
+        "opportunity_saved_losses_fraction": "357/423",
+        "opportunity_missed_wins_fraction": "66/423"
+      },
+      "expectancy_r": 0.167,
+      "average_winner_r": 1.64,
+      "average_loser_r": -0.47,
+      "profit_factor": 1.51,
+      "max_drawdown_r": 22.18,
+      "simulated_trader_win_rate": 30.2,
+      "net_r": 147.47,
+      "predicted_vs_actual_win_rate_delta": -27.6,
+      "setup_success_rate": 45.3,
+      "p90_invalidation_survival_rate": 70.4,
+      "p90_survival_winning_trades": 100.0,
+      "average_r_multiple": 0.17,
+      "max_r_distribution": {
+        "p25": 0.0,
+        "p50": 0.81,
+        "p75": 2.26,
+        "p90": 3.64
+      },
+      "r_milestone_reach_rates": {
+        "reach_0_5r_pct": 58.3,
+        "reach_1_0r_pct": 46.4,
+        "reach_1_5r_pct": 37.5,
+        "reach_2_0r_pct": 28.5,
+        "reach_2_5r_pct": 21.6,
+        "reach_3_0r_pct": 15.6
+      },
+      "average_mae_pips": 41.3,
+      "average_mfe_pips": 37.1,
+      "mae_distribution": {
+        "p25": 0.0,
+        "p50": 33.0,
+        "p75": 63.5,
+        "p90": 101.6
+      },
+      "mfe_distribution": {
+        "p25": 0.0,
+        "p50": 21.6,
+        "p75": 59.1,
+        "p90": 94.9
+      },
+      "opportunity_missed_wins": 66,
+      "opportunity_saved_losses": 357,
+      "opportunity_expired_neutral": 0,
+      "status_distribution": {
+        "READY": 0,
+        "WAIT": 1128,
+        "NO EDGE": 173,
+        "NO SETUP": 0,
+        "INVALID": 0
+      },
+      "trajectory_milestones": {
+        "mfe_p25": 477,
+        "mfe_p50": 398,
+        "mfe_p75": 296,
+        "mfe_p90": 192,
+        "mae_p25": 595,
+        "mae_p50": 541,
+        "mae_p75": 423,
+        "mae_p90": 260,
+        "mfe_first": 302,
+        "mae_first": 576
+      },
+      "sl_first_pessimistic_exits": 0,
+      "friction_pips_applied": 2.5,
+      "performance_by_instrument": {
+        "AUDUSD": {
+          "trades_taken": 878,
+          "win_rate": 30.2,
+          "average_r": 0.17,
+          "average_winner_r": 1.64,
+          "average_loser_r": -0.47,
+          "expectancy_r": 0.167,
+          "net_r": 147.47,
+          "profit_factor": 1.51,
+          "max_drawdown_r": 22.18,
+          "edge_status": "VALIDATED_EDGE",
+          "avg_mae_pips": 41.3,
+          "avg_mfe_pips": 37.1
+        }
+      },
+      "integrity_checksum": {
+        "status": "VERIFIED SCIENTIFIC HARNESS",
+        "checks": {
+          "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+          "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+          "NO_NEGATIVE_MAE": "PASS",
+          "NO_NEGATIVE_MFE": "PASS",
+          "EXIT_AFTER_ENTRY": "PASS",
+          "FROZEN_LEVELS_IMMUTABLE": "PASS",
+          "STATUS_POPULATION_RECONCILED": "PASS",
+          "DECISION_POPULATION_RECONCILED": "PASS"
+        }
+      }
+    },
+    "integrity": {
+      "status": "VERIFIED SCIENTIFIC HARNESS",
+      "checks": {
+        "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+        "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+        "NO_NEGATIVE_MAE": "PASS",
+        "NO_NEGATIVE_MFE": "PASS",
+        "EXIT_AFTER_ENTRY": "PASS",
+        "FROZEN_LEVELS_IMMUTABLE": "PASS",
+        "STATUS_POPULATION_RECONCILED": "PASS",
+        "DECISION_POPULATION_RECONCILED": "PASS"
+      }
+    }
+  },
+  "USDJPY": {
+    "batch_id": 28,
+    "analytics": {
+      "batch_id": 28,
+      "batch_name": "USDJPY Strict Audit v2 (2021-2025)",
+      "execution_policy": "MARKET_ENTRY",
+      "population_checksum_hash": "ed0180b32bde1032a1fbea3dfb96b59b4ab3fd6af1c4070df151b01fb735bb4b",
+      "total_setups_evaluated": 1301,
+      "total_trades_taken": 584,
+      "total_setups_passed": 717,
+      "total_unfilled_missed": 0,
+      "denominators": {
+        "win_rate_fraction": "232/584",
+        "setup_success_fraction": "314/584",
+        "p90_survival_all_fraction": "361/584",
+        "p90_survival_wins_fraction": "232/232",
+        "opportunity_saved_losses_fraction": "627/717",
+        "opportunity_missed_wins_fraction": "90/717"
+      },
+      "expectancy_r": 0.519,
+      "average_winner_r": 2.02,
+      "average_loser_r": -0.47,
+      "profit_factor": 2.83,
+      "max_drawdown_r": 9.71,
+      "simulated_trader_win_rate": 39.7,
+      "net_r": 303.24,
+      "predicted_vs_actual_win_rate_delta": -16.5,
+      "setup_success_rate": 53.8,
+      "p90_invalidation_survival_rate": 61.8,
+      "p90_survival_winning_trades": 100.0,
+      "average_r_multiple": 0.52,
+      "max_r_distribution": {
+        "p25": 0.0,
+        "p50": 1.47,
+        "p75": 3.55,
+        "p90": 5.46
+      },
+      "r_milestone_reach_rates": {
+        "reach_0_5r_pct": 64.6,
+        "reach_1_0r_pct": 57.0,
+        "reach_1_5r_pct": 49.7,
+        "reach_2_0r_pct": 42.5,
+        "reach_2_5r_pct": 36.3,
+        "reach_3_0r_pct": 31.5
+      },
+      "average_mae_pips": 63.9,
+      "average_mfe_pips": 63.8,
+      "mae_distribution": {
+        "p25": 0.0,
+        "p50": 34.2,
+        "p75": 99.0,
+        "p90": 159.0
+      },
+      "mfe_distribution": {
+        "p25": 0.0,
+        "p50": 44.5,
+        "p75": 100.9,
+        "p90": 156.7
+      },
+      "opportunity_missed_wins": 90,
+      "opportunity_saved_losses": 627,
+      "opportunity_expired_neutral": 0,
+      "status_distribution": {
+        "READY": 0,
+        "WAIT": 762,
+        "NO EDGE": 173,
+        "NO SETUP": 366,
+        "INVALID": 0
+      },
+      "trajectory_milestones": {
+        "mfe_p25": 374,
+        "mfe_p50": 314,
+        "mfe_p75": 250,
+        "mfe_p90": 182,
+        "mae_p25": 360,
+        "mae_p50": 315,
+        "mae_p75": 275,
+        "mae_p90": 223,
+        "mfe_first": 245,
+        "mae_first": 339
+      },
+      "sl_first_pessimistic_exits": 2,
+      "friction_pips_applied": 2.5,
+      "performance_by_instrument": {
+        "USDJPY": {
+          "trades_taken": 584,
+          "win_rate": 39.7,
+          "average_r": 0.52,
+          "average_winner_r": 2.02,
+          "average_loser_r": -0.47,
+          "expectancy_r": 0.519,
+          "net_r": 303.24,
+          "profit_factor": 2.83,
+          "max_drawdown_r": 9.71,
+          "edge_status": "VALIDATED_EDGE",
+          "avg_mae_pips": 63.9,
+          "avg_mfe_pips": 63.8
+        }
+      },
+      "integrity_checksum": {
+        "status": "VERIFIED SCIENTIFIC HARNESS",
+        "checks": {
+          "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+          "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+          "NO_NEGATIVE_MAE": "PASS",
+          "NO_NEGATIVE_MFE": "PASS",
+          "EXIT_AFTER_ENTRY": "PASS",
+          "FROZEN_LEVELS_IMMUTABLE": "PASS",
+          "STATUS_POPULATION_RECONCILED": "PASS",
+          "DECISION_POPULATION_RECONCILED": "PASS"
+        }
+      }
+    },
+    "integrity": {
+      "status": "VERIFIED SCIENTIFIC HARNESS",
+      "checks": {
+        "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+        "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+        "NO_NEGATIVE_MAE": "PASS",
+        "NO_NEGATIVE_MFE": "PASS",
+        "EXIT_AFTER_ENTRY": "PASS",
+        "FROZEN_LEVELS_IMMUTABLE": "PASS",
+        "STATUS_POPULATION_RECONCILED": "PASS",
+        "DECISION_POPULATION_RECONCILED": "PASS"
+      }
+    }
+  },
+  "XAUUSD": {
+    "batch_id": 29,
+    "analytics": {
+      "batch_id": 29,
+      "batch_name": "XAUUSD Strict Audit v2 (2021-2025)",
+      "execution_policy": "MARKET_ENTRY",
+      "population_checksum_hash": "bf3723254dd9c6fcf1c45f46f6844e3f1643c1d03c7e397b1da14b89efd0729e",
+      "total_setups_evaluated": 1301,
+      "total_trades_taken": 521,
+      "total_setups_passed": 780,
+      "total_unfilled_missed": 0,
+      "denominators": {
+        "win_rate_fraction": "221/521",
+        "setup_success_fraction": "292/521",
+        "p90_survival_all_fraction": "382/521",
+        "p90_survival_wins_fraction": "221/221",
+        "opportunity_saved_losses_fraction": "672/780",
+        "opportunity_missed_wins_fraction": "108/780"
+      },
+      "expectancy_r": 0.762,
+      "average_winner_r": 2.38,
+      "average_loser_r": -0.43,
+      "profit_factor": 4.09,
+      "max_drawdown_r": 4.51,
+      "simulated_trader_win_rate": 42.4,
+      "net_r": 396.74,
+      "predicted_vs_actual_win_rate_delta": -11.6,
+      "setup_success_rate": 56.0,
+      "p90_invalidation_survival_rate": 73.3,
+      "p90_survival_winning_trades": 100.0,
+      "average_r_multiple": 0.76,
+      "max_r_distribution": {
+        "p25": 0.0,
+        "p50": 1.56,
+        "p75": 5.34,
+        "p90": 8.6
+      },
+      "r_milestone_reach_rates": {
+        "reach_0_5r_pct": 62.2,
+        "reach_1_0r_pct": 56.6,
+        "reach_1_5r_pct": 50.1,
+        "reach_2_0r_pct": 47.2,
+        "reach_2_5r_pct": 43.2,
+        "reach_3_0r_pct": 40.3
+      },
+      "average_mae_pips": 180.1,
+      "average_mfe_pips": 216.3,
+      "mae_distribution": {
+        "p25": 0.0,
+        "p50": 73.5,
+        "p75": 234.5,
+        "p90": 482.5
+      },
+      "mfe_distribution": {
+        "p25": 0.0,
+        "p50": 116.5,
+        "p75": 317.5,
+        "p90": 583.5
+      },
+      "opportunity_missed_wins": 108,
+      "opportunity_saved_losses": 672,
+      "opportunity_expired_neutral": 0,
+      "status_distribution": {
+        "READY": 29,
+        "WAIT": 770,
+        "NO EDGE": 94,
+        "NO SETUP": 408,
+        "INVALID": 0
+      },
+      "trajectory_milestones": {
+        "mfe_p25": 338,
+        "mfe_p50": 292,
+        "mfe_p75": 236,
+        "mfe_p90": 170,
+        "mae_p25": 281,
+        "mae_p50": 278,
+        "mae_p75": 227,
+        "mae_p90": 139,
+        "mfe_first": 222,
+        "mae_first": 297
+      },
+      "sl_first_pessimistic_exits": 1,
+      "friction_pips_applied": 2.5,
+      "performance_by_instrument": {
+        "XAUUSD": {
+          "trades_taken": 521,
+          "win_rate": 42.4,
+          "average_r": 0.76,
+          "average_winner_r": 2.38,
+          "average_loser_r": -0.43,
+          "expectancy_r": 0.762,
+          "net_r": 396.74,
+          "profit_factor": 4.09,
+          "max_drawdown_r": 4.51,
+          "edge_status": "VALIDATED_EDGE",
+          "avg_mae_pips": 180.1,
+          "avg_mfe_pips": 216.3
+        }
+      },
+      "integrity_checksum": {
+        "status": "VERIFIED SCIENTIFIC HARNESS",
+        "checks": {
+          "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+          "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+          "NO_NEGATIVE_MAE": "PASS",
+          "NO_NEGATIVE_MFE": "PASS",
+          "EXIT_AFTER_ENTRY": "PASS",
+          "FROZEN_LEVELS_IMMUTABLE": "PASS",
+          "STATUS_POPULATION_RECONCILED": "PASS",
+          "DECISION_POPULATION_RECONCILED": "PASS"
+        }
+      }
+    },
+    "integrity": {
+      "status": "VERIFIED SCIENTIFIC HARNESS",
+      "checks": {
+        "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+        "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+        "NO_NEGATIVE_MAE": "PASS",
+        "NO_NEGATIVE_MFE": "PASS",
+        "EXIT_AFTER_ENTRY": "PASS",
+        "FROZEN_LEVELS_IMMUTABLE": "PASS",
+        "STATUS_POPULATION_RECONCILED": "PASS",
+        "DECISION_POPULATION_RECONCILED": "PASS"
+      }
+    }
+  },
+  "US100": {
+    "batch_id": 30,
+    "analytics": {
+      "batch_id": 30,
+      "batch_name": "US100 Strict Audit v2 (2021-2025)",
+      "execution_policy": "MARKET_ENTRY",
+      "population_checksum_hash": "ed339eab60c87808d3710b6cec8a57a0ab882ecc203a39bff3d2cc99a155367e",
+      "total_setups_evaluated": 1301,
+      "total_trades_taken": 808,
+      "total_setups_passed": 493,
+      "total_unfilled_missed": 0,
+      "denominators": {
+        "win_rate_fraction": "271/808",
+        "setup_success_fraction": "426/808",
+        "p90_survival_all_fraction": "567/808",
+        "p90_survival_wins_fraction": "271/271",
+        "opportunity_saved_losses_fraction": "418/493",
+        "opportunity_missed_wins_fraction": "75/493"
+      },
+      "expectancy_r": 0.345,
+      "average_winner_r": 1.82,
+      "average_loser_r": -0.4,
+      "profit_factor": 2.28,
+      "max_drawdown_r": 8.29,
+      "simulated_trader_win_rate": 33.5,
+      "net_r": 277.97,
+      "predicted_vs_actual_win_rate_delta": -20.7,
+      "setup_success_rate": 52.7,
+      "p90_invalidation_survival_rate": 70.2,
+      "p90_survival_winning_trades": 100.0,
+      "average_r_multiple": 0.34,
+      "max_r_distribution": {
+        "p25": 0.0,
+        "p50": 1.25,
+        "p75": 2.75,
+        "p90": 4.28
+      },
+      "r_milestone_reach_rates": {
+        "reach_0_5r_pct": 64.0,
+        "reach_1_0r_pct": 55.2,
+        "reach_1_5r_pct": 45.8,
+        "reach_2_0r_pct": 37.6,
+        "reach_2_5r_pct": 28.2,
+        "reach_3_0r_pct": 21.3
+      },
+      "average_mae_pips": 194.4,
+      "average_mfe_pips": 188.2,
+      "mae_distribution": {
+        "p25": 0.0,
+        "p50": 129.5,
+        "p75": 299.8,
+        "p90": 493.8
+      },
+      "mfe_distribution": {
+        "p25": 0.0,
+        "p50": 133.7,
+        "p75": 299.4,
+        "p90": 448.6
+      },
+      "opportunity_missed_wins": 75,
+      "opportunity_saved_losses": 418,
+      "opportunity_expired_neutral": 0,
+      "status_distribution": {
+        "READY": 0,
+        "WAIT": 1044,
+        "NO EDGE": 257,
+        "NO SETUP": 0,
+        "INVALID": 0
+      },
+      "trajectory_milestones": {
+        "mfe_p25": 513,
+        "mfe_p50": 426,
+        "mfe_p75": 318,
+        "mfe_p90": 226,
+        "mae_p25": 536,
+        "mae_p50": 454,
+        "mae_p75": 353,
+        "mae_p90": 241,
+        "mfe_first": 304,
+        "mae_first": 504
+      },
+      "sl_first_pessimistic_exits": 2,
+      "friction_pips_applied": 2.5,
+      "performance_by_instrument": {
+        "US100": {
+          "trades_taken": 808,
+          "win_rate": 33.5,
+          "average_r": 0.34,
+          "average_winner_r": 1.82,
+          "average_loser_r": -0.4,
+          "expectancy_r": 0.345,
+          "net_r": 277.97,
+          "profit_factor": 2.28,
+          "max_drawdown_r": 8.29,
+          "edge_status": "VALIDATED_EDGE",
+          "avg_mae_pips": 194.4,
+          "avg_mfe_pips": 188.2
+        }
+      },
+      "integrity_checksum": {
+        "status": "VERIFIED SCIENTIFIC HARNESS",
+        "checks": {
+          "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+          "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+          "NO_NEGATIVE_MAE": "PASS",
+          "NO_NEGATIVE_MFE": "PASS",
+          "EXIT_AFTER_ENTRY": "PASS",
+          "FROZEN_LEVELS_IMMUTABLE": "PASS",
+          "STATUS_POPULATION_RECONCILED": "PASS",
+          "DECISION_POPULATION_RECONCILED": "PASS"
+        }
+      }
+    },
+    "integrity": {
+      "status": "VERIFIED SCIENTIFIC HARNESS",
+      "checks": {
+        "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+        "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+        "NO_NEGATIVE_MAE": "PASS",
+        "NO_NEGATIVE_MFE": "PASS",
+        "EXIT_AFTER_ENTRY": "PASS",
+        "FROZEN_LEVELS_IMMUTABLE": "PASS",
+        "STATUS_POPULATION_RECONCILED": "PASS",
+        "DECISION_POPULATION_RECONCILED": "PASS"
+      }
+    }
+  },
+  "AUDJPY": {
+    "batch_id": 31,
+    "analytics": {
+      "batch_id": 31,
+      "batch_name": "AUDJPY Strict Audit v2 (2021-2025)",
+      "execution_policy": "MARKET_ENTRY",
+      "population_checksum_hash": "e041be12d1c6f30502c5b5228f090058c8539ba6a120d76ec1a991328ca4ba2e",
+      "total_setups_evaluated": 1301,
+      "total_trades_taken": 911,
+      "total_setups_passed": 390,
+      "total_unfilled_missed": 0,
+      "denominators": {
+        "win_rate_fraction": "292/911",
+        "setup_success_fraction": "446/911",
+        "p90_survival_all_fraction": "637/911",
+        "p90_survival_wins_fraction": "292/292",
+        "opportunity_saved_losses_fraction": "351/390",
+        "opportunity_missed_wins_fraction": "39/390"
+      },
+      "expectancy_r": 0.258,
+      "average_winner_r": 1.76,
+      "average_loser_r": -0.45,
+      "profit_factor": 1.85,
+      "max_drawdown_r": 13.08,
+      "simulated_trader_win_rate": 32.1,
+      "net_r": 236.59,
+      "predicted_vs_actual_win_rate_delta": -21.1,
+      "setup_success_rate": 49.0,
+      "p90_invalidation_survival_rate": 69.9,
+      "p90_survival_winning_trades": 100.0,
+      "average_r_multiple": 0.26,
+      "max_r_distribution": {
+        "p25": 0.0,
+        "p50": 0.92,
+        "p75": 2.89,
+        "p90": 4.68
+      },
+      "r_milestone_reach_rates": {
+        "reach_0_5r_pct": 59.2,
+        "reach_1_0r_pct": 49.3,
+        "reach_1_5r_pct": 42.5,
+        "reach_2_0r_pct": 35.0,
+        "reach_2_5r_pct": 29.7,
+        "reach_3_0r_pct": 23.2
+      },
+      "average_mae_pips": 55.0,
+      "average_mfe_pips": 52.3,
+      "mae_distribution": {
+        "p25": 0.0,
+        "p50": 38.0,
+        "p75": 87.0,
+        "p90": 141.3
+      },
+      "mfe_distribution": {
+        "p25": 0.0,
+        "p50": 29.0,
+        "p75": 84.5,
+        "p90": 131.8
+      },
+      "opportunity_missed_wins": 39,
+      "opportunity_saved_losses": 351,
+      "opportunity_expired_neutral": 0,
+      "status_distribution": {
+        "READY": 0,
+        "WAIT": 1169,
+        "NO EDGE": 132,
+        "NO SETUP": 0,
+        "INVALID": 0
+      },
+      "trajectory_milestones": {
+        "mfe_p25": 541,
+        "mfe_p50": 446,
+        "mfe_p75": 342,
+        "mfe_p90": 225,
+        "mae_p25": 602,
+        "mae_p50": 507,
+        "mae_p75": 401,
+        "mae_p90": 274,
+        "mfe_first": 319,
+        "mae_first": 592
+      },
+      "sl_first_pessimistic_exits": 0,
+      "friction_pips_applied": 2.5,
+      "performance_by_instrument": {
+        "AUDJPY": {
+          "trades_taken": 911,
+          "win_rate": 32.1,
+          "average_r": 0.26,
+          "average_winner_r": 1.76,
+          "average_loser_r": -0.45,
+          "expectancy_r": 0.258,
+          "net_r": 236.59,
+          "profit_factor": 1.85,
+          "max_drawdown_r": 13.08,
+          "edge_status": "VALIDATED_EDGE",
+          "avg_mae_pips": 55.0,
+          "avg_mfe_pips": 52.3
+        }
+      },
+      "integrity_checksum": {
+        "status": "VERIFIED SCIENTIFIC HARNESS",
+        "checks": {
+          "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+          "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+          "NO_NEGATIVE_MAE": "PASS",
+          "NO_NEGATIVE_MFE": "PASS",
+          "EXIT_AFTER_ENTRY": "PASS",
+          "FROZEN_LEVELS_IMMUTABLE": "PASS",
+          "STATUS_POPULATION_RECONCILED": "PASS",
+          "DECISION_POPULATION_RECONCILED": "PASS"
+        }
+      }
+    },
+    "integrity": {
+      "status": "VERIFIED SCIENTIFIC HARNESS",
+      "checks": {
+        "PASSED_SETUPS_NO_TRADE_RECORDS": "PASS",
+        "EXECUTED_TRADES_HAVE_ENTRY": "PASS",
+        "NO_NEGATIVE_MAE": "PASS",
+        "NO_NEGATIVE_MFE": "PASS",
+        "EXIT_AFTER_ENTRY": "PASS",
+        "FROZEN_LEVELS_IMMUTABLE": "PASS",
+        "STATUS_POPULATION_RECONCILED": "PASS",
+        "DECISION_POPULATION_RECONCILED": "PASS"
+      }
+    }
+  }
+}
