@@ -164,6 +164,78 @@ def fetch_all_historical(period: str = "6y") -> Dict[str, pd.DataFrame]:
     return all_data
 
 
+import urllib.request
+import json
+
+TV_MARKET_MAP = {
+    "forex": {
+        "EURUSD": "OANDA:EURUSD",
+        "GBPUSD": "OANDA:GBPUSD",
+        "USDJPY": "OANDA:USDJPY",
+        "AUDUSD": "OANDA:AUDUSD",
+        "AUDJPY": "OANDA:AUDJPY",
+    },
+    "cfd": {
+        "XAUUSD": "OANDA:XAUUSD",
+    },
+    "america": {
+        "US100": "NASDAQ:NDX",
+    }
+}
+
+
+def fetch_tradingview_quotes() -> Dict[str, Dict]:
+    """
+    Fetches real-time institutional prices directly from TradingView/OANDA scanner API.
+    Provides 100% price parity with TradingView charts.
+    """
+    quotes = {}
+    for market, mapping in TV_MARKET_MAP.items():
+        url = f"https://scanner.tradingview.com/{market}/scan"
+        payload = {
+            "symbols": {"tickers": list(mapping.values())},
+            "columns": ["close", "open", "high", "low", "change", "change_abs"]
+        }
+        try:
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                    "Content-Type": "application/json"
+                }
+            )
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                rev_map = {v: k for k, v in mapping.items()}
+                for item in data.get("data", []):
+                    ticker = item.get("s")
+                    d = item.get("d", [])
+                    inst = rev_map.get(ticker)
+                    if inst and d and len(d) >= 4 and d[0] is not None:
+                        close_p = float(d[0])
+                        open_p = float(d[1]) if d[1] is not None else close_p
+                        high_p = float(d[2]) if d[2] is not None else close_p
+                        low_p = float(d[3]) if d[3] is not None else close_p
+                        change_pct = float(d[4]) if len(d) > 4 and d[4] is not None else 0.0
+                        change_abs = float(d[5]) if len(d) > 5 and d[5] is not None else (close_p - open_p)
+
+                        quotes[inst] = {
+                            "price": round(close_p, 5),
+                            "open": round(open_p, 5),
+                            "high": round(high_p, 5),
+                            "low": round(low_p, 5),
+                            "change": round(change_abs, 5),
+                            "change_pct": round(change_pct, 3),
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "source": "TradingView/OANDA"
+                        }
+        except Exception as e:
+            logger.warning(f"TradingView scanner fetch failed for {market}: {e}")
+
+    return quotes
+
+
 def _fetch_single_quote(instrument: str) -> Optional[Tuple[str, Dict]]:
     ticker_symbol = TICKER_MAP.get(instrument)
     if not ticker_symbol:
@@ -171,7 +243,7 @@ def _fetch_single_quote(instrument: str) -> Optional[Tuple[str, Dict]]:
     try:
         ticker = yf.Ticker(ticker_symbol)
         
-        # Primary: fast_info provides real-time tick price matching TradingView
+        # Primary fallback: fast_info provides real-time tick price
         fast = getattr(ticker, "fast_info", None)
         if fast is not None:
             try:
@@ -196,7 +268,7 @@ def _fetch_single_quote(instrument: str) -> Optional[Tuple[str, Dict]]:
             except Exception:
                 pass
 
-        # Fallback: 1d 1m history
+        # Secondary fallback: 1d 1m history
         hist = ticker.history(period="1d", interval="1m")
         if hist.empty:
             hist = ticker.history(period="5d", interval="1d")
@@ -224,30 +296,35 @@ def _fetch_single_quote(instrument: str) -> Optional[Tuple[str, Dict]]:
 
 def fetch_realtime_quotes(instruments: Optional[List[str]] = None) -> Dict[str, Dict]:
     """
-    Gets latest price snapshot in parallel for instruments with 5s TTL cache.
+    Gets latest price snapshot matching TradingView live feed with 3s TTL cache.
     """
     if instruments is None:
         instruments = ALL_INSTRUMENTS
 
     inst_key = "_".join(sorted(instruments))
     cache_key = f"quotes_{inst_key}"
-    cached = _get_from_cache(cache_key, ttl_seconds=5)
+    cached = _get_from_cache(cache_key, ttl_seconds=3)
     if cached is not None:
         return cached
 
+    # 1. Primary: TradingView / OANDA Live Rates
+    quotes = fetch_tradingview_quotes()
 
-    quotes = {}
-    with ThreadPoolExecutor(max_workers=min(len(instruments), 8)) as executor:
-        futures = [executor.submit(_fetch_single_quote, inst) for inst in instruments]
-        for future in as_completed(futures):
-            res = future.result()
-            if res:
-                inst, data = res
-                quotes[inst] = data
+    # 2. Check if any requested instrument is missing, fallback to yfinance
+    missing = [inst for inst in instruments if inst not in quotes]
+    if missing:
+        with ThreadPoolExecutor(max_workers=min(len(missing), 8)) as executor:
+            futures = [executor.submit(_fetch_single_quote, inst) for inst in missing]
+            for future in as_completed(futures):
+                res = future.result()
+                if res:
+                    inst, data = res
+                    quotes[inst] = data
 
     if quotes:
         _set_in_cache(cache_key, quotes)
     return quotes
+
 
 
 def _fetch_single_macro(name: str, ticker_symbol: str) -> Optional[Tuple[str, Dict]]:
