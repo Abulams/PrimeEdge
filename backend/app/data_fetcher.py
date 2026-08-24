@@ -170,7 +170,36 @@ def _fetch_single_quote(instrument: str) -> Optional[Tuple[str, Dict]]:
         return None
     try:
         ticker = yf.Ticker(ticker_symbol)
-        hist = ticker.history(period="5d", interval="1d")
+        
+        # Primary: fast_info provides real-time tick price matching TradingView
+        fast = getattr(ticker, "fast_info", None)
+        if fast is not None:
+            try:
+                last_p = float(fast.last_price)
+                if last_p > 0:
+                    prev_c = float(fast.previous_close) if getattr(fast, "previous_close", None) else last_p
+                    open_p = float(fast.open) if getattr(fast, "open", None) else last_p
+                    day_h = float(fast.day_high) if getattr(fast, "day_high", None) else last_p
+                    day_l = float(fast.day_low) if getattr(fast, "day_low", None) else last_p
+                    change = last_p - prev_c
+                    change_pct = (change / prev_c) * 100 if prev_c != 0 else 0.0
+
+                    return instrument, {
+                        "price": round(last_p, 5),
+                        "open": round(open_p, 5),
+                        "high": round(day_h, 5),
+                        "low": round(day_l, 5),
+                        "change": round(change, 5),
+                        "change_pct": round(change_pct, 3),
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+            except Exception:
+                pass
+
+        # Fallback: 1d 1m history
+        hist = ticker.history(period="1d", interval="1m")
+        if hist.empty:
+            hist = ticker.history(period="5d", interval="1d")
         if hist.empty or len(hist) < 1:
             return None
         
@@ -195,16 +224,17 @@ def _fetch_single_quote(instrument: str) -> Optional[Tuple[str, Dict]]:
 
 def fetch_realtime_quotes(instruments: Optional[List[str]] = None) -> Dict[str, Dict]:
     """
-    Gets latest price snapshot in parallel for instruments with 30s TTL cache.
+    Gets latest price snapshot in parallel for instruments with 5s TTL cache.
     """
     if instruments is None:
         instruments = ALL_INSTRUMENTS
 
     inst_key = "_".join(sorted(instruments))
     cache_key = f"quotes_{inst_key}"
-    cached = _get_from_cache(cache_key, ttl_seconds=30)
+    cached = _get_from_cache(cache_key, ttl_seconds=5)
     if cached is not None:
         return cached
+
 
     quotes = {}
     with ThreadPoolExecutor(max_workers=min(len(instruments), 8)) as executor:

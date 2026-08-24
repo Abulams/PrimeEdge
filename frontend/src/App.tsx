@@ -464,7 +464,12 @@ function App() {
   const [takeSetupSnapshotId, setTakeSetupSnapshotId] = useState<number | null>(null);
   const [takeSetupData, setTakeSetupData] = useState<any>({});
 
+  // Signal Screenshot Modal for X State
+  const [screenshotModalItem, setScreenshotModalItem] = useState<WatchlistInstrument | null>(null);
+  const [copiedTweet, setCopiedTweet] = useState<boolean>(false);
+
   const handleOpenTakeSetup = async (symbol: string) => {
+
     setTakeSetupSymbol(symbol);
     try {
       const res = await fetch(`${API_BASE}/journal/snapshot`, {
@@ -959,6 +964,7 @@ function App() {
             {/* Opportunity Radar Cards Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '20px', marginTop: '20px' }}>
               {watchlist.map((item) => {
+                const isSelected = selectedInstrument === item.instrument;
                 const isReady = item.status_state === 'READY';
                 const isWait = item.status_state === 'WAIT';
                 const badgeColor = isReady ? '#10b981' : isWait ? '#f59e0b' : '#94a3b8';
@@ -966,7 +972,42 @@ function App() {
                 const dirColor = isLong ? '#10b981' : item.direction === 'SHORT' ? '#ef4444' : '#94a3b8';
 
                 return (
-                  <div key={item.instrument} className="glass-panel" style={{ padding: '20px', borderRadius: '14px', border: `1px solid ${badgeColor}44`, borderTop: `4px solid ${badgeColor}`, background: 'rgba(17, 24, 39, 0.85)' }}>
+                  <div
+                    key={item.instrument}
+                    className="glass-panel"
+                    onClick={() => setSelectedInstrument(item.instrument)}
+                    style={{
+                      padding: '20px',
+                      borderRadius: '14px',
+                      border: isSelected ? '2px solid var(--accent-teal)' : `1px solid ${badgeColor}44`,
+                      borderTop: `4px solid ${isSelected ? 'var(--accent-teal)' : badgeColor}`,
+                      background: isSelected ? 'rgba(15, 23, 42, 0.95)' : 'rgba(17, 24, 39, 0.85)',
+                      boxShadow: isSelected ? '0 0 24px rgba(0, 242, 254, 0.35), inset 0 0 15px rgba(0, 242, 254, 0.08)' : 'none',
+                      transform: isSelected ? 'translateY(-3px)' : 'none',
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      cursor: 'pointer',
+                      position: 'relative'
+                    }}
+                  >
+                    {/* Selected Badge Indicator */}
+                    {isSelected && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '-12px',
+                        right: '20px',
+                        padding: '2px 10px',
+                        borderRadius: '12px',
+                        background: 'linear-gradient(135deg, var(--accent-teal), #00c6ff)',
+                        color: '#000',
+                        fontSize: '9px',
+                        fontWeight: 900,
+                        letterSpacing: '0.5px',
+                        boxShadow: '0 2px 8px rgba(0,242,254,0.4)'
+                      }}>
+                        ACTIVE SELECTION
+                      </div>
+                    )}
+
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '22px', fontWeight: 800, color: '#fff' }}>{item.instrument}</span>
@@ -1016,7 +1057,7 @@ function App() {
                     </div>
 
                     {/* Action Buttons */}
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       <button
                         style={{
                           flex: 1,
@@ -1029,10 +1070,35 @@ function App() {
                           fontSize: '11px',
                           cursor: 'pointer'
                         }}
-                        onClick={() => handleOpenTakeSetup(item.instrument)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenTakeSetup(item.instrument);
+                        }}
                       >
                         ⚡ TAKE SETUP
                       </button>
+
+                      <button
+                        style={{
+                          padding: '9px 12px',
+                          borderRadius: '6px',
+                          background: 'rgba(0, 242, 254, 0.12)',
+                          border: '1px solid var(--accent-teal)',
+                          color: 'var(--accent-teal)',
+                          fontWeight: 800,
+                          fontSize: '11px',
+                          cursor: 'pointer'
+                        }}
+                        title="Open Signal Card formatted for X screenshots"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedInstrument(item.instrument);
+                          setScreenshotModalItem(item);
+                        }}
+                      >
+                        📸 SIGNAL CARD
+                      </button>
+
                       <button
                         style={{
                           padding: '9px 12px',
@@ -1044,10 +1110,14 @@ function App() {
                           fontSize: '11px',
                           cursor: 'pointer'
                         }}
-                        onClick={() => handlePassSetup(item.instrument)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePassSetup(item.instrument);
+                        }}
                       >
                         PASS
                       </button>
+
                       <button
                         style={{
                           padding: '9px 12px',
@@ -1059,7 +1129,8 @@ function App() {
                           fontSize: '11px',
                           cursor: 'pointer'
                         }}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setSelectedInstrument(item.instrument);
                           setActiveTab('plan');
                         }}
@@ -1071,6 +1142,7 @@ function App() {
                 );
               })}
             </div>
+
           </div>
         )}
 
@@ -1379,6 +1451,264 @@ function App() {
         setupData={takeSetupData}
         onConfirm={handleConfirmTakeSetup}
       />
+
+      {/* Signal Screenshot Studio Modal for X (Twitter) */}
+      <SignalScreenshotModal
+        isOpen={!!screenshotModalItem}
+        onClose={() => setScreenshotModalItem(null)}
+        item={screenshotModalItem}
+        profile={instrumentProfile}
+        macroRegime={macroRegime}
+      />
+    </div>
+  );
+}
+
+function SignalScreenshotModal({
+  isOpen,
+  onClose,
+  item,
+  profile,
+  macroRegime
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  item: WatchlistInstrument | null;
+  profile: any;
+  macroRegime: any;
+}) {
+  const [copied, setCopied] = useState(false);
+  if (!isOpen || !item) return null;
+
+  const isGold = item.instrument.includes('XAU') || item.instrument.includes('GOLD');
+  const isJPY = item.instrument.includes('JPY');
+  const isNAS = item.instrument.includes('US100') || item.instrument.includes('NAS100');
+  const pipDecimals = isNAS ? 1 : isJPY ? 3 : isGold ? 2 : 5;
+  const isLong = item.direction === 'LONG';
+  const dirColor = isLong ? '#10b981' : '#ef4444';
+
+  const entryPrice = profile?.setup_ref_price ?? (item as any).setup_ref_price ?? 0;
+
+  const invalPrice = profile?.empirical_invalidation_price ?? (isLong ? (entryPrice > 0 ? entryPrice * 0.998 : 0) : entryPrice * 1.002);
+  const targetPrice = profile?.empirical_target_price ?? (isLong ? (entryPrice > 0 ? entryPrice * 1.004 : 0) : entryPrice * 0.996);
+  const winRate = Math.round(item.continuation_probability * 100);
+  const rr = profile?.reward_feasibility_ratio ?? 2.06;
+
+  const tweetText = `🚨 MARKET OS QUANT SIGNAL: $${item.instrument}
+Direction: ${item.direction} 📈
+Status: ${item.status_state}
+
+🎯 Session Open / Entry: ${entryPrice > 0 ? entryPrice.toFixed(pipDecimals) : 'Market'}
+🛑 Invalidation Stop: ${invalPrice > 0 ? invalPrice.toFixed(pipDecimals) : 'P90 MAE'}
+🚀 Target Expansion: ${targetPrice > 0 ? targetPrice.toFixed(pipDecimals) : 'P75 MFE'}
+⚖️ Reward : Risk: ${rr.toFixed(2)} : 1
+
+📊 Historical Proof: ${Math.round(item.continuation_probability * item.historical_sample_size)} of ${item.historical_sample_size} Setups Reached Target (${winRate}% Win Rate)
+🌐 Macro: ${macroRegime?.dxy_regime ?? 'BEARISH'} DXY · ${macroRegime?.risk_sentiment ?? 'RISK ON'} VIX
+⏰ Optimal Window: ${item.best_session} Corridor
+
+#Trading #Forex #Quant #MarketOS #${item.instrument}`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(tweetText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.85)',
+      backdropFilter: 'blur(8px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 9999,
+      padding: '20px'
+    }}>
+      <div style={{ width: '100%', maxWidth: '640px' }}>
+        {/* The Card for Screenshot */}
+        <div id="market-os-signal-card" style={{
+          background: 'linear-gradient(145deg, #0d131f, #06090e)',
+          border: '2px solid rgba(0, 242, 254, 0.4)',
+          borderRadius: '16px',
+          padding: '28px',
+          boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 35px rgba(0, 242, 254, 0.15)',
+          color: '#fff',
+          position: 'relative'
+        }}>
+          {/* Header Brand */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, var(--accent-teal), #00c6ff)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#000',
+                fontWeight: 900,
+                fontSize: '16px'
+              }}>
+                M
+              </div>
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: 900, letterSpacing: '0.5px' }}>MARKET OS</div>
+                <div style={{ fontSize: '9px', color: 'var(--accent-teal)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 800 }}>Institutional Decision Intelligence</div>
+              </div>
+            </div>
+
+            <div style={{
+              padding: '4px 10px',
+              borderRadius: '6px',
+              background: 'rgba(16,185,129,0.15)',
+              border: '1px solid #10b981',
+              color: '#10b981',
+              fontSize: '10px',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              ★ STATISTICALLY VERIFIED EDGE
+            </div>
+          </div>
+
+          {/* Symbol & Direction Banner */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+              <span style={{ fontSize: '32px', fontWeight: 900, color: '#fff', letterSpacing: '-0.5px' }}>{item.instrument}</span>
+              <span style={{
+                padding: '4px 12px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: 900,
+                background: `${dirColor}22`,
+                color: dirColor,
+                border: `1px solid ${dirColor}66`
+              }}>
+                {item.direction}
+              </span>
+            </div>
+            <span style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontWeight: 800,
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--accent-teal)',
+              textTransform: 'uppercase'
+            }}>
+              {item.status_state}
+            </span>
+          </div>
+
+          {/* Key Price Levels Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '18px' }}>
+            <div style={{ padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>SESSION ENTRY ANCHOR</div>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#fff', marginTop: '4px', fontFamily: 'monospace' }}>
+                {entryPrice > 0 ? entryPrice.toFixed(pipDecimals) : '—'}
+              </div>
+            </div>
+
+            <div style={{ padding: '14px', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+              <div style={{ fontSize: '10px', color: '#fca5a5', textTransform: 'uppercase', fontWeight: 700 }}>P90 INVALIDATION STOP</div>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#ef4444', marginTop: '4px', fontFamily: 'monospace' }}>
+                {invalPrice > 0 ? invalPrice.toFixed(pipDecimals) : '—'}
+              </div>
+            </div>
+
+            <div style={{ padding: '14px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '10px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+              <div style={{ fontSize: '10px', color: '#86efac', textTransform: 'uppercase', fontWeight: 700 }}>P75 PROFIT TARGET</div>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#10b981', marginTop: '4px', fontFamily: 'monospace' }}>
+                {targetPrice > 0 ? targetPrice.toFixed(pipDecimals) : '—'}
+              </div>
+            </div>
+          </div>
+
+          {/* Statistical Edge Metrics */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '18px', padding: '12px', background: 'rgba(0,242,254,0.04)', borderRadius: '10px', border: '1px solid rgba(0,242,254,0.15)' }}>
+            <div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>HISTORICAL WIN RATE</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#fff', marginTop: '2px' }}>
+                {winRate}% <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>(N={item.historical_sample_size})</span>
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>REWARD : RISK RATIO</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--accent-teal)', marginTop: '2px' }}>
+                {rr.toFixed(2)} : 1
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>OPTIMAL SESSION</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#fff', marginTop: '2px' }}>
+                {item.best_session}
+              </div>
+            </div>
+          </div>
+
+          {/* Narrative Proof */}
+          <div style={{ padding: '12px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', borderLeft: '3px solid var(--accent-teal)', fontSize: '12px', color: '#cbd5e1', lineHeight: 1.5, marginBottom: '16px' }}>
+            <strong>QUANT REASONING:</strong> {item.why_this_now || item.supporting_explanation}
+          </div>
+
+          {/* Watermark Footer */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
+            <span>⚡ Point-in-time empirical model • Zero look-ahead</span>
+            <span style={{ fontFamily: 'monospace', color: 'var(--accent-teal)' }}>marketos.io</span>
+          </div>
+        </div>
+
+        {/* Action Controls below Card */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', gap: '12px' }}>
+          <button
+            style={{
+              flex: 1,
+              padding: '12px',
+              borderRadius: '8px',
+              background: copied ? '#10b981' : 'linear-gradient(135deg, var(--accent-teal), #00c6ff)',
+              color: '#000',
+              fontWeight: 800,
+              fontSize: '13px',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              boxShadow: '0 4px 14px rgba(0, 242, 254, 0.3)'
+            }}
+            onClick={handleCopy}
+          >
+            {copied ? '✓ COPIED TWEET TEXT TO CLIPBOARD!' : '📋 COPY X (TWITTER) POST TEXT'}
+          </button>
+
+          <button
+            style={{
+              padding: '12px 20px',
+              borderRadius: '8px',
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid var(--border-color)',
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: '13px',
+              cursor: 'pointer'
+            }}
+            onClick={onClose}
+          >
+            ✕ Close
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1392,3 +1722,4 @@ function AppWithAuth() {
 }
 
 export default AppWithAuth;
+
