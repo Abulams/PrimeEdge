@@ -45,6 +45,57 @@ from .realtime import realtime_service
 async def lifespan(app: FastAPI):
     # Ensure all tables (including users) are created
     Base.metadata.create_all(bind=engine)
+    
+    # Auto-seed London Cloud Execution Worker Node
+    try:
+        from .models import WorkerNode, UserBrokerAccount, User
+        from .database import SessionLocal
+        from .routers.execution_cloud_router import hash_token
+        from .execution.crypto import encrypt_credential
+
+        db_init = SessionLocal()
+        # Seed Worker Node
+        worker = db_init.query(WorkerNode).filter(WorkerNode.worker_id == "vps-lon-worker-1").first()
+        if not worker:
+            worker = WorkerNode(
+                worker_id="vps-lon-worker-1",
+                hostname="MarketOS-Node-London",
+                max_terminals=20,
+                status="ONLINE",
+                last_heartbeat=datetime.datetime.utcnow()
+            )
+            setattr(worker, "key_hash", hash_token("wkey_master_cloud_london"))
+            db_init.add(worker)
+            db_init.commit()
+
+        # Seed connected Demo Broker Account for subscriber
+        first_user = db_init.query(User).first()
+        if first_user:
+            account = db_init.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == first_user.id).first()
+            if not account:
+                account = UserBrokerAccount(
+                    user_id=first_user.id,
+                    broker_server="MetaQuotes-Demo",
+                    login=5054957055,
+                    encrypted_password=encrypt_credential("Lamido556@"),
+                    platform_type="MT5_CLOUD",
+                    is_active=True,
+                    auto_execution_enabled=True,
+                    allocated_worker_id="vps-lon-worker-1",
+                    balance=100000.0,
+                    equity=100000.0,
+                    currency="USD",
+                    leverage=100,
+                    ping_ms=1.2,
+                    last_heartbeat=datetime.datetime.utcnow()
+                )
+                db_init.add(account)
+                db_init.commit()
+
+        db_init.close()
+    except Exception as e:
+        print(f"Worker seed warning: {e}")
+
     # Start the realtime polling service (every 5 minutes)
     await realtime_service.start(interval_seconds=300)
     yield
