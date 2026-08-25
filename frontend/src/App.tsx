@@ -20,7 +20,9 @@ import {
   Target,
   ChevronDown,
   ChevronUp,
-  Layers
+  Layers,
+  Menu,
+  X
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TradePlanner } from './TradePlanner';
@@ -420,6 +422,7 @@ function App() {
   const { isAuthenticated, isLoading, user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<'find' | 'plan' | 'why' | 'journal' | 'chat' | 'replay' | 'execution'>('find');
   const [selectedInstrument, setSelectedInstrument] = useState<string>('GBPUSD');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [expandedMssSymbol, setExpandedMssSymbol] = useState<string | null>(null);
   const [selectedMatchForModal, setSelectedMatchForModal] = useState<any>(null);
   
@@ -776,18 +779,80 @@ function App() {
 
   return (
     <div className="app-container">
+      {/* Mobile Top Header */}
+      <header className="mobile-topbar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="logo-icon" style={{ width: '30px', height: '30px', fontSize: '15px' }}>M</div>
+          <span style={{ fontSize: '16px', fontWeight: 800, letterSpacing: '0.5px', color: '#fff' }}>MARKET OS</span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            fontSize: '11px',
+            fontWeight: 800,
+            color: 'var(--accent-teal)',
+            textTransform: 'uppercase',
+            padding: '3px 8px',
+            borderRadius: '6px',
+            background: 'rgba(0, 242, 254, 0.12)',
+            border: '1px solid rgba(0, 242, 254, 0.25)'
+          }}>
+            {activeTab.toUpperCase()}
+          </div>
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            style={{
+              background: 'var(--bg-tertiary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '7px',
+              padding: '6px 8px',
+              color: '#fff',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile Drawer Overlay Backdrop */}
+      <div 
+        className={`mobile-drawer-overlay ${mobileMenuOpen ? 'open' : ''}`}
+        onClick={() => setMobileMenuOpen(false)}
+      />
+
       {/* Sidebar Navigation */}
-      <aside className="sidebar">
-        <div className="logo-container">
-          <div className="logo-icon">M</div>
-          <h1 className="logo-text">MARKET OS</h1>
+      <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+        <div className="logo-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div className="logo-icon">M</div>
+            <h1 className="logo-text">MARKET OS</h1>
+          </div>
+          {/* Close button in mobile drawer */}
+          <button
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              display: 'none',
+              padding: '4px'
+            }}
+            className="mobile-close-btn"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         <ul className="nav-links">
           <li>
             <div 
               className={`nav-item ${activeTab === 'find' ? 'active' : ''}`}
-              onClick={() => setActiveTab('find')}
+              onClick={() => { setActiveTab('find'); setMobileMenuOpen(false); }}
             >
               <Compass /> FIND (Radar)
             </div>
@@ -795,7 +860,7 @@ function App() {
           <li>
             <div 
               className={`nav-item ${activeTab === 'plan' ? 'active' : ''}`}
-              onClick={() => setActiveTab('plan')}
+              onClick={() => { setActiveTab('plan'); setMobileMenuOpen(false); }}
             >
               <Sliders /> PLAN (Cockpit)
             </div>
@@ -803,7 +868,7 @@ function App() {
           <li>
             <div 
               className={`nav-item ${activeTab === 'execution' ? 'active' : ''}`}
-              onClick={() => setActiveTab('execution')}
+              onClick={() => { setActiveTab('execution'); setMobileMenuOpen(false); }}
               style={{ color: activeTab === 'execution' ? 'var(--accent-green)' : undefined }}
             >
               <Zap /> EXECUTION (Bridge)
@@ -812,7 +877,7 @@ function App() {
           <li>
             <div 
               className={`nav-item ${activeTab === 'journal' ? 'active' : ''}`}
-              onClick={() => setActiveTab('journal')}
+              onClick={() => { setActiveTab('journal'); setMobileMenuOpen(false); }}
             >
               <BookOpen /> Auto-Journal
             </div>
@@ -820,7 +885,7 @@ function App() {
           <li>
             <div 
               className={`nav-item ${activeTab === 'why' ? 'active' : ''}`}
-              onClick={() => setActiveTab('why')}
+              onClick={() => { setActiveTab('why'); setMobileMenuOpen(false); }}
             >
               <TrendingUp /> WHY (Evidence)
             </div>
@@ -828,7 +893,7 @@ function App() {
           <li>
             <div 
               className={`nav-item ${activeTab === 'replay' ? 'active' : ''}`}
-              onClick={() => setActiveTab('replay')}
+              onClick={() => { setActiveTab('replay'); setMobileMenuOpen(false); }}
             >
               <Play /> REPLAY (Simulation)
             </div>
@@ -836,7 +901,7 @@ function App() {
           <li>
             <div 
               className={`nav-item ${activeTab === 'chat' ? 'active' : ''}`}
-              onClick={() => setActiveTab('chat')}
+              onClick={() => { setActiveTab('chat'); setMobileMenuOpen(false); }}
             >
               <MessageSquare /> AI Analyst
             </div>
@@ -879,6 +944,52 @@ function App() {
           </button>
         </div>
       </aside>
+
+      {/* Mobile Bottom Navigation Bar (Persistent 1-Tap Access) */}
+      <nav className="mobile-bottom-nav">
+        <button 
+          className={`mobile-nav-btn ${activeTab === 'find' ? 'active' : ''}`}
+          onClick={() => { setActiveTab('find'); setMobileMenuOpen(false); }}
+        >
+          <Compass />
+          <span>Radar</span>
+        </button>
+        <button 
+          className={`mobile-nav-btn ${activeTab === 'plan' ? 'active' : ''}`}
+          onClick={() => { setActiveTab('plan'); setMobileMenuOpen(false); }}
+        >
+          <Sliders />
+          <span>Cockpit</span>
+        </button>
+        <button 
+          className={`mobile-nav-btn ${activeTab === 'execution' ? 'active' : ''}`}
+          onClick={() => { setActiveTab('execution'); setMobileMenuOpen(false); }}
+        >
+          <Zap style={{ color: activeTab === 'execution' ? 'var(--accent-green)' : undefined }} />
+          <span>Bridge</span>
+        </button>
+        <button 
+          className={`mobile-nav-btn ${activeTab === 'journal' ? 'active' : ''}`}
+          onClick={() => { setActiveTab('journal'); setMobileMenuOpen(false); }}
+        >
+          <BookOpen />
+          <span>Journal</span>
+        </button>
+        <button 
+          className={`mobile-nav-btn ${activeTab === 'chat' ? 'active' : ''}`}
+          onClick={() => { setActiveTab('chat'); setMobileMenuOpen(false); }}
+        >
+          <MessageSquare />
+          <span>Analyst</span>
+        </button>
+        <button 
+          className="mobile-nav-btn"
+          onClick={() => setMobileMenuOpen(true)}
+        >
+          <Layers />
+          <span>More</span>
+        </button>
+      </nav>
 
       {/* Main Panel Content */}
       <main className="main-content">
@@ -928,20 +1039,20 @@ function App() {
                 </div>
 
                 {currencyStrength && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(95px, 1fr))', gap: '8px' }}>
                     {Object.entries(currencyStrength).map(([symbol, item]) => {
                       const isStrong = item.strength >= 55;
                       const isWeak = item.strength <= 45;
                       const color = isStrong ? 'var(--accent-green)' : isWeak ? 'var(--accent-red)' : 'var(--accent-orange)';
                       return (
-                        <div key={symbol} style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                        <div key={symbol} style={{ backgroundColor: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontWeight: 800, fontSize: '14px', color: '#fff' }}>{symbol}</span>
-                            <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 5px', borderRadius: '4px', backgroundColor: `${color}22`, color }}>
+                            <span style={{ fontWeight: 800, fontSize: '13px', color: '#fff' }}>{symbol}</span>
+                            <span style={{ fontSize: '8px', fontWeight: 700, padding: '2px 4px', borderRadius: '4px', backgroundColor: `${color}22`, color }}>
                               {item.status}
                             </span>
                           </div>
-                          <div style={{ fontSize: '18px', fontWeight: 800, color, marginTop: '6px' }}>{item.strength}</div>
+                          <div style={{ fontSize: '16px', fontWeight: 800, color, marginTop: '4px' }}>{item.strength}</div>
                         </div>
                       );
                     })}
@@ -952,17 +1063,17 @@ function App() {
 
             {/* First-Class NO HIGH-QUALITY SETUP Banner */}
             {watchlist.length > 0 && watchlist.every(w => w.status_state === 'NO SETUP' || w.status_state === 'NO EDGE') && (
-              <div style={{ padding: '20px 24px', borderRadius: '12px', background: 'rgba(148, 163, 184, 0.1)', border: '1px solid rgba(148, 163, 184, 0.3)', color: '#cbd5e1', margin: '20px 0', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <ShieldAlert size={24} style={{ color: '#94a3b8' }} />
+              <div style={{ padding: '16px 20px', borderRadius: '12px', background: 'rgba(148, 163, 184, 0.1)', border: '1px solid rgba(148, 163, 184, 0.3)', color: '#cbd5e1', margin: '16px 0', display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <ShieldAlert size={24} style={{ color: '#94a3b8', flexShrink: 0 }} />
                 <div>
-                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#f8fafc' }}>NO HIGH-QUALITY SETUP RIGHT NOW — Market OS Rewards Patience</div>
-                  <div style={{ fontSize: '13px', color: '#94a3b8', marginTop: '3px' }}>No instrument currently meets the minimum historical conditions for an actionable setup.</div>
+                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#f8fafc' }}>NO HIGH-QUALITY SETUP RIGHT NOW — Market OS Rewards Patience</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>No instrument currently meets the minimum historical conditions for an actionable setup.</div>
                 </div>
               </div>
             )}
 
             {/* Opportunity Radar Cards Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '20px', marginTop: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '16px', marginTop: '16px' }}>
               {watchlist.map((item) => {
                 const isSelected = selectedInstrument === item.instrument;
                 const isReady = item.status_state === 'READY';
