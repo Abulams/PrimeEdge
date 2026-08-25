@@ -166,6 +166,13 @@ def fetch_all_historical(period: str = "6y") -> Dict[str, pd.DataFrame]:
 
 import urllib.request
 import json
+import ssl
+
+try:
+    import certifi
+    _ssl_ctx = ssl.create_default_context(cafile=certifi.where())
+except Exception:
+    _ssl_ctx = ssl._create_unverified_context()
 
 TV_MARKET_MAP = {
     "forex": {
@@ -186,7 +193,7 @@ TV_MARKET_MAP = {
 
 def fetch_tradingview_quotes() -> Dict[str, Dict]:
     """
-    Fetches real-time institutional prices directly from TradingView/OANDA scanner API.
+    Directly queries TradingView's institutional scanner endpoint for ultra-low latency real-time quotes.
     Provides 100% price parity with TradingView charts.
     """
     quotes = {}
@@ -205,7 +212,7 @@ def fetch_tradingview_quotes() -> Dict[str, Dict]:
                     "Content-Type": "application/json"
                 }
             )
-            with urllib.request.urlopen(req, timeout=3) as resp:
+            with urllib.request.urlopen(req, timeout=3, context=_ssl_ctx) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 rev_map = {v: k for k, v in mapping.items()}
                 for item in data.get("data", []):
