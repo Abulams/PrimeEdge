@@ -1759,14 +1759,6 @@ class DecisionIntelligenceEngine:
             "late_entry_recovery": late_entry_recovery,
             "trade_thesis": trade_thesis,
             "option_a_vs_b": option_a_vs_b,
-            "calibration_metadata": {
-                "active": calibration_active,
-                "method": "Isotonic Regression (PAV)",
-                "raw_prob": round(continuation_prob, 4),
-                "calibrated_prob": round(calibrated_prob, 4),
-                "delta": round(calibration_delta, 4),
-                "delta_pct": f"{calibration_delta:+.1%}",
-            },
             "expected_mae": round(expected_mae, 1),
             "expected_mfe": round(expected_mfe, 1),
             "expected_holding_time": int(expected_holding),
@@ -1774,15 +1766,6 @@ class DecisionIntelligenceEngine:
             "best_session": best_session,
             "historical_failure_conditions": fail_conditions,
             "confidence_score": mss_result["final_score"],
-            "mss_decomposition": mss_result["factors"],
-            "similarity_decomposition": {
-                "trend": trend_sim_avg,
-                "volatility": vol_sim_avg,
-                "dxy": dxy_sim_avg,
-                "vix": vix_sim_avg,
-                "yield": yield_sim_avg,
-                "news": news_sim_avg
-            },
             "supporting_explanation": explanation
         }
 

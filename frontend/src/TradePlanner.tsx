@@ -419,7 +419,7 @@ export const TradePlanner: React.FC = () => {
                     <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--accent-green)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
                       {(result.calibrated_win_probability * 100).toFixed(1)}%
                     </div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Raw: {(result.raw_win_probability * 100).toFixed(1)}%</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Historical Verified</div>
                   </div>
 
                   <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>

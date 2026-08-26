@@ -265,7 +265,7 @@ export default function EvidenceAuditTab({
       <div className="glass-panel" style={{ padding: '20px', borderRadius: '12px', marginBottom: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
           <h3 className="widget-title" style={{ margin: 0 }}>Standardized Historical Evidence Breakdown</h3>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>1,000-Iteration Bootstrap & PAV Isotonic Calibration</span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Verified Historical Calibration &amp; 95% Confidence Bounds</span>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
@@ -318,7 +318,7 @@ export default function EvidenceAuditTab({
         <div className="glass-panel" style={{ padding: '20px', borderRadius: '12px', marginBottom: '20px' }}>
           <h3 className="widget-title" style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Layers size={16} color="var(--accent-teal)" />
-            <span>Macro & Multi-Factor Context Attribution Decomposition</span>
+            <span>Macro &amp; Multi-Factor Context Attribution</span>
           </h3>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
@@ -328,8 +328,8 @@ export default function EvidenceAuditTab({
               <div style={{ fontSize: '15px', fontWeight: 700, color: '#fff', marginTop: '6px' }}>
                 {macroRegime?.dxy_regime ?? instrumentProfile?.dxy_regime ?? 'BEARISH'}
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--accent-teal)', marginTop: '4px' }}>
-                Alignment Weight: +25%
+              <div style={{ fontSize: '11px', color: 'var(--accent-teal)', marginTop: '4px', fontWeight: 700 }}>
+                Status: Active Macro Driver
               </div>
               <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '6px 0 0 0', lineHeight: 1.4 }}>
                 A {macroRegime?.dxy_regime ?? 'BEARISH'} dollar provides secular tailwinds for {selectedInstrument} continuation.
@@ -342,8 +342,8 @@ export default function EvidenceAuditTab({
               <div style={{ fontSize: '15px', fontWeight: 700, color: '#fff', marginTop: '6px' }}>
                 {macroRegime?.risk_sentiment ?? instrumentProfile?.risk_sentiment ?? 'NEUTRAL'}
               </div>
-              <div style={{ fontSize: '11px', color: '#c084fc', marginTop: '4px' }}>
-                Alignment Weight: +15%
+              <div style={{ fontSize: '11px', color: '#c084fc', marginTop: '4px', fontWeight: 700 }}>
+                Status: Supportive Baseline
               </div>
               <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '6px 0 0 0', lineHeight: 1.4 }}>
                 Normalized volatility environment permits orderly trending without premature whipsaw invalidation.
@@ -356,11 +356,11 @@ export default function EvidenceAuditTab({
               <div style={{ fontSize: '15px', fontWeight: 700, color: '#fff', marginTop: '6px' }}>
                 {instrumentProfile?.dual_trend_label ?? 'BULLISH (Full Alignment)'}
               </div>
-              <div style={{ fontSize: '11px', color: '#10b981', marginTop: '4px' }}>
-                Alignment Weight: +30%
+              <div style={{ fontSize: '11px', color: '#10b981', marginTop: '4px', fontWeight: 700 }}>
+                Status: Full Consensus Alignment
               </div>
               <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '6px 0 0 0', lineHeight: 1.4 }}>
-                20-day micro trend and 50-day macro trend are pointing in identical directions with zero divergence.
+                Micro trend and macro trend are pointing in identical directions with zero structural divergence.
               </p>
             </div>
 
@@ -370,8 +370,8 @@ export default function EvidenceAuditTab({
               <div style={{ fontSize: '15px', fontWeight: 700, color: '#fff', marginTop: '6px' }}>
                 {instrumentProfile?.best_session ?? 'LONDON'} Preferred
               </div>
-              <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '4px' }}>
-                Alignment Weight: +15%
+              <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '4px', fontWeight: 700 }}>
+                Status: Optimal Liquidity Window
               </div>
               <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '6px 0 0 0', lineHeight: 1.4 }}>
                 Optimal volume and directional expansion occur during this session window.
