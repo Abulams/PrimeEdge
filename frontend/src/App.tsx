@@ -535,7 +535,7 @@ function App() {
       });
       if (res.ok) {
         setTakeSetupModalOpen(false);
-        setActiveTab('journal');
+        setActiveTab('execution');
       }
     } catch (err) {
       console.error('Failed to confirm take setup:', err);

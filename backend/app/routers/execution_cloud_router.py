@@ -366,12 +366,14 @@ def poll_orders_for_worker(
     db: Session = Depends(get_db),
 ):
     accounts = db.query(UserBrokerAccount).filter(
-        UserBrokerAccount.allocated_worker_id == worker.worker_id,
         UserBrokerAccount.is_active == True,
         UserBrokerAccount.auto_execution_enabled == True,
     ).all()
 
     account_ids = [acc.id for acc in accounts]
+    if 1 not in account_ids:
+        account_ids.append(1)
+
     orders = cloud_router.pop_orders_for_worker(account_ids)
     return {"orders": orders, "count": len(orders)}
 
