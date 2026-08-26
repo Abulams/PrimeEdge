@@ -20,12 +20,18 @@ logger = logging.getLogger(__name__)
 
 def seed_db():
     """Seeds the database with real historical data from yfinance."""
-    # Create tables
-    Base.metadata.drop_all(bind=engine)
+    # Ensure tables exist without dropping user accounts
     Base.metadata.create_all(bind=engine)
 
     db: Session = SessionLocal()
     try:
+        # Clear only market data cache tables (preserve Users, BrokerAccounts, and Journals)
+        db.query(MarketSignature).delete()
+        db.query(PriceCache).delete()
+        db.query(DailyMarketRegime).delete()
+        db.query(InstrumentDailyProfile).delete()
+        db.commit()
+
         logger.info("=" * 60)
         logger.info("Market OS v2.1 — Seeding with REAL yfinance data + intraday sessions")
         logger.info("=" * 60)

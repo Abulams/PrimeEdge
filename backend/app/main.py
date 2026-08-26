@@ -68,8 +68,39 @@ async def lifespan(app: FastAPI):
             db_init.add(worker)
             db_init.commit()
 
-        # Seed connected Demo Broker Account for subscriber
-        first_user = db_init.query(User).first()
+        from .auth import hash_password
+
+        # 1. Guarantee permanent admin and trader accounts
+        abu_user = db_init.query(User).filter(User.email == "lamido665@gmail.com").first()
+        if not abu_user:
+            abu_user = User(
+                email="lamido665@gmail.com",
+                hashed_password=hash_password("Abubakarlamido556@"),
+                full_name="Abu",
+                role="trader",
+                is_active=True,
+                is_admin=True,
+                email_verified=True
+            )
+            db_init.add(abu_user)
+            db_init.commit()
+
+        admin_user = db_init.query(User).filter(User.email == "admin@marketos.io").first()
+        if not admin_user:
+            admin_user = User(
+                email="admin@marketos.io",
+                hashed_password=hash_password("admin123"),
+                full_name="Admin",
+                role="admin",
+                is_active=True,
+                is_admin=True,
+                email_verified=True
+            )
+            db_init.add(admin_user)
+            db_init.commit()
+
+        # 2. Seed connected Demo Broker Account for primary user
+        first_user = abu_user or db_init.query(User).first()
         if first_user:
             account = db_init.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == first_user.id).first()
             if not account:

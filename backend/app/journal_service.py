@@ -174,6 +174,32 @@ class JournalService:
         db.add(trade)
         db.commit()
         db.refresh(trade)
+
+        # Dispatch to 24/7 Cloud MT5 Execution Bridge
+        try:
+            from .execution.cloud_router import CloudExecutionRouter
+            from .execution.base import ExecutionOrder, OrderDirection, OrderType
+            
+            exec_router = CloudExecutionRouter()
+            dir_enum = OrderDirection.LONG if snapshot.direction == "LONG" else OrderDirection.SHORT
+            order_type_enum = OrderType.MARKET if entry_type.upper() == "MARKET" else OrderType.LIMIT
+            
+            exec_order = ExecutionOrder(
+                signal_id=f"SNAP-{snapshot.id}-TR-{trade.id}",
+                instrument=snapshot.instrument,
+                direction=dir_enum,
+                order_type=order_type_enum,
+                entry_reference_price=actual_entry,
+                stop_loss=actual_sl,
+                take_profit=actual_tp,
+                position_size_lots=position_size_lots,
+                risk_pct=risk_pct,
+                account_balance=account_balance
+            )
+            exec_router.queue_order_for_account(account_id=1, order=exec_order)
+        except Exception as e:
+            logger.warning(f"Cloud execution dispatch warning: {e}")
+
         return trade
 
     @staticmethod
