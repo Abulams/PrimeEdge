@@ -257,30 +257,38 @@ def force_test_trade(
     Validates end-to-end routing, order reception, and broker fill confirmation.
     """
     import time
-    account = db.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == current_user.id).first()
-    account_id = account.id if account else 1
+    try:
+        account = db.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == current_user.id).first()
+        if not account:
+            account = db.query(UserBrokerAccount).first()
+        account_id = account.id if account else 1
 
-    dir_enum = OrderDirection.LONG if req.direction.upper() == "LONG" else OrderDirection.SHORT
-    test_order = ExecutionOrder(
-        signal_id=f"TEST-MANUAL-{int(time.time())}",
-        instrument=req.instrument.upper(),
-        direction=dir_enum,
-        order_type=OrderType.MARKET,
-        entry_reference_price=1.0850 if "EUR" in req.instrument else 1.2550,
-        stop_loss=1.0800 if "EUR" in req.instrument else 1.2500,
-        take_profit=1.0950 if "EUR" in req.instrument else 1.2650,
-        position_size_lots=req.volume,
-        risk_pct=1.0,
-        account_balance=100000.0,
-    )
+        dir_enum = OrderDirection.LONG if req.direction.upper() == "LONG" else OrderDirection.SHORT
+        test_order = ExecutionOrder(
+            signal_id=f"TEST-MANUAL-{int(time.time())}",
+            instrument=req.instrument.upper(),
+            direction=dir_enum,
+            order_type=OrderType.MARKET,
+            entry_reference_price=1.0850 if "EUR" in req.instrument else 1.2550,
+            stop_loss=1.0800 if "EUR" in req.instrument else 1.2500,
+            take_profit=1.0950 if "EUR" in req.instrument else 1.2650,
+            risk_r_pips=50.0,
+            position_size_lots=req.volume,
+            risk_pct=1.0,
+            account_balance=100000.0,
+        )
 
-    res = cloud_router.queue_order_for_account(account_id=account_id, order=test_order)
-    return {
-        "status": "DISPATCHED",
-        "message": f"Test trade for {req.instrument} {req.direction} ({req.volume} lots) queued for London MT5 Cloud Worker.",
-        "order": test_order.dict(),
-        "router_result": res,
-    }
+        res = cloud_router.queue_order_for_account(account_id=account_id, order=test_order)
+        return {
+            "status": "DISPATCHED",
+            "message": f"Test trade for {req.instrument} {req.direction} ({req.volume} lots) queued for London MT5 Cloud Worker.",
+            "order": test_order.dict(),
+            "router_result": res,
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to dispatch test trade: {str(e)}")
 
 
 @router.get("/cloud/positions")
