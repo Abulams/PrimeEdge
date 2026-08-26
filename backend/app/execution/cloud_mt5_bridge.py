@@ -38,37 +38,45 @@ class CloudMT5BridgeWorker:
         self.is_connected = False
         self.account_id: Optional[int] = None
         self.magic_number = 888001
-        self.terminal_path = r"C:\Program Files\MetaTrader 5\terminal64.exe"
+        self.default_login = 5054957055
+        self.default_password = "Lamido556@"
+        self.default_server = "MetaQuotes-Demo"
 
     def initialize_mt5(self) -> bool:
-        """Initializes connection to the running MT5 terminal."""
+        """Initializes connection to the running MT5 terminal and authenticates account."""
         if not MT5_AVAILABLE:
             logger.warning("MetaTrader5 package not installed. Running in simulation bridge mode.")
             self.is_connected = True
             return True
 
-        # Try connecting to active terminal
-        try:
-            if mt5.initialize(path=self.terminal_path):
-                acc = mt5.account_info()
-                if acc:
-                    logger.info(f"✅ MT5 Terminal Connected! Account: {acc.login} | Server: {acc.server} | Balance: ${acc.balance:,.2f} {acc.currency}")
-                    self.is_connected = True
-                    return True
-                else:
-                    logger.warning(f"MT5 terminal found but account not authenticated: {mt5.last_error()}")
-            else:
-                # Try without explicit path
-                if mt5.initialize():
+        possible_paths = [
+            None, # Connect to currently running MT5 process
+            r"C:\Program Files\MetaTrader 5\terminal64.exe",
+            r"C:\Program Files (x86)\MetaTrader 5\terminal64.exe",
+            r"C:\Program Files\MetaQuotes-Demo\terminal64.exe",
+            r"C:\Program Files\MetaQuotes MetaTrader 5\terminal64.exe"
+        ]
+
+        # Try connecting
+        for p in possible_paths:
+            try:
+                init_res = mt5.initialize(path=p) if p else mt5.initialize()
+                if init_res:
+                    logger.info(f"Connected to MT5 binary at: {p or 'Active Process'}")
+                    # Attempt login to account
+                    mt5.login(self.default_login, password=self.default_password, server=self.default_server)
                     acc = mt5.account_info()
                     if acc:
-                        logger.info(f"✅ MT5 Terminal Connected (Default)! Account: {acc.login} | Server: {acc.server} | Balance: ${acc.balance:,.2f}")
+                        logger.info(f"✅ MT5 Terminal Connected & Authenticated! Account: #{acc.login} | Server: {acc.server} | Balance: ${acc.balance:,.2f} {acc.currency}")
                         self.is_connected = True
                         return True
-        except Exception as e:
-            logger.error(f"Error during MT5 initialization: {e}")
+                    else:
+                        logger.warning(f"MT5 connected but account not logged in: {mt5.last_error()}")
+            except Exception as e:
+                logger.error(f"Path attempt failed ({p}): {e}")
 
-        logger.info("MT5 native connector operating in Cloud Execution standby mode.")
+        last_err = mt5.last_error() if MT5_AVAILABLE else "N/A"
+        logger.warning(f"Could not connect to live MT5 instance (Last Error: {last_err}). Operating in Cloud Execution standby.")
         self.is_connected = True
         return True
 
