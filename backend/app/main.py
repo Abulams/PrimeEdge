@@ -277,7 +277,7 @@ def get_watchlist(db: Session = Depends(get_db)):
                     waiting_cost=profile_data.get("waiting_cost"),
                     trade_thesis=profile_data.get("trade_thesis"),
                     option_a_vs_b=profile_data.get("option_a_vs_b"),
-                    mss_decomposition=profile_data["mss_decomposition"]
+                    mss_decomposition=profile_data.get("mss_decomposition")
                 )
             )
 
