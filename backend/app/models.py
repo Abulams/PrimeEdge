@@ -457,3 +457,21 @@ class ExecutionAuditLog(Base):
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
 
 
+class BetaFeedback(Base):
+    """Direct user feedback submitted from the web UI during closed beta."""
+    __tablename__ = "beta_feedbacks"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    user_email = Column(String, nullable=True)
+    category = Column(String, default="GENERAL", nullable=False)  # BUG, FEATURE, EXECUTION, UI_UX, GENERAL
+    rating = Column(Integer, default=5, nullable=True)             # 1-5 rating
+    active_tab = Column(String, nullable=True)                     # find, plan, execution, journal, why, replay, chat
+    selected_instrument = Column(String, nullable=True)            # XAUUSD, GBPUSD, etc.
+    message = Column(String, nullable=False)
+    system_info = Column(JSON, nullable=True)                      # Browser, viewport, OS
+    status = Column(String, default="NEW", nullable=False)         # NEW, REVIEWED, RESOLVED
+    admin_notes = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+

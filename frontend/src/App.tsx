@@ -40,6 +40,7 @@ import { ExecutionTab } from './ExecutionTab';
 import { Play } from 'lucide-react';
 import { AuthProvider, useAuth } from './AuthContext';
 import LoginPage from './LoginPage';
+import FeedbackModal from './FeedbackModal';
 
 
 const API_BASE = (import.meta.env.VITE_API_URL ?? "") + "/api/v1";
@@ -470,6 +471,9 @@ function App() {
   // Signal Screenshot Modal for X State
   const [screenshotModalItem, setScreenshotModalItem] = useState<WatchlistInstrument | null>(null);
   const [copiedTweet, setCopiedTweet] = useState<boolean>(false);
+
+  // Beta Feedback Modal State
+  const [feedbackOpen, setFeedbackOpen] = useState<boolean>(false);
 
   const handleOpenTakeSetup = async (symbol: string) => {
 
@@ -1572,6 +1576,44 @@ function App() {
         item={screenshotModalItem}
         profile={instrumentProfile}
         macroRegime={macroRegime}
+      />
+
+      {/* Floating Beta Feedback Button */}
+      <button
+        onClick={() => setFeedbackOpen(true)}
+        style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          zIndex: 8999,
+          background: 'linear-gradient(135deg, var(--accent-teal), var(--accent-blue))',
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          borderRadius: '50px',
+          padding: '10px 18px',
+          color: '#000',
+          fontWeight: 800,
+          fontSize: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          cursor: 'pointer',
+          boxShadow: '0 8px 25px rgba(0, 242, 254, 0.45)',
+          backdropFilter: 'blur(8px)',
+          transition: 'all 0.2s ease',
+        }}
+        title="Share bug or suggestion directly with Market OS team"
+      >
+        <MessageSquare size={15} />
+        <span>Beta Feedback</span>
+      </button>
+
+      {/* Beta Feedback Modal */}
+      <FeedbackModal
+        isOpen={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        activeTab={activeTab}
+        selectedInstrument={selectedInstrument}
+        userEmail={user?.email}
       />
     </div>
   );
