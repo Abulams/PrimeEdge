@@ -42,27 +42,63 @@ class CloudMT5BridgeWorker:
         self.default_password = "Lamido556@"
         self.default_server = "MetaQuotes-Demo"
 
-    def initialize_mt5(self) -> bool:
-        """Initializes connection to the running MT5 terminal and authenticates account."""
-        if not MT5_AVAILABLE:
-            logger.warning("MetaTrader5 package not installed. Running in simulation bridge mode.")
-            self.is_connected = True
-            return True
+    def find_all_mt5_executables(self) -> List[str]:
+        """Scans the system for installed MetaTrader 5 terminal binaries."""
+        import os
+        candidates = []
+        search_roots = [
+            r"C:\Program Files",
+            r"C:\Program Files (x86)",
+            os.path.expanduser("~"),
+            r"C:\Users\marketosadmin\AppData\Local\Programs",
+            r"C:\\"
+        ]
 
-        possible_paths = [
-            None, # Connect to currently running MT5 process
+        known_paths = [
             r"C:\Program Files\MetaTrader 5\terminal64.exe",
             r"C:\Program Files (x86)\MetaTrader 5\terminal64.exe",
             r"C:\Program Files\MetaQuotes-Demo\terminal64.exe",
             r"C:\Program Files\MetaQuotes MetaTrader 5\terminal64.exe"
         ]
+        for kp in known_paths:
+            if os.path.isfile(kp) and kp not in candidates:
+                candidates.append(kp)
 
-        # Try connecting
-        for p in possible_paths:
+        for root in search_roots:
+            if not os.path.exists(root):
+                continue
             try:
-                init_res = mt5.initialize(path=p) if p else mt5.initialize()
-                if init_res:
-                    logger.info(f"Connected to MT5 binary at: {p or 'Active Process'}")
+                for item in os.listdir(root):
+                    sub = os.path.join(root, item)
+                    if os.path.isdir(sub):
+                        low = item.lower()
+                        if "metatrader" in low or "mt5" in low or "metaquotes" in low or "broker" in low:
+                            for exe in ["terminal64.exe", "terminal.exe"]:
+                                cand = os.path.join(sub, exe)
+                                if os.path.isfile(cand) and cand not in candidates:
+                                    candidates.append(cand)
+            except Exception:
+                pass
+
+        return candidates
+
+    def initialize_mt5(self) -> bool:
+        """Initializes connection to the running MT5 terminal and authenticates account."""
+        import os
+        if not MT5_AVAILABLE:
+            logger.warning("MetaTrader5 package not installed. Running in simulation bridge mode.")
+            self.is_connected = True
+            return True
+
+        discovered = self.find_all_mt5_executables()
+        logger.info(f"Discovered MT5 installations on system: {discovered}")
+
+        # Try connecting with discovered binaries
+        for p in discovered:
+            try:
+                logger.info(f"Attempting MT5 initialization with: {p}")
+                if mt5.initialize(path=p):
+                    logger.info(f"Connected to MT5 binary at: {p}")
                     # Attempt login to account
                     mt5.login(self.default_login, password=self.default_password, server=self.default_server)
                     acc = mt5.account_info()
@@ -71,9 +107,21 @@ class CloudMT5BridgeWorker:
                         self.is_connected = True
                         return True
                     else:
-                        logger.warning(f"MT5 connected but account not logged in: {mt5.last_error()}")
+                        logger.warning(f"MT5 connected at {p} but account not logged in: {mt5.last_error()}")
             except Exception as e:
                 logger.error(f"Path attempt failed ({p}): {e}")
+
+        # Try default running instance without path
+        try:
+            if mt5.initialize():
+                mt5.login(self.default_login, password=self.default_password, server=self.default_server)
+                acc = mt5.account_info()
+                if acc:
+                    logger.info(f"✅ MT5 Terminal Connected (Default)! Account: #{acc.login} | Server: {acc.server} | Balance: ${acc.balance:,.2f}")
+                    self.is_connected = True
+                    return True
+        except Exception:
+            pass
 
         last_err = mt5.last_error() if MT5_AVAILABLE else "N/A"
         logger.warning(f"Could not connect to live MT5 instance (Last Error: {last_err}). Operating in Cloud Execution standby.")
