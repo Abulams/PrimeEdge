@@ -1270,8 +1270,10 @@ function App() {
                 <option value="GBPUSD">GBPUSD</option>
                 <option value="EURUSD">EURUSD</option>
                 <option value="XAUUSD">XAUUSD</option>
+                <option value="US100">US100</option>
                 <option value="AUDUSD">AUDUSD</option>
                 <option value="USDJPY">USDJPY</option>
+                <option value="AUDJPY">AUDJPY</option>
               </select>
             </header>
 
