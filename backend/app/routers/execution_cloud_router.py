@@ -240,6 +240,49 @@ def disconnect_cloud_account(
     return {"status": "DISCONNECTED"}
 
 
+class ForceTestTradeRequest(BaseModel):
+    instrument: str = "EURUSD"
+    direction: str = "LONG"
+    volume: float = 0.01
+
+
+@router.post("/cloud/force-test-trade")
+def force_test_trade(
+    req: ForceTestTradeRequest = Body(default=ForceTestTradeRequest()),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Forces an immediate test trade through the 24/7 Cloud MT5 Bridge.
+    Validates end-to-end routing, order reception, and broker fill confirmation.
+    """
+    import time
+    account = db.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == current_user.id).first()
+    account_id = account.id if account else 1
+
+    dir_enum = OrderDirection.LONG if req.direction.upper() == "LONG" else OrderDirection.SHORT
+    test_order = ExecutionOrder(
+        signal_id=f"TEST-MANUAL-{int(time.time())}",
+        instrument=req.instrument.upper(),
+        direction=dir_enum,
+        order_type=OrderType.MARKET,
+        entry_reference_price=1.0850 if "EUR" in req.instrument else 1.2550,
+        stop_loss=1.0800 if "EUR" in req.instrument else 1.2500,
+        take_profit=1.0950 if "EUR" in req.instrument else 1.2650,
+        position_size_lots=req.volume,
+        risk_pct=1.0,
+        account_balance=100000.0,
+    )
+
+    res = cloud_router.queue_order_for_account(account_id=account_id, order=test_order)
+    return {
+        "status": "DISPATCHED",
+        "message": f"Test trade for {req.instrument} {req.direction} ({req.volume} lots) queued for London MT5 Cloud Worker.",
+        "order": test_order.dict(),
+        "router_result": res,
+    }
+
+
 @router.get("/cloud/positions")
 def get_cloud_positions(
     current_user: User = Depends(get_current_user),

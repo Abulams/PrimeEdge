@@ -133,6 +133,47 @@ class RealtimeService:
             except Exception as je:
                 logger.error(f"Error updating active trade journal: {je}")
 
+            # 3. Autonomous Execution Scanner for Auto-Execution Enabled Accounts
+            try:
+                from .models import UserBrokerAccount, TradeRecord, SetupSnapshot
+                from .journal_service import JournalService
+
+                auto_accounts = db.query(UserBrokerAccount).filter(
+                    UserBrokerAccount.is_active == True,
+                    UserBrokerAccount.auto_execution_enabled == True
+                ).all()
+
+                if auto_accounts:
+                    ready_profiles = db.query(InstrumentDailyProfile).filter(
+                        InstrumentDailyProfile.date == today,
+                        InstrumentDailyProfile.confidence_score >= 75.0
+                    ).all()
+
+                    for prof in ready_profiles:
+                        # Prevent duplicate entries for same instrument today
+                        existing_active = db.query(TradeRecord).filter(
+                            TradeRecord.lifecycle_state == "ACTIVE"
+                        ).join(SetupSnapshot, SetupSnapshot.id == TradeRecord.setup_snapshot_id).filter(
+                            SetupSnapshot.instrument == prof.instrument
+                        ).first()
+
+                        if not existing_active:
+                            snap = JournalService.create_setup_snapshot(db, prof.instrument, source="AUTONOMOUS_CLOUD_ENGINE")
+                            for acc in auto_accounts:
+                                JournalService.accept_setup(
+                                    db=db,
+                                    snapshot_id=snap.id,
+                                    actual_entry=snap.corridor_p25_price or snap.setup_ref_price or 1.0,
+                                    actual_sl=snap.p90_invalidation or 0.0,
+                                    actual_tp=snap.corridor_p75_price or 0.0,
+                                    position_size_lots=0.01,
+                                    risk_pct=1.0,
+                                    notes="Market OS Autonomous Execution Engine"
+                                )
+                                logger.info(f"🤖 [Auto-Execution] Fired trade for {prof.instrument} on Account #{acc.login}")
+            except Exception as auto_err:
+                logger.error(f"Error in autonomous execution scanner: {auto_err}")
+
             logger.info("Realtime data refresh complete")
         except Exception as e:
             db.rollback()

@@ -232,6 +232,30 @@ export const ExecutionTab: React.FC = () => {
     }
   };
 
+  const [testTradeLoading, setTestTradeLoading] = useState(false);
+  const [testTradeMessage, setTestTradeMessage] = useState<string | null>(null);
+
+  const handleForceTestTrade = async (symbol: string = 'EURUSD', dir: string = 'LONG') => {
+    setTestTradeLoading(true);
+    setTestTradeMessage(null);
+    try {
+      const res = await apiFetch('/api/v1/execution/cloud/force-test-trade', {
+        method: 'POST',
+        body: JSON.stringify({ instrument: symbol, direction: dir, volume: 0.01 })
+      });
+      if (res.ok) {
+        setTestTradeMessage(`🚀 Test trade dispatched: ${symbol} ${dir} (0.01 lots) queued for London MT5 Cloud Worker!`);
+        setTimeout(() => fetchSubscriberData(), 1000);
+      } else {
+        setTestTradeMessage('❌ Failed to dispatch test trade. Check cloud worker status.');
+      }
+    } catch (e) {
+      setTestTradeMessage('❌ Network error while dispatching test trade.');
+    } finally {
+      setTestTradeLoading(false);
+    }
+  };
+
   const isConnected = cloudStatus?.connected ?? false;
   const acc = cloudStatus?.account_info || {};
 
@@ -295,6 +319,28 @@ export const ExecutionTab: React.FC = () => {
           </div>
 
           <button
+            onClick={() => handleForceTestTrade('EURUSD', 'LONG')}
+            disabled={testTradeLoading}
+            style={{
+              padding: '8px 14px',
+              background: 'linear-gradient(135deg, var(--accent-teal), var(--accent-blue))',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#000',
+              cursor: testTradeLoading ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12px',
+              fontWeight: 800,
+              boxShadow: '0 0 12px rgba(0, 242, 254, 0.35)',
+              opacity: testTradeLoading ? 0.7 : 1
+            }}
+          >
+            <Zap size={14} /> {testTradeLoading ? 'Executing...' : '⚡ Test Cloud Trade'}
+          </button>
+
+          <button
             onClick={() => { viewMode === 'subscriber' ? fetchSubscriberData() : fetchAdminData(); }}
             style={{
               padding: '8px 12px',
@@ -314,6 +360,26 @@ export const ExecutionTab: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {testTradeMessage && (
+        <div style={{
+          padding: '12px 16px',
+          background: 'rgba(0, 242, 254, 0.12)',
+          border: '1px solid rgba(0, 242, 254, 0.35)',
+          borderRadius: '8px',
+          color: 'var(--accent-teal)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          fontSize: '13px',
+          fontWeight: 700
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Zap size={16} /> {testTradeMessage}
+          </div>
+          <X size={16} style={{ cursor: 'pointer' }} onClick={() => setTestTradeMessage(null)} />
+        </div>
+      )}
 
       {connectSuccess && (
         <div style={{
