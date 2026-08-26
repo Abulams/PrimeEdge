@@ -115,16 +115,26 @@ class RealtimeService:
                                 InstrumentDailyProfile.date == today
                             ).first()
                             
-                            if profile:
-                                profile.current_regime = profile_data["current_regime"]
-                                profile.similarity_score = profile_data["similarity_score"]
-                                profile.continuation_probability = profile_data["continuation_probability"]
-                                profile.expected_mae = profile_data["expected_mae"]
-                                profile.expected_mfe = profile_data["expected_mfe"]
-                                profile.confidence_score = profile_data["confidence_score"]
-                                profile.mss_decomposition = profile_data["mss_decomposition"]
-                                profile.similarity_decomposition = profile_data["similarity_decomposition"]
-                                db.commit()
+                            if not profile:
+                                profile = InstrumentDailyProfile(
+                                    instrument=inst,
+                                    date=today,
+                                    current_regime=profile_data.get("current_regime", "UNKNOWN"),
+                                    similarity_score=profile_data.get("similarity_score", 70.0),
+                                    continuation_probability=profile_data.get("continuation_probability", 0.60),
+                                    expected_mae=profile_data.get("expected_mae", 15.0),
+                                    expected_mfe=profile_data.get("expected_mfe", 30.0),
+                                    confidence_score=profile_data.get("confidence_score", 75.0)
+                                )
+                                db.add(profile)
+                            else:
+                                profile.current_regime = profile_data.get("current_regime", profile.current_regime)
+                                profile.similarity_score = profile_data.get("similarity_score", profile.similarity_score)
+                                profile.continuation_probability = profile_data.get("continuation_probability", profile.continuation_probability)
+                                profile.expected_mae = profile_data.get("expected_mae", profile.expected_mae)
+                                profile.expected_mfe = profile_data.get("expected_mfe", profile.expected_mfe)
+                                profile.confidence_score = profile_data.get("confidence_score", profile.confidence_score)
+                            db.commit()
 
             # Update live MAE/MFE for all active trades in Auto Journal
             try:
@@ -144,33 +154,34 @@ class RealtimeService:
                 ).all()
 
                 if auto_accounts:
-                    ready_profiles = db.query(InstrumentDailyProfile).filter(
-                        InstrumentDailyProfile.date == today,
-                        InstrumentDailyProfile.confidence_score >= 75.0
-                    ).all()
+                    instruments_to_scan = ["XAUUSD", "US100", "EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "AUDJPY"]
+                    for inst in instruments_to_scan:
+                        trend = DecisionIntelligenceEngine.get_current_trend(db, inst)
+                        prof_data = DecisionIntelligenceEngine.generate_daily_profile_v2(db, inst, today, trend)
 
-                    for prof in ready_profiles:
-                        # Prevent duplicate entries for same instrument today
-                        existing_active = db.query(TradeRecord).filter(
-                            TradeRecord.lifecycle_state == "ACTIVE"
-                        ).join(SetupSnapshot, SetupSnapshot.id == TradeRecord.setup_snapshot_id).filter(
-                            SetupSnapshot.instrument == prof.instrument
-                        ).first()
+                        if prof_data and prof_data.get("status_state") == "READY":
+                            # Prevent duplicate entries for same instrument today
+                            existing_active = db.query(TradeRecord).filter(
+                                TradeRecord.lifecycle_state == "ACTIVE"
+                            ).join(SetupSnapshot, SetupSnapshot.id == TradeRecord.setup_snapshot_id).filter(
+                                SetupSnapshot.instrument == inst
+                            ).first()
 
-                        if not existing_active:
-                            snap = JournalService.create_setup_snapshot(db, prof.instrument, source="AUTONOMOUS_CLOUD_ENGINE")
-                            for acc in auto_accounts:
-                                JournalService.accept_setup(
-                                    db=db,
-                                    snapshot_id=snap.id,
-                                    actual_entry=snap.corridor_p25_price or snap.setup_ref_price or 1.0,
-                                    actual_sl=snap.p90_invalidation or 0.0,
-                                    actual_tp=snap.corridor_p75_price or 0.0,
-                                    position_size_lots=0.01,
-                                    risk_pct=1.0,
-                                    notes="Market OS Autonomous Execution Engine"
-                                )
-                                logger.info(f"🤖 [Auto-Execution] Fired trade for {prof.instrument} on Account #{acc.login}")
+                            if not existing_active:
+                                snap = JournalService.create_setup_snapshot(db, inst, source="AUTONOMOUS_CLOUD_ENGINE")
+                                for acc in auto_accounts:
+                                    JournalService.accept_setup(
+                                        db=db,
+                                        snapshot_id=snap.id,
+                                        actual_entry=snap.corridor_p25_price or snap.setup_ref_price or 1.0,
+                                        actual_sl=snap.p90_invalidation or 0.0,
+                                        actual_tp=snap.corridor_p75_price or 0.0,
+                                        position_size_lots=0.01,
+                                        risk_pct=1.0,
+                                        notes="Market OS Autonomous Execution Engine",
+                                        account_id=acc.id
+                                    )
+                                    logger.info(f"🤖 [Auto-Execution] Fired trade for {inst} on Account #{acc.login} (Acc ID {acc.id})")
             except Exception as auto_err:
                 logger.error(f"Error in autonomous execution scanner: {auto_err}")
 

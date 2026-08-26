@@ -160,11 +160,25 @@ class CloudMT5BridgeWorker:
 
         if MT5_AVAILABLE:
             try:
+                # Ensure symbol is selected in Market Watch
+                mt5.symbol_select(symbol, True)
+                
                 order_type = mt5.ORDER_TYPE_BUY if direction == "LONG" else mt5.ORDER_TYPE_SELL
                 tick = mt5.symbol_info_tick(symbol)
                 if tick:
                     fill_price = tick.ask if direction == "LONG" else tick.bid
                 
+                # Check filling modes supported
+                filling_mode = mt5.ORDER_FILLING_IOC
+                sym_info = mt5.symbol_info(symbol)
+                if sym_info:
+                    if sym_info.filling_mode & 1:
+                        filling_mode = mt5.ORDER_FILLING_FOK
+                    elif sym_info.filling_mode & 2:
+                        filling_mode = mt5.ORDER_FILLING_IOC
+                    else:
+                        filling_mode = mt5.ORDER_FILLING_RETURN
+
                 request = {
                     "action": mt5.TRADE_ACTION_DEAL,
                     "symbol": symbol,
@@ -173,11 +187,11 @@ class CloudMT5BridgeWorker:
                     "price": fill_price,
                     "sl": sl,
                     "tp": tp,
-                    "deviation": 20,
+                    "deviation": 50,
                     "magic": self.magic_number,
                     "comment": "MarketOS Cloud",
                     "type_time": mt5.ORDER_TIME_GTC,
-                    "type_filling": mt5.ORDER_FILLING_IOC,
+                    "type_filling": filling_mode,
                 }
                 
                 result = mt5.order_send(request)
@@ -186,8 +200,16 @@ class CloudMT5BridgeWorker:
                     fill_price = result.price
                     logger.info(f"🎉 [FILL CONFIRMED] Ticket #{ticket_id} filled at {fill_price}")
                 else:
-                    err = result.comment if result else mt5.last_error()
-                    logger.warning(f"MT5 order_send response: {err}. Logging executed fill.")
+                    # Retry with ORDER_FILLING_RETURN if filling mode was invalid
+                    request["type_filling"] = mt5.ORDER_FILLING_RETURN
+                    result2 = mt5.order_send(request)
+                    if result2 and result2.retcode == mt5.TRADE_RETCODE_DONE:
+                        ticket_id = str(result2.order)
+                        fill_price = result2.price
+                        logger.info(f"🎉 [FILL CONFIRMED (RETURN)] Ticket #{ticket_id} filled at {fill_price}")
+                    else:
+                        err = result.comment if result else mt5.last_error()
+                        logger.warning(f"MT5 order_send response: {err}. Logging executed fill.")
             except Exception as e:
                 logger.error(f"Error sending MT5 order: {e}")
 

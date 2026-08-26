@@ -103,7 +103,8 @@ class JournalService:
         position_size_lots: float = 0.1,
         risk_pct: float = 1.0,
         account_balance: float = 10000.0,
-        notes: Optional[str] = None
+        notes: Optional[str] = None,
+        account_id: Optional[int] = None
     ) -> TradeRecord:
         """
         Records that the trader accepted a Market OS setup and executed a trade.
@@ -179,7 +180,16 @@ class JournalService:
         try:
             from .execution.cloud_router import CloudExecutionRouter
             from .execution.base import ExecutionOrder, OrderDirection, OrderType
+            from .models import UserBrokerAccount
             
+            target_acc_id = account_id
+            if not target_acc_id:
+                primary_acc = db.query(UserBrokerAccount).filter(UserBrokerAccount.is_active == True).first()
+                if primary_acc:
+                    target_acc_id = primary_acc.id
+                else:
+                    target_acc_id = 1
+
             exec_router = CloudExecutionRouter()
             dir_enum = OrderDirection.LONG if snapshot.direction == "LONG" else OrderDirection.SHORT
             order_type_enum = OrderType.MARKET if entry_type.upper() == "MARKET" else OrderType.LIMIT
@@ -196,7 +206,8 @@ class JournalService:
                 risk_pct=risk_pct,
                 account_balance=account_balance
             )
-            exec_router.queue_order_for_account(account_id=1, order=exec_order)
+            exec_router.queue_order_for_account(account_id=target_acc_id, order=exec_order)
+            logger.info(f"🚀 Queued order for account {target_acc_id}: {snapshot.instrument} {dir_enum.value}")
         except Exception as e:
             logger.warning(f"Cloud execution dispatch warning: {e}")
 
