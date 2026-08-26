@@ -35,8 +35,8 @@ class ExecutionOrder(BaseModel):
     order_type: OrderType = OrderType.MARKET
     entry_reference_price: float
     stop_loss: float
-    take_profit: float
-    risk_r_pips: float
+    take_profit: float = 0.0
+    risk_r_pips: float = 20.0
     position_size_lots: float = 0.1
     risk_pct: float = 1.0
 
