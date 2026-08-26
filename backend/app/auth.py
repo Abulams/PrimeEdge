@@ -83,3 +83,22 @@ def get_current_admin(current_user: "User" = Depends(get_current_user)) -> "User
     if not current_user.is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return current_user
+
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
+
+def get_current_user_optional(
+    token: Optional[str] = Depends(oauth2_scheme_optional),
+    db: Session = Depends(get_db),
+) -> Optional["User"]:
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        if payload.get("type") != "access":
+            return None
+        email = payload.get("sub")
+        if not email:
+            return None
+        return db.query(User).filter(User.email == email, User.is_active == True).first()
+    except Exception:
+        return None
