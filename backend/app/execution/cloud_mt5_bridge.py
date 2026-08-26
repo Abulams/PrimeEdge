@@ -82,6 +82,8 @@ class CloudMT5BridgeWorker:
         login = 5054957055
         server = "MetaQuotes-Demo"
 
+        active_positions_list = []
+
         if MT5_AVAILABLE:
             try:
                 acc = mt5.account_info()
@@ -90,6 +92,29 @@ class CloudMT5BridgeWorker:
                     equity = acc.equity
                     login = acc.login
                     server = acc.server
+
+                # Fetch real open positions from MT5 terminal
+                mt5_positions = mt5.positions_get()
+                if mt5_positions:
+                    for p in mt5_positions:
+                        active_positions_list.append({
+                            "ticket_id": str(p.ticket),
+                            "platform": "MT5_CLOUD",
+                            "instrument": p.symbol,
+                            "direction": "LONG" if p.type == 0 else "SHORT",
+                            "open_price": p.price_open,
+                            "current_price": p.price_current,
+                            "stop_loss": p.sl,
+                            "take_profit": p.tp,
+                            "position_size_lots": p.volume,
+                            "current_pnl_pips": round((p.price_current - p.price_open) * 10.0 if "XAU" in p.symbol else (p.price_current - p.price_open) * 10000.0, 1),
+                            "current_pnl_r": round(p.profit / max(1.0, balance * 0.01), 2),
+                            "early_inval_armed": True,
+                            "early_inval_pips": 7.0,
+                            "mfe_disarm_pips": 7.0,
+                            "open_time": datetime.datetime.fromtimestamp(p.time).isoformat(),
+                            "comment": p.comment or "MarketOS Cloud"
+                        })
             except Exception:
                 pass
 
@@ -113,6 +138,8 @@ class CloudMT5BridgeWorker:
         try:
             headers = {"X-Worker-Id": WORKER_ID, "X-Worker-Key": WORKER_KEY}
             requests.post(f"{BASE_URL}/worker/heartbeat", json=payload, headers=headers, timeout=3)
+            if active_positions_list:
+                requests.post(f"{BASE_URL}/worker/report-positions/1", json=active_positions_list, headers=headers, timeout=3)
         except Exception:
             pass
 
