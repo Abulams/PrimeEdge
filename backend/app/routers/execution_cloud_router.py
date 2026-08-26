@@ -403,6 +403,34 @@ def report_order_fill(
     )
     db.add(audit_entry)
     db.commit()
+
+    # Store in active positions list for instant UI display
+    pos_entry = {
+        "ticket_id": req.ticket_id,
+        "platform": "MT5_CLOUD",
+        "instrument": req.instrument,
+        "direction": req.direction,
+        "open_price": req.fill_price,
+        "current_price": req.fill_price,
+        "stop_loss": req.sl,
+        "take_profit": req.tp,
+        "position_size_lots": req.volume,
+        "max_mae_pips": 0.0,
+        "max_mfe_pips": 0.0,
+        "current_pnl_pips": 0.0,
+        "current_pnl_r": 0.0,
+        "early_inval_armed": True,
+        "early_inval_pips": 7.0,
+        "mfe_disarm_pips": 7.0,
+        "open_time": datetime.datetime.utcnow().isoformat(),
+        "comment": f"Executed by London Worker {worker.worker_id}"
+    }
+
+    # Add or update position
+    existing = [p for p in cloud_router.active_positions[req.account_id] if p.get("ticket_id") != req.ticket_id]
+    existing.append(pos_entry)
+    cloud_router.active_positions[req.account_id] = existing
+
     return {"status": "LOGGED", "ticket_id": req.ticket_id}
 
 
