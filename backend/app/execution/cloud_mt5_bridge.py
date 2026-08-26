@@ -99,25 +99,40 @@ class CloudMT5BridgeWorker:
                 logger.info(f"Attempting MT5 initialization with: {p}")
                 if mt5.initialize(path=p):
                     logger.info(f"Connected to MT5 binary at: {p}")
-                    # Attempt login to account
-                    mt5.login(self.default_login, password=self.default_password, server=self.default_server)
+                    
+                    # 1. Check if terminal GUI is already logged in
                     acc = mt5.account_info()
-                    if acc:
-                        logger.info(f"✅ MT5 Terminal Connected & Authenticated! Account: #{acc.login} | Server: {acc.server} | Balance: ${acc.balance:,.2f} {acc.currency}")
+                    if acc and acc.login > 0:
+                        logger.info(f"✅ MT5 Active GUI Session Detected! Account: #{acc.login} | Server: {acc.server} | Balance: ${acc.balance:,.2f} {acc.currency}")
                         self.is_connected = True
                         return True
+
+                    # 2. Attempt explicit login if not already authenticated
+                    logger.info(f"Attempting explicit login to #{self.default_login} on {self.default_server}...")
+                    login_res = mt5.login(self.default_login, password=self.default_password, server=self.default_server)
+                    if login_res:
+                        acc = mt5.account_info()
+                        if acc:
+                            logger.info(f"✅ MT5 Terminal Connected & Authenticated! Account: #{acc.login} | Server: {acc.server} | Balance: ${acc.balance:,.2f} {acc.currency}")
+                            self.is_connected = True
+                            return True
                     else:
-                        logger.warning(f"MT5 connected at {p} but account not logged in: {mt5.last_error()}")
+                        logger.warning(f"Explicit login failed: {mt5.last_error()}. Trying without server param...")
+                        mt5.login(self.default_login, password=self.default_password)
+                        acc = mt5.account_info()
+                        if acc and acc.login > 0:
+                            logger.info(f"✅ MT5 Terminal Connected! Account: #{acc.login} | Balance: ${acc.balance:,.2f}")
+                            self.is_connected = True
+                            return True
             except Exception as e:
                 logger.error(f"Path attempt failed ({p}): {e}")
 
         # Try default running instance without path
         try:
             if mt5.initialize():
-                mt5.login(self.default_login, password=self.default_password, server=self.default_server)
                 acc = mt5.account_info()
-                if acc:
-                    logger.info(f"✅ MT5 Terminal Connected (Default)! Account: #{acc.login} | Server: {acc.server} | Balance: ${acc.balance:,.2f}")
+                if acc and acc.login > 0:
+                    logger.info(f"✅ MT5 Terminal Connected (Default)! Account: #{acc.login} | Balance: ${acc.balance:,.2f}")
                     self.is_connected = True
                     return True
         except Exception:
