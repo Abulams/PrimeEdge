@@ -41,10 +41,10 @@ class JournalService:
 
         regime = db.query(DailyMarketRegime).order_by(DailyMarketRegime.date.desc()).first()
 
-        corridor = profile.get("acceptable_corridor", {})
-        preferred = profile.get("preferred_zone", {})
-        deep = profile.get("deep_retracement", {})
-        option_ab = profile.get("option_a_vs_b", {})
+        corridor = profile.get("acceptable_corridor") or {}
+        preferred = profile.get("preferred_zone") or {}
+        deep = profile.get("deep_retracement") or {}
+        option_ab = profile.get("option_a_vs_b") or {}
 
         snapshot = SetupSnapshot(
             instrument=inst_upper,

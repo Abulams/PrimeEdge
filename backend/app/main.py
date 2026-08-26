@@ -127,8 +127,8 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Worker seed warning: {e}")
 
-    # Start the realtime polling service (every 5 minutes)
-    await realtime_service.start(interval_seconds=300)
+    # Start the realtime polling service (every 15 seconds for autonomous execution)
+    await realtime_service.start(interval_seconds=15)
     yield
     # Stop the service on shutdown
     await realtime_service.stop()
