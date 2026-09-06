@@ -3,6 +3,7 @@ import {
   BookOpen, Activity, CheckCircle, AlertTriangle, ShieldCheck,
   TrendingUp, TrendingDown, Clock, Target, Layers, ArrowRight, X, AlertCircle
 } from 'lucide-react';
+import { apiFetch } from './AuthContext';
 
 const API_BASE = (import.meta.env.VITE_API_URL ?? "") + "/api/v1";
 
@@ -95,15 +96,15 @@ export function AutoJournalTab() {
     setLoading(true);
     try {
       const [activeRes, historyRes, passedRes, perfRes] = await Promise.all([
-        fetch(`${API_BASE}/journal/active`),
-        fetch(`${API_BASE}/journal/history`),
-        fetch(`${API_BASE}/journal/passed`),
-        fetch(`${API_BASE}/journal/performance`),
+        apiFetch('/api/v1/journal/active'),
+        apiFetch('/api/v1/journal/history'),
+        apiFetch('/api/v1/journal/passed'),
+        apiFetch('/api/v1/journal/performance'),
       ]);
-      const activeData = await activeRes.json();
-      const historyData = await historyRes.json();
-      const passedData = await passedRes.json();
-      const perfData = await perfRes.json();
+      const activeData = activeRes.ok ? await activeRes.json() : [];
+      const historyData = historyRes.ok ? await historyRes.json() : [];
+      const passedData = passedRes.ok ? await passedRes.json() : [];
+      const perfData = perfRes.ok ? await perfRes.json() : null;
 
       setActiveTrades(activeData);
       setHistoryTrades(historyData);
@@ -128,9 +129,8 @@ export function AutoJournalTab() {
     if (!closeTradeId || !closeExitPrice) return;
 
     try {
-      const res = await fetch(`${API_BASE}/journal/close`, {
+      const res = await apiFetch('/api/v1/journal/close', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           trade_id: closeTradeId,
           exit_price: parseFloat(closeExitPrice),

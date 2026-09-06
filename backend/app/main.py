@@ -1,7 +1,9 @@
 import datetime
 import os
 import numpy as np
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
+from pydantic import BaseModel
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Request
+from .rate_limiter import waitlist_rate_limiter, ai_rate_limiter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -22,8 +24,9 @@ from .database import get_db, engine, Base
 from .models import (
     DailyMarketRegime, TradingJournal, InstrumentDailyProfile, TradePlannerLog,
     MarketSignature, PriceCache, SetupSnapshot, TradeRecord,
-    ReplayBatch, ReplaySetupSnapshot, ReplayTradeRecord
+    ReplayBatch, ReplaySetupSnapshot, ReplayTradeRecord, User, UserBrokerAccount
 )
+from .auth import get_current_user_optional
 from .schemas import (
     MacroRegimeResponse, WatchlistInstrument, TradePlanRequest, TradePlanResponse,
     JournalCreate, JournalResponseModel, ChatRequest, ChatResponse,
@@ -135,10 +138,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Market OS API", version="1.0.0", lifespan=lifespan)
 
-# Enable CORS for Next.js frontend
+# Enable CORS for frontend and API clients
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:8000,http://127.0.0.1:8000,http://51.105.32.248:8000,https://51.105.32.248")
+ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+if "*" in _raw_origins or os.getenv("ENVIRONMENT") != "production":
+    ALLOWED_ORIGINS = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust for production
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -146,6 +154,11 @@ app.add_middleware(
 
 # Enable GZip compression (60-70% bandwidth reduction on JSON payloads)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+@app.get("/api/v1/health")
+def health_check():
+    """Fast, zero-overhead health check endpoint for supervisor and monitors."""
+    return {"status": "HEALTHY", "timestamp": datetime.datetime.utcnow().isoformat()}
 
 # Auth & Cloud Execution Routers
 from .routers.auth_router import router as auth_router
@@ -367,16 +380,47 @@ def log_journal_entry(req: JournalCreate, db: Session = Depends(get_db)):
 
 # 5b. Auto Journal Endpoints (Immutable T₀ Snapshots & Trade Lifecycle)
 @app.post("/api/v1/journal/snapshot", response_model=SetupSnapshotResponse)
-def create_setup_snapshot(req: SetupSnapshotCreate, db: Session = Depends(get_db)):
+def create_setup_snapshot(
+    req: SetupSnapshotCreate,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
     """Captures an immutable T₀ snapshot of the setup for an instrument."""
     try:
-        return JournalService.create_setup_snapshot(db, req.instrument, source=req.source or "MANUAL")
+        uid = current_user.id if current_user else None
+        return JournalService.create_setup_snapshot(db, req.instrument, source=req.source or "MANUAL", user_id=uid)
     except ValueError as ve:
         raise HTTPException(status_code=404, detail=str(ve))
 
 @app.post("/api/v1/journal/accept", response_model=TradeRecordResponse)
-def accept_setup(req: AcceptSetupRequest, db: Session = Depends(get_db)):
-    """Trader accepts a setup and confirms execution parameters."""
+def accept_setup(
+    req: AcceptSetupRequest,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Trader accepts a setup and confirms execution parameters specifically for their connected broker account."""
+    target_account_id = None
+    target_user_id = current_user.id if current_user else None
+
+    if current_user:
+        user_acc = db.query(UserBrokerAccount).filter(
+            UserBrokerAccount.user_id == current_user.id,
+            UserBrokerAccount.is_active == True
+        ).first()
+        if user_acc:
+            target_account_id = user_acc.id
+
+    if not target_account_id:
+        # Fallback to the most recently registered active broker account
+        active_acc = db.query(UserBrokerAccount).filter(
+            UserBrokerAccount.is_active == True,
+            UserBrokerAccount.auto_execution_enabled == True
+        ).order_by(UserBrokerAccount.id.desc()).first()
+        if active_acc:
+            target_account_id = active_acc.id
+            if not target_user_id:
+                target_user_id = active_acc.user_id
+
     try:
         return JournalService.accept_setup(
             db=db,
@@ -388,16 +432,23 @@ def accept_setup(req: AcceptSetupRequest, db: Session = Depends(get_db)):
             position_size_lots=req.position_size_lots or 0.1,
             risk_pct=req.risk_pct or 1.0,
             account_balance=req.account_balance or 10000.0,
-            notes=req.notes
+            notes=req.notes,
+            account_id=target_account_id,
+            user_id=target_user_id
         )
     except ValueError as ve:
         raise HTTPException(status_code=404, detail=str(ve))
 
 @app.post("/api/v1/journal/pass", response_model=TradeRecordResponse)
-def pass_setup(req: PassSetupRequest, db: Session = Depends(get_db)):
+def pass_setup(
+    req: PassSetupRequest,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
     """Trader explicitly passes on a setup."""
     try:
-        return JournalService.pass_setup(db, req.snapshot_id, notes=req.notes)
+        uid = current_user.id if current_user else None
+        return JournalService.pass_setup(db, req.snapshot_id, notes=req.notes, user_id=uid)
     except ValueError as ve:
         raise HTTPException(status_code=404, detail=str(ve))
 
@@ -410,24 +461,46 @@ def close_trade(req: CloseTradeRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail=str(ve))
 
 @app.get("/api/v1/journal/active", response_model=List[TradeRecordResponse])
-def get_active_trades(db: Session = Depends(get_db)):
-    """Returns all currently ACTIVE trades with live MAE/MFE tracking."""
-    return db.query(TradeRecord).filter(TradeRecord.lifecycle_state == "ACTIVE").order_by(TradeRecord.created_at.desc()).all()
+def get_active_trades(
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Returns all currently ACTIVE trades specifically for the authenticated user."""
+    q = db.query(TradeRecord).filter(TradeRecord.lifecycle_state == "ACTIVE")
+    if current_user:
+        q = q.filter(TradeRecord.user_id == current_user.id)
+    return q.order_by(TradeRecord.created_at.desc()).all()
 
 @app.get("/api/v1/journal/history", response_model=List[TradeRecordResponse])
-def get_trade_history(db: Session = Depends(get_db)):
-    """Returns all CLOSED trades with full trajectory & outcome metrics."""
-    return db.query(TradeRecord).filter(TradeRecord.lifecycle_state == "CLOSED").order_by(TradeRecord.exit_timestamp.desc()).all()
+def get_trade_history(
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Returns all CLOSED trades specifically for the authenticated user."""
+    q = db.query(TradeRecord).filter(TradeRecord.lifecycle_state == "CLOSED")
+    if current_user:
+        q = q.filter(TradeRecord.user_id == current_user.id)
+    return q.order_by(TradeRecord.exit_timestamp.desc()).all()
 
 @app.get("/api/v1/journal/passed", response_model=List[TradeRecordResponse])
-def get_passed_setups(db: Session = Depends(get_db)):
-    """Returns all PASSED setups for opportunity cost review."""
-    return db.query(TradeRecord).filter(TradeRecord.lifecycle_state == "PASSED").order_by(TradeRecord.created_at.desc()).all()
+def get_passed_setups(
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Returns all PASSED setups for the authenticated user."""
+    q = db.query(TradeRecord).filter(TradeRecord.lifecycle_state == "PASSED")
+    if current_user:
+        q = q.filter(TradeRecord.user_id == current_user.id)
+    return q.order_by(TradeRecord.created_at.desc()).all()
 
 @app.get("/api/v1/journal/performance", response_model=AutoJournalPerformanceResponse)
-def get_journal_performance(db: Session = Depends(get_db)):
-    """Returns aggregated performance summary comparing Market OS expectations vs trader execution."""
-    return JournalService.get_performance_summary(db)
+def get_journal_performance(
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Returns aggregated performance summary specifically for the authenticated user."""
+    uid = current_user.id if current_user else None
+    return JournalService.get_performance_summary(db, user_id=uid)
 
 # 5c. Historical Replay / Simulation Environment Endpoints
 @app.post("/api/v1/replay/run", response_model=ReplayBatchResponse)
@@ -498,6 +571,66 @@ def compare_replay_batches(
 def get_replay_batches(db: Session = Depends(get_db)):
     """Returns all replay batches with principal performance metrics and export status."""
     return ReplayService.get_all_batches_summary(db)
+
+
+@app.get("/api/v1/replay/policy-stats")
+def get_policy_stats(db: Session = Depends(get_db)):
+    """
+    Returns live win rate, average R, and trade sample size per execution policy.
+    Computed from actual completed replay trade records in the database.
+    Falls back to theoretical reference values for policies with insufficient data (<30 trades).
+    """
+    from sqlalchemy import func, case
+    from .models import ReplayBatch, ReplaySetupSnapshot, ReplayTradeRecord
+
+    # Reference values per policy (design-time estimates, used as fallback when N < 30)
+    REFERENCE = {
+        "MARKET_ENTRY":            {"label": "Market Open — Session Price",         "ref_wr": 44.0, "ref_r": 0.265},
+        "RETEST_LIMIT_ENTRY":      {"label": "Pullback Limit — Wait for Retest",    "ref_wr": 44.0, "ref_r": 0.265},
+        "RECALIBRATED_DEVIATION":  {"label": "Missed Open — Recalibrated Stop",     "ref_wr": 42.0, "ref_r": 0.219},
+        "EXECUTION_DEVIATION":     {"label": "Late Entry — Blind Chase (+5p risk)",  "ref_wr": 43.1, "ref_r": 0.180},
+        "DEPRECATED_DEEP_LIMIT":   {"label": "⚠ Deep Limit [REMOVED — Do Not Use]", "ref_wr": 13.3, "ref_r": None},
+    }
+
+    # Query live stats from DB
+    rows = (
+        db.query(
+            ReplayBatch.execution_policy,
+            func.count(ReplayTradeRecord.id).label("total"),
+            func.sum(case((ReplayTradeRecord.outcome == "WIN", 1), else_=0)).label("wins"),
+            func.avg(ReplayTradeRecord.pnl_r).label("avg_r"),
+        )
+        .join(ReplaySetupSnapshot, ReplaySetupSnapshot.batch_id == ReplayBatch.id)
+        .join(ReplayTradeRecord, ReplayTradeRecord.replay_snapshot_id == ReplaySetupSnapshot.id)
+        .group_by(ReplayBatch.execution_policy)
+        .all()
+    )
+
+    live = {r.execution_policy: r for r in rows}
+
+    result = {}
+    for policy, ref in REFERENCE.items():
+        row = live.get(policy)
+        n = row.total if row else 0
+        if row and n >= 30:
+            wr = round(row.wins / n * 100, 1)
+            avg_r = round(row.avg_r, 3) if row.avg_r is not None else None
+            source = "live"
+        else:
+            wr = ref["ref_wr"]
+            avg_r = ref["ref_r"]
+            source = "reference"
+
+        result[policy] = {
+            "policy": policy,
+            "label": ref["label"],
+            "win_rate_pct": wr,
+            "avg_r": avg_r,
+            "sample_size": n,
+            "source": source,
+        }
+
+    return result
 
 @app.get("/api/v1/replay/{batch_id}/export")
 def export_replay_batch(batch_id: int, db: Session = Depends(get_db)):
@@ -1418,6 +1551,97 @@ def download_bridge_ea(platform: str):
             return FileResponse(file_path, filename="MarketOS_Bridge.mq4", media_type="text/plain")
 
     raise HTTPException(status_code=404, detail="EA script not found for requested platform")
+
+
+# ── Waitlist Onboarding API for 20 Beta Traders ─────────────────────────────
+class WaitlistSubmitRequest(BaseModel):
+    full_name: str
+    email: str
+    broker_platform: Optional[str] = None
+    contact_method: Optional[str] = None
+    why_interested: Optional[str] = None
+    consent_given: bool = True
+
+@app.get("/api/v1/waitlist/stats")
+def get_waitlist_stats(db: Session = Depends(get_db)):
+    from .models import WaitlistLead
+    total_spots = 20
+    count = db.query(WaitlistLead).count()
+    remaining = max(0, total_spots - count)
+    return {
+        "total_cohort_spots": total_spots,
+        "claimed_spots": count,
+        "remaining_spots": remaining,
+        "is_full": remaining <= 0
+    }
+
+@app.post("/api/v1/waitlist")
+def submit_waitlist(req: WaitlistSubmitRequest, request: Request, db: Session = Depends(get_db)):
+    waitlist_rate_limiter.check(request)
+    from .models import WaitlistLead
+    if not req.full_name or not req.email:
+        raise HTTPException(status_code=400, detail="Full Name and Email Address are required.")
+
+    existing = db.query(WaitlistLead).filter(WaitlistLead.email == req.email.strip().lower()).first()
+    if existing:
+        return {
+            "status": "ALREADY_REGISTERED",
+            "message": "You are already on the priority waitlist! We will be in touch within 48h.",
+            "lead_id": existing.id
+        }
+
+    total_spots = 20
+    count = db.query(WaitlistLead).count()
+    
+    lead = WaitlistLead(
+        full_name=req.full_name.strip(),
+        email=req.email.strip().lower(),
+        broker_platform=req.broker_platform,
+        contact_method=req.contact_method,
+        why_interested=req.why_interested,
+        consent_given=req.consent_given
+    )
+    db.add(lead)
+    db.commit()
+    db.refresh(lead)
+
+    remaining = max(0, total_spots - (count + 1))
+    return {
+        "status": "SUCCESS",
+        "message": "Thank you for applying. We'll reach out within 48h.",
+        "lead_id": lead.id,
+        "spot_number": count + 1,
+        "remaining_spots": remaining
+    }
+
+
+
+# ── Public Landing & Compliance Routes ──────────────────────────────────────
+_PUBLIC_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public")
+_WAITLIST_HTML = os.path.join(_PUBLIC_DIR, "waitlist.html")
+_PRIVACY_HTML = os.path.join(_PUBLIC_DIR, "privacy.html")
+_TERMS_HTML = os.path.join(_PUBLIC_DIR, "terms.html")
+
+@app.get("/waitlist", include_in_schema=False)
+@app.get("/waitlist.html", include_in_schema=False)
+def serve_waitlist():
+    if os.path.exists(_WAITLIST_HTML):
+        return StaticFileResponse(_WAITLIST_HTML)
+    raise HTTPException(status_code=404, detail="Waitlist page not found")
+
+@app.get("/privacy", include_in_schema=False)
+@app.get("/privacy.html", include_in_schema=False)
+def serve_privacy():
+    if os.path.exists(_PRIVACY_HTML):
+        return StaticFileResponse(_PRIVACY_HTML)
+    raise HTTPException(status_code=404, detail="Privacy page not found")
+
+@app.get("/terms", include_in_schema=False)
+@app.get("/terms.html", include_in_schema=False)
+def serve_terms():
+    if os.path.exists(_TERMS_HTML):
+        return StaticFileResponse(_TERMS_HTML)
+    raise HTTPException(status_code=404, detail="Terms page not found")
 
 
 # ── Serve built React frontend ──────────────────────────────────────────────

@@ -36,5 +36,10 @@ Thumbs.db
 # Audit scripts (local tooling)
 backend/audit_*.py
 
-# Binaries
+# Binaries & Sandbox Terminals
 cloudflared.exe
+terminals/
+backups/
+backend/scratch/
+*.csv
+caddy/

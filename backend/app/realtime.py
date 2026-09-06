@@ -124,6 +124,9 @@ class RealtimeService:
                                     continuation_probability=profile_data.get("continuation_probability", 0.60),
                                     expected_mae=profile_data.get("expected_mae", 15.0),
                                     expected_mfe=profile_data.get("expected_mfe", 30.0),
+                                    expected_holding_time=profile_data.get("expected_holding_time", 120),
+                                    historical_sample_size=profile_data.get("historical_sample_size", 45),
+                                    best_session=profile_data.get("best_session", "LONDON"),
                                     confidence_score=profile_data.get("confidence_score", 75.0)
                                 )
                                 db.add(profile)
@@ -133,6 +136,9 @@ class RealtimeService:
                                 profile.continuation_probability = profile_data.get("continuation_probability", profile.continuation_probability)
                                 profile.expected_mae = profile_data.get("expected_mae", profile.expected_mae)
                                 profile.expected_mfe = profile_data.get("expected_mfe", profile.expected_mfe)
+                                profile.expected_holding_time = profile_data.get("expected_holding_time", profile.expected_holding_time)
+                                profile.historical_sample_size = profile_data.get("historical_sample_size", profile.historical_sample_size)
+                                profile.best_session = profile_data.get("best_session", profile.best_session)
                                 profile.confidence_score = profile_data.get("confidence_score", profile.confidence_score)
                             db.commit()
 
@@ -160,28 +166,76 @@ class RealtimeService:
                         prof_data = DecisionIntelligenceEngine.generate_daily_profile_v2(db, inst, today, trend)
 
                         if prof_data and prof_data.get("status_state") == "READY":
-                            # Prevent duplicate entries for same instrument today
-                            existing_active = db.query(TradeRecord).filter(
-                                TradeRecord.lifecycle_state == "ACTIVE"
-                            ).join(SetupSnapshot, SetupSnapshot.id == TradeRecord.setup_snapshot_id).filter(
-                                SetupSnapshot.instrument == inst
-                            ).first()
+                            direction = prof_data.get("direction", "LONG")
+                            ref_price = prof_data.get("setup_ref_price", 0.0)
+                            session_name = prof_data.get("best_session", "ANY")
 
-                            if not existing_active:
-                                snap = JournalService.create_setup_snapshot(db, inst, source="AUTONOMOUS_CLOUD_ENGINE")
-                                for acc in auto_accounts:
-                                    JournalService.accept_setup(
-                                        db=db,
-                                        snapshot_id=snap.id,
-                                        actual_entry=snap.corridor_p25_price or snap.setup_ref_price or 1.0,
-                                        actual_sl=snap.p90_invalidation or 0.0,
-                                        actual_tp=snap.corridor_p75_price or 0.0,
-                                        position_size_lots=0.01,
-                                        risk_pct=1.0,
-                                        notes="Market OS Autonomous Execution Engine",
-                                        account_id=acc.id
-                                    )
-                                    logger.info(f"🤖 [Auto-Execution] Fired trade for {inst} on Account #{acc.login} (Acc ID {acc.id})")
+                            # Retrieve existing autonomous SetupSnapshot for this exact READY signal instance, or create one
+                            snap = db.query(SetupSnapshot).filter(
+                                SetupSnapshot.instrument == inst,
+                                SetupSnapshot.date == today,
+                                SetupSnapshot.snapshot_source == "AUTONOMOUS_CLOUD_ENGINE",
+                                SetupSnapshot.direction == direction,
+                                SetupSnapshot.setup_ref_price == ref_price,
+                                SetupSnapshot.status_at_snapshot == "READY",
+                                SetupSnapshot.session == session_name
+                            ).order_by(SetupSnapshot.id.desc()).first()
+
+                            if not snap:
+                                snap = JournalService.create_setup_snapshot(
+                                    db, inst, source="AUTONOMOUS_CLOUD_ENGINE"
+                                )
+
+                            for acc in auto_accounts:
+                                # Guard A: Check Allowed Instruments Whitelist
+                                allowed = acc.allowed_instruments or []
+                                if allowed and inst not in allowed:
+                                    continue
+
+                                # Guard B: Check Max Concurrent Open Trades
+                                open_count = db.query(TradeRecord).filter(
+                                    TradeRecord.account_id == acc.id,
+                                    TradeRecord.lifecycle_state == "ACTIVE"
+                                ).count()
+                                if open_count >= (acc.max_concurrent_trades or 3):
+                                    continue
+
+                                # Guard C: STRICT 1-TRADE PER DISTINCT READY SIGNAL INSTANCE PER ACCOUNT
+                                # Check if THIS account has already executed a trade for THIS exact READY setup snapshot
+                                already_executed_signal = db.query(TradeRecord).filter(
+                                    TradeRecord.account_id == acc.id,
+                                    TradeRecord.setup_snapshot_id == snap.id
+                                ).first()
+
+                                if already_executed_signal:
+                                    continue # Strict 1 trade per distinct READY signal instance per account!
+
+                                # Determine lot size & risk from user preferences
+                                size_lots = acc.fixed_lot_size or 0.01
+                                risk_percentage = acc.risk_pct or 1.0
+
+                                pip_mult = 100.0 if "JPY" in inst else (10.0 if "XAU" in inst else 10000.0)
+                                dir_sign = 1.0 if direction == "LONG" else -1.0
+                                mfe_target_pips = snap.mfe_p75_pips or snap.mfe_p50_pips or 30.0
+
+                                actual_entry = snap.corridor_p25_price or snap.setup_ref_price or 1.0
+                                actual_sl = snap.p90_invalidation or round(actual_entry - (dir_sign * 25.0 / pip_mult), 5)
+                                actual_tp = round(actual_entry + (dir_sign * mfe_target_pips / pip_mult), 5)
+
+                                # Accept trade tied to user and account
+                                JournalService.accept_setup(
+                                    db=db,
+                                    snapshot_id=snap.id,
+                                    actual_entry=actual_entry,
+                                    actual_sl=actual_sl,
+                                    actual_tp=actual_tp,
+                                    position_size_lots=size_lots,
+                                    risk_pct=risk_percentage,
+                                    notes=f"Market OS Autonomous Execution Engine (Signal #{snap.id})",
+                                    account_id=acc.id,
+                                    user_id=acc.user_id
+                                )
+                                logger.info(f"🤖 [Auto-Execution] Executed READY signal #{snap.id} for {inst} on Account #{acc.login} (User {acc.user_id}, Acc ID {acc.id})")
             except Exception as auto_err:
                 logger.error(f"Error in autonomous execution scanner: {auto_err}")
 

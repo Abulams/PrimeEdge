@@ -380,27 +380,29 @@ export default function MSDTradingViewChart({ symbol, onSymbolChange, onDataLoad
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0', width: '100%' }}>
 
       {/* ── Header Bar ───────────────────────────────────────────────────── */}
-      <div style={{
+      <div className="chart-header-bar" style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '14px 20px',
+        padding: '12px 16px',
         background: 'linear-gradient(135deg, rgba(13,17,23,0.95) 0%, rgba(21,28,39,0.98) 100%)',
         borderBottom: '1px solid rgba(255,255,255,0.07)',
         flexWrap: 'wrap',
-        gap: '12px',
+        gap: '10px',
       }}>
-        {/* Symbol Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Activity size={16} style={{ color: '#00f2fe' }} />
-          <span style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>MSD Chart</span>
-          <div style={{ display: 'flex', gap: '6px' }}>
+        {/* Symbol Selector Group */}
+        <div className="chart-symbol-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', maxWidth: '100%', WebkitOverflowScrolling: 'touch', paddingBottom: '2px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+            <Activity size={15} style={{ color: '#00f2fe' }} />
+            <span style={{ fontWeight: 800, fontSize: '14px', color: '#fff', letterSpacing: '-0.2px' }}>MSD</span>
+          </div>
+          <div style={{ display: 'flex', gap: '5px', flexShrink: 0 }}>
             {INSTRUMENTS.map(inst => (
               <button
                 key={inst}
                 onClick={() => handleSymbolChange(inst)}
                 style={{
-                  padding: '4px 10px',
+                  padding: '5px 10px',
                   borderRadius: '6px',
                   fontSize: '11px',
                   fontWeight: 700,
@@ -408,19 +410,21 @@ export default function MSDTradingViewChart({ symbol, onSymbolChange, onDataLoad
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                   borderColor: activeSymbol === inst ? '#00f2fe' : 'rgba(255,255,255,0.1)',
-                  backgroundColor: activeSymbol === inst ? 'rgba(0,242,254,0.12)' : 'transparent',
-                  color: activeSymbol === inst ? '#00f2fe' : '#64748b',
+                  backgroundColor: activeSymbol === inst ? 'rgba(0,242,254,0.15)' : 'transparent',
+                  color: activeSymbol === inst ? '#00f2fe' : '#94a3b8',
+                  whiteSpace: 'nowrap'
                 }}
               >
                 {inst}
               </button>
             ))}
           </div>
+        </div>
 
-          <div style={{ width: '1px', height: '18px', backgroundColor: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
-
+        {/* Timeframe & Overlay Controls Group */}
+        <div className="chart-tools-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {/* Timeframe Selector */}
-          <div style={{ display: 'flex', gap: '4px' }}>
+          <div style={{ display: 'flex', gap: '3px', background: 'rgba(255,255,255,0.03)', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' }}>
             {[
               { id: '5m', label: '5M' },
               { id: '15m', label: '15M' },
@@ -432,23 +436,21 @@ export default function MSDTradingViewChart({ symbol, onSymbolChange, onDataLoad
                 key={tf.id}
                 onClick={() => setTimeframe(tf.id)}
                 style={{
-                  padding: '3px 8px',
+                  padding: '4px 8px',
                   borderRadius: '4px',
-                  fontSize: '11px',
+                  fontSize: '10px',
                   fontWeight: 800,
-                  border: '1px solid',
+                  border: 'none',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
-                  borderColor: timeframe === tf.id ? 'var(--accent-teal)' : 'rgba(255,255,255,0.08)',
-                  backgroundColor: timeframe === tf.id ? 'rgba(0, 242, 254, 0.15)' : 'transparent',
-                  color: timeframe === tf.id ? 'var(--accent-teal)' : '#64748b',
+                  backgroundColor: timeframe === tf.id ? 'var(--accent-teal)' : 'transparent',
+                  color: timeframe === tf.id ? '#0b0f19' : '#94a3b8',
                 }}
               >
                 {tf.label}
               </button>
             ))}
           </div>
-        </div>
 
         {/* Overlay Toggles */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -482,6 +484,7 @@ export default function MSDTradingViewChart({ symbol, onSymbolChange, onDataLoad
           ))}
         </div>
       </div>
+    </div>
 
       {/* ── Trade Health HUD ───────────────────────────────────────────────── */}
       {overlays.healthHUD && health && (

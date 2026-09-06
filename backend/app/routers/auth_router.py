@@ -1,4 +1,4 @@
-﻿import datetime
+import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Body
 from fastapi.security import OAuth2PasswordRequestForm
@@ -74,33 +74,20 @@ class AdminUpdateUserRequest(BaseModel):
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
-    """Register a new user account."""
-    existing = db.query(User).filter(User.email == req.email.lower()).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="An account with this email already exists")
-
-    user = User(
-        email=req.email.lower(),
-        hashed_password=hash_password(req.password),
-        full_name=req.full_name,
-        role="trader",
-        is_active=True,
-        is_admin=False,
-        email_verified=False,
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-
-    return TokenResponse(
-        access_token=create_access_token(user.email),
-        refresh_token=create_refresh_token(user.email),
+    """Register a new user account (BLOCKED - invite only)."""
+    raise HTTPException(
+        status_code=403, 
+        detail="Registration is currently disabled. Market-OS is private access only."
     )
 
+
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Request
+from ..rate_limiter import login_rate_limiter
 
 @router.post("/login", response_model=TokenResponse)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """Login with email + password. Returns access + refresh tokens."""
+def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    """Login with email + password. Protected by 5 req/min rate limit."""
+    login_rate_limiter.check(request)
     user = db.query(User).filter(User.email == form_data.username.lower()).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password")

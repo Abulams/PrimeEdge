@@ -5,6 +5,7 @@ import {
   Terminal, Lock, Check, Send, AlertCircle, Radio, Cpu, Settings, X, Eye, EyeOff, ShieldAlert
 } from 'lucide-react';
 import { useAuth, apiFetch } from './AuthContext';
+import { FounderAdminDashboard } from './FounderAdminDashboard';
 
 interface CloudAccountStatus {
   connected: boolean;
@@ -118,6 +119,35 @@ export const ExecutionTab: React.FC = () => {
   const [adminData, setAdminData] = useState<AdminOpsData | null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
 
+  // Risk & Asset Allocation Preferences
+  const [riskMode, setRiskMode] = useState<'FIXED_LOT' | 'DYNAMIC_RISK_PCT'>('FIXED_LOT');
+  const [riskPct, setRiskPct] = useState<number>(1.0);
+  const [fixedLotSize, setFixedLotSize] = useState<number>(0.01);
+  const [allowedInstruments, setAllowedInstruments] = useState<string[]>(['EURUSD', 'GBPUSD', 'USDJPY', 'XAUUSD', 'US100', 'USDCHF']);
+  const [maxConcurrentTrades, setMaxConcurrentTrades] = useState<number>(3);
+  const [maxDailyLossPct, setMaxDailyLossPct] = useState<number>(3.0);
+  const [prefSaving, setPrefSaving] = useState(false);
+  const [prefSaveMessage, setPrefSaveMessage] = useState<string | null>(null);
+
+  const fetchPreferences = async () => {
+    try {
+      const resPref = await apiFetch('/api/v1/execution/cloud/preferences');
+      if (resPref.ok) {
+        const prefData = await resPref.json();
+        setRiskMode(prefData.risk_mode || 'FIXED_LOT');
+        setRiskPct(prefData.risk_pct || 1.0);
+        setFixedLotSize(prefData.fixed_lot_size || 0.01);
+        if (Array.isArray(prefData.allowed_instruments)) {
+          setAllowedInstruments(prefData.allowed_instruments);
+        }
+        setMaxConcurrentTrades(prefData.max_concurrent_trades || 3);
+        setMaxDailyLossPct(prefData.max_daily_loss_pct || 3.0);
+      }
+    } catch (e) {
+      console.error('Error fetching preferences:', e);
+    }
+  };
+
   const fetchSubscriberData = async () => {
     try {
       const [resStatus, resPos] = await Promise.all([
@@ -134,6 +164,35 @@ export const ExecutionTab: React.FC = () => {
       }
     } catch (e) {
       console.error('Error fetching subscriber execution data:', e);
+    }
+  };
+
+  const handleSavePreferences = async () => {
+    setPrefSaving(true);
+    setPrefSaveMessage(null);
+    try {
+      const res = await apiFetch('/api/v1/execution/cloud/preferences', {
+        method: 'POST',
+        body: JSON.stringify({
+          risk_mode: riskMode,
+          risk_pct: riskPct,
+          fixed_lot_size: fixedLotSize,
+          allowed_instruments: allowedInstruments,
+          max_concurrent_trades: maxConcurrentTrades,
+          max_daily_loss_pct: maxDailyLossPct,
+        })
+      });
+      if (res.ok) {
+        setPrefSaveMessage('✅ Risk & Asset preferences saved successfully!');
+        setTimeout(() => setPrefSaveMessage(null), 4000);
+      } else {
+        setPrefSaveMessage('❌ Failed to save preferences.');
+      }
+    } catch (e) {
+      console.error('Error saving preferences:', e);
+      setPrefSaveMessage('❌ Error saving preferences.');
+    } finally {
+      setPrefSaving(false);
     }
   };
 
@@ -155,6 +214,7 @@ export const ExecutionTab: React.FC = () => {
 
   useEffect(() => {
     fetchSubscriberData();
+    fetchPreferences();
     const interval = setInterval(() => {
       if (viewMode === 'subscriber') {
         fetchSubscriberData();
@@ -274,49 +334,51 @@ export const ExecutionTab: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <div style={{
-            display: 'flex',
-            background: 'var(--bg-secondary)',
-            borderRadius: '8px',
-            padding: '3px',
-            border: '1px solid var(--border-color)'
-          }}>
-            <button
-              onClick={() => { setViewMode('subscriber'); fetchSubscriberData(); }}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: 700,
-                background: viewMode === 'subscriber' ? 'var(--bg-tertiary)' : 'transparent',
-                color: viewMode === 'subscriber' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              Subscriber View
-            </button>
-            <button
-              onClick={() => { setViewMode('admin'); fetchAdminData(); }}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: 700,
-                background: viewMode === 'admin' ? 'var(--bg-tertiary)' : 'transparent',
-                color: viewMode === 'admin' ? 'var(--accent-teal)' : 'var(--text-secondary)',
-                transition: 'all 0.15s ease',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <Cpu size={14} /> Admin Operations
-            </button>
-          </div>
+          {user?.is_admin && (
+            <div style={{
+              display: 'flex',
+              background: 'var(--bg-secondary)',
+              borderRadius: '8px',
+              padding: '3px',
+              border: '1px solid var(--border-color)'
+            }}>
+              <button
+                onClick={() => { setViewMode('subscriber'); fetchSubscriberData(); }}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  background: viewMode === 'subscriber' ? 'var(--bg-tertiary)' : 'transparent',
+                  color: viewMode === 'subscriber' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                Subscriber View
+              </button>
+              <button
+                onClick={() => { setViewMode('admin'); fetchAdminData(); }}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  background: viewMode === 'admin' ? 'var(--bg-tertiary)' : 'transparent',
+                  color: viewMode === 'admin' ? 'var(--accent-teal)' : 'var(--text-secondary)',
+                  transition: 'all 0.15s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Cpu size={14} /> Admin Operations
+              </button>
+            </div>
+          )}
 
           <button
             onClick={() => handleForceTestTrade('EURUSD', 'LONG')}
@@ -556,6 +618,338 @@ export const ExecutionTab: React.FC = () => {
             </div>
           </div>
 
+          {/* Risk Sizing & Asset Preferences Card (Prop Desk Model) */}
+          <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Shield size={18} color="var(--accent-teal)" />
+                <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0 }}>Subscriber Risk & Asset Allocation Preferences</h3>
+                <span style={{ fontSize: '11px', color: 'var(--accent-teal)', background: 'rgba(0, 242, 254, 0.1)', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>
+                  PROP DESK MODEL
+                </span>
+              </div>
+
+              {prefSaveMessage && (
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-green)', background: 'rgba(16,185,129,0.12)', padding: '4px 12px', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.3)' }}>
+                  {prefSaveMessage}
+                </div>
+              )}
+            </div>
+
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
+              Customize your capital sizing and choose exactly which asset classes to auto-execute. Institutional entry corridors ($T_0$), -0.35R early loss-cutting, and structural stop losses remain automatically managed by Market OS.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+              {/* 1. Asset Selection & Filters */}
+              <div style={{ background: 'var(--bg-primary)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>🎯 Allowed Asset Classes</span>
+                  <span style={{ fontSize: '11px', color: 'var(--accent-teal)' }}>{allowedInstruments.length} Selected</span>
+                </div>
+
+                {/* Quick Presets */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setAllowedInstruments(['EURUSD', 'GBPUSD', 'USDJPY', 'XAUUSD', 'US100', 'USDCHF'])}
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      border: '1px solid var(--border-color)',
+                      background: allowedInstruments.length === 6 ? 'rgba(0, 242, 254, 0.15)' : 'var(--bg-secondary)',
+                      color: allowedInstruments.length === 6 ? 'var(--accent-teal)' : 'var(--text-secondary)'
+                    }}
+                  >
+                    All Assets
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAllowedInstruments(['XAUUSD'])}
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      border: '1px solid var(--border-color)',
+                      background: (allowedInstruments.length === 1 && allowedInstruments.includes('XAUUSD')) ? 'rgba(234, 179, 8, 0.2)' : 'var(--bg-secondary)',
+                      color: (allowedInstruments.length === 1 && allowedInstruments.includes('XAUUSD')) ? '#eab308' : 'var(--text-secondary)'
+                    }}
+                  >
+                    🥇 Gold Only
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAllowedInstruments(['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF'])}
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      border: '1px solid var(--border-color)',
+                      background: (allowedInstruments.includes('EURUSD') && !allowedInstruments.includes('XAUUSD') && !allowedInstruments.includes('US100')) ? 'rgba(59, 130, 246, 0.2)' : 'var(--bg-secondary)',
+                      color: (allowedInstruments.includes('EURUSD') && !allowedInstruments.includes('XAUUSD') && !allowedInstruments.includes('US100')) ? '#3b82f6' : 'var(--text-secondary)'
+                    }}
+                  >
+                    💱 Forex Only
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAllowedInstruments(['XAUUSD', 'US100'])}
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      border: '1px solid var(--border-color)',
+                      background: (allowedInstruments.length === 2 && allowedInstruments.includes('XAUUSD') && allowedInstruments.includes('US100')) ? 'rgba(168, 85, 247, 0.2)' : 'var(--bg-secondary)',
+                      color: (allowedInstruments.length === 2 && allowedInstruments.includes('XAUUSD') && allowedInstruments.includes('US100')) ? '#c084fc' : 'var(--text-secondary)'
+                    }}
+                  >
+                    Gold + US100
+                  </button>
+                </div>
+
+                {/* Individual Asset Chips */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginTop: '4px' }}>
+                  {[
+                    { sym: 'XAUUSD', label: 'Gold (XAU)' },
+                    { sym: 'EURUSD', label: 'EUR / USD' },
+                    { sym: 'GBPUSD', label: 'GBP / USD' },
+                    { sym: 'USDJPY', label: 'USD / JPY' },
+                    { sym: 'US100', label: 'Nasdaq (US100)' },
+                    { sym: 'USDCHF', label: 'USD / CHF' },
+                  ].map(({ sym, label }) => {
+                    const isSelected = allowedInstruments.includes(sym);
+                    return (
+                      <button
+                        key={sym}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            if (allowedInstruments.length > 1) {
+                              setAllowedInstruments(allowedInstruments.filter(s => s !== sym));
+                            }
+                          } else {
+                            setAllowedInstruments([...allowedInstruments, sym]);
+                          }
+                        }}
+                        style={{
+                          padding: '6px 8px',
+                          borderRadius: '6px',
+                          border: `1px solid ${isSelected ? 'var(--accent-teal)' : 'var(--border-color)'}`,
+                          background: isSelected ? 'rgba(0, 242, 254, 0.12)' : 'var(--bg-secondary)',
+                          color: isSelected ? 'var(--accent-teal)' : 'var(--text-secondary)',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          textAlign: 'center',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {isSelected ? '✓ ' : ''}{label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. Sizing Mode & Capital Allocation */}
+              <div style={{ background: 'var(--bg-primary)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  📦 Position Sizing Model
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setRiskMode('FIXED_LOT')}
+                    style={{
+                      padding: '8px',
+                      borderRadius: '6px',
+                      border: `1px solid ${riskMode === 'FIXED_LOT' ? 'var(--accent-green)' : 'var(--border-color)'}`,
+                      background: riskMode === 'FIXED_LOT' ? 'rgba(16,185,129,0.15)' : 'var(--bg-secondary)',
+                      color: riskMode === 'FIXED_LOT' ? 'var(--accent-green)' : 'var(--text-secondary)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Fixed Lot Size
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setRiskMode('DYNAMIC_RISK_PCT')}
+                    style={{
+                      padding: '8px',
+                      borderRadius: '6px',
+                      border: `1px solid ${riskMode === 'DYNAMIC_RISK_PCT' ? 'var(--accent-teal)' : 'var(--border-color)'}`,
+                      background: riskMode === 'DYNAMIC_RISK_PCT' ? 'rgba(0,242,254,0.15)' : 'var(--bg-secondary)',
+                      color: riskMode === 'DYNAMIC_RISK_PCT' ? 'var(--accent-teal)' : 'var(--text-secondary)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Dynamic Risk %
+                  </button>
+                </div>
+
+                {riskMode === 'FIXED_LOT' ? (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                      Fixed Volume (Lots per Trade)
+                    </label>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        max="5.0"
+                        value={fixedLotSize}
+                        onChange={e => setFixedLotSize(parseFloat(e.target.value) || 0.01)}
+                        style={{ ...inputStyle, padding: '6px 10px', fontSize: '13px', fontWeight: 700, width: '100px' }}
+                      />
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {[0.01, 0.02, 0.05, 0.10, 0.20].map(val => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setFixedLotSize(val)}
+                            style={{
+                              padding: '4px 6px',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              background: fixedLotSize === val ? 'rgba(16,185,129,0.2)' : 'var(--bg-secondary)',
+                              color: fixedLotSize === val ? 'var(--accent-green)' : 'var(--text-secondary)',
+                              border: '1px solid var(--border-color)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {val}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                      Account Risk Percentage (% of Balance)
+                    </label>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        step="0.25"
+                        min="0.25"
+                        max="3.0"
+                        value={riskPct}
+                        onChange={e => setRiskPct(parseFloat(e.target.value) || 1.0)}
+                        style={{ ...inputStyle, padding: '6px 10px', fontSize: '13px', fontWeight: 700, width: '100px' }}
+                      />
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {[0.5, 1.0, 1.5, 2.0].map(val => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setRiskPct(val)}
+                            style={{
+                              padding: '4px 6px',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              background: riskPct === val ? 'rgba(0,242,254,0.2)' : 'var(--bg-secondary)',
+                              color: riskPct === val ? 'var(--accent-teal)' : 'var(--text-secondary)',
+                              border: '1px solid var(--border-color)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {val}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Prop Firm & Exposure Safety Guards */}
+              <div style={{ background: 'var(--bg-primary)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  🛡️ Prop Firm & Exposure Limits
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                      Max Concurrent Trades
+                    </label>
+                    <select
+                      value={maxConcurrentTrades}
+                      onChange={e => setMaxConcurrentTrades(parseInt(e.target.value) || 3)}
+                      style={{ ...inputStyle, padding: '6px 8px', fontSize: '12px', fontWeight: 700 }}
+                    >
+                      <option value={1}>1 Trade at a time</option>
+                      <option value={2}>Max 2 Trades</option>
+                      <option value={3}>Max 3 Trades (Default)</option>
+                      <option value={5}>Max 5 Trades</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                      Max Daily Drawdown
+                    </label>
+                    <select
+                      value={maxDailyLossPct}
+                      onChange={e => setMaxDailyLossPct(parseFloat(e.target.value) || 3.0)}
+                      style={{ ...inputStyle, padding: '6px 8px', fontSize: '12px', fontWeight: 700 }}
+                    >
+                      <option value={2.0}>2.0% (Strict Prop Firm)</option>
+                      <option value={3.0}>3.0% (Standard)</option>
+                      <option value={4.0}>4.0% (Relaxed)</option>
+                      <option value={5.0}>5.0% (Max Limit)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSavePreferences}
+                  disabled={prefSaving}
+                  style={{
+                    marginTop: 'auto',
+                    padding: '8px 14px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, var(--accent-teal), var(--accent-blue))',
+                    color: '#fff',
+                    cursor: prefSaving ? 'not-allowed' : 'pointer',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Check size={14} /> {prefSaving ? 'Saving...' : 'Save Risk & Asset Preferences'}
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Connect Account Config Modal / Slide-down */}
           {showConfig && (
             <div className="glass-panel" style={{ padding: '24px', border: '1px solid var(--accent-teal)' }}>
@@ -751,194 +1145,9 @@ export const ExecutionTab: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* 2. SOLO-FOUNDER ADMIN OPERATIONS CONSOLE                                  */}
+      {/* 2. SOLO-FOUNDER OPERATIONS COMMAND CENTER                                  */}
       {/* ========================================================================= */}
-      {viewMode === 'admin' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          
-          {/* Master Emergency Killswitch Banner */}
-          <div style={{
-            padding: '16px 20px',
-            borderRadius: '10px',
-            background: adminData?.global_killswitch_active ? 'rgba(239,68,68,0.2)' : 'var(--bg-secondary)',
-            border: `1px solid ${adminData?.global_killswitch_active ? 'var(--accent-red)' : 'var(--border-color)'}`,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '12px'
-          }}>
-            <div>
-              <div style={{ fontSize: '15px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', color: adminData?.global_killswitch_active ? 'var(--accent-red)' : 'var(--text-primary)' }}>
-                <ShieldAlert size={20} /> MASTER GLOBAL EXECUTION KILLSWITCH
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                {adminData?.global_killswitch_active
-                  ? 'CRITICAL: Global killswitch is ENGAGED. All order routing across all workers is halted immediately.'
-                  : 'System operational. Order routing is active for authorized subscriber terminals.'}
-              </div>
-            </div>
-
-            <button
-              onClick={() => handleAdminGlobalKillswitch(!adminData?.global_killswitch_active)}
-              style={{
-                padding: '10px 20px',
-                borderRadius: '8px',
-                border: 'none',
-                background: adminData?.global_killswitch_active ? 'var(--accent-green)' : 'var(--accent-red)',
-                color: '#fff',
-                fontWeight: 800,
-                fontSize: '13px',
-                cursor: 'pointer',
-                letterSpacing: '0.5px'
-              }}
-            >
-              {adminData?.global_killswitch_active ? 'RE-ENABLE GLOBAL EXECUTION' : 'TRIGGER EMERGENCY HALT'}
-            </button>
-          </div>
-
-          {/* Worker Node Fleet Health */}
-          <div className="glass-panel" style={{ padding: '20px' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 14px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Cpu size={18} color="var(--accent-teal)" /> Windows VPS Worker Fleet
-            </h3>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
-              {adminData?.workers.map((w) => (
-                <div key={w.worker_id} style={{ background: 'var(--bg-primary)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <div style={{ fontWeight: 800, fontSize: '13px' }}>{w.worker_id}</div>
-                    <span style={{
-                      padding: '2px 8px',
-                      borderRadius: '10px',
-                      fontSize: '10px',
-                      fontWeight: 800,
-                      background: w.status === 'ONLINE' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-                      color: w.status === 'ONLINE' ? 'var(--accent-green)' : 'var(--accent-red)'
-                    }}>
-                      {w.status}
-                    </span>
-                  </div>
-
-                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                    <div>CPU: <strong style={{ color: 'var(--text-primary)' }}>{w.cpu_pct.toFixed(1)}%</strong></div>
-                    <div>RAM: <strong style={{ color: 'var(--text-primary)' }}>{w.ram_pct.toFixed(1)}%</strong></div>
-                    <div>Terminals: <strong style={{ color: 'var(--accent-teal)' }}>{w.active_terminals} / {w.max_terminals}</strong></div>
-                    <div>IP: <strong style={{ color: 'var(--text-primary)' }}>{w.ip_address}</strong></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Subscriber Accounts Grid */}
-          <div className="glass-panel" style={{ padding: '20px' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 14px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Server size={18} color="var(--accent-teal)" /> Subscriber Accounts & Isolated MT5 Sessions ({adminData?.accounts.length || 0})
-            </h3>
-
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', color: 'var(--text-secondary)' }}>
-                    <th style={{ padding: '8px' }}>Subscriber</th>
-                    <th style={{ padding: '8px' }}>Broker & Login</th>
-                    <th style={{ padding: '8px' }}>Worker</th>
-                    <th style={{ padding: '8px' }}>Equity / Balance</th>
-                    <th style={{ padding: '8px' }}>Ping</th>
-                    <th style={{ padding: '8px' }}>Auto-Exec</th>
-                    <th style={{ padding: '8px' }}>Account Killswitch</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {adminData?.accounts.map((acc) => (
-                    <tr key={acc.account_id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                      <td style={{ padding: '8px', fontWeight: 600 }}>{acc.user_email}</td>
-                      <td style={{ padding: '8px' }}>
-                        <strong>#{acc.login}</strong><br />
-                        <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{acc.server}</span>
-                      </td>
-                      <td style={{ padding: '8px', fontSize: '11px', color: 'var(--accent-teal)' }}>{acc.worker_id}</td>
-                      <td style={{ padding: '8px' }}>
-                        <strong style={{ color: 'var(--accent-green)' }}>${acc.equity.toLocaleString()}</strong><br />
-                        <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Bal: ${acc.balance.toLocaleString()}</span>
-                      </td>
-                      <td style={{ padding: '8px', color: 'var(--text-secondary)' }}>{acc.ping_ms}ms</td>
-                      <td style={{ padding: '8px' }}>
-                        <span style={{
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          background: acc.auto_execution_enabled ? 'rgba(16,185,129,0.15)' : 'rgba(148,163,184,0.15)',
-                          color: acc.auto_execution_enabled ? 'var(--accent-green)' : 'var(--text-secondary)'
-                        }}>
-                          {acc.auto_execution_enabled ? 'ON' : 'PAUSED'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '8px' }}>
-                        <button
-                          onClick={() => handleAdminAccountKillswitch(acc.account_id, !acc.killswitch_active)}
-                          style={{
-                            padding: '4px 10px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            background: acc.killswitch_active ? 'var(--accent-green)' : 'rgba(239,68,68,0.2)',
-                            color: acc.killswitch_active ? '#fff' : 'var(--accent-red)',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {acc.killswitch_active ? 'Re-enable' : 'Halt Account'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Execution Audits */}
-          <div className="glass-panel" style={{ padding: '20px' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 14px 0' }}>Recent Execution Receipts & Latencies</h3>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', color: 'var(--text-secondary)' }}>
-                    <th style={{ padding: '8px' }}>Ticket</th>
-                    <th style={{ padding: '8px' }}>Signal</th>
-                    <th style={{ padding: '8px' }}>Asset</th>
-                    <th style={{ padding: '8px' }}>Entry</th>
-                    <th style={{ padding: '8px' }}>Exit</th>
-                    <th style={{ padding: '8px' }}>PnL R</th>
-                    <th style={{ padding: '8px' }}>Latency</th>
-                    <th style={{ padding: '8px' }}>Reason</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {adminData?.recent_audits.map((a) => (
-                    <tr key={a.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                      <td style={{ padding: '8px', fontFamily: 'monospace' }}>{a.ticket_id}</td>
-                      <td style={{ padding: '8px', color: 'var(--accent-teal)' }}>{a.signal_id}</td>
-                      <td style={{ padding: '8px', fontWeight: 700 }}>{a.instrument} {a.direction}</td>
-                      <td style={{ padding: '8px', fontFamily: 'monospace' }}>{a.entry_price}</td>
-                      <td style={{ padding: '8px', fontFamily: 'monospace' }}>{a.exit_price || '—'}</td>
-                      <td style={{ padding: '8px', fontWeight: 800, color: (a.pnl_r || 0) >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
-                        {a.pnl_r !== null && a.pnl_r !== undefined ? `${a.pnl_r > 0 ? '+' : ''}${a.pnl_r}R` : 'OPEN'}
-                      </td>
-                      <td style={{ padding: '8px', color: 'var(--accent-teal)' }}>{a.latency_ms.toFixed(1)}ms</td>
-                      <td style={{ padding: '8px', fontSize: '11px', color: 'var(--text-secondary)' }}>{a.exit_reason || 'IN_FLIGHT'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-        </div>
-      )}
+      {viewMode === 'admin' && <FounderAdminDashboard />}
 
     </div>
   );

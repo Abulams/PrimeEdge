@@ -8,7 +8,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import User, UserBrokerAccount, WorkerNode, ExecutionAuditLog
+from ..models import User, UserBrokerAccount, WorkerNode, ExecutionAuditLog, TradeRecord, SetupSnapshot, WaitlistLead
+from ..journal_service import JournalService
 from ..auth import get_current_user, get_current_admin
 from ..execution.base import ExecutionOrder, OrderDirection, OrderType, PlatformType
 from ..execution.crypto import encrypt_credential, decrypt_credential, mask_credential
@@ -240,6 +241,80 @@ def disconnect_cloud_account(
     return {"status": "DISCONNECTED"}
 
 
+class UpdatePreferencesRequest(BaseModel):
+    risk_mode: Optional[str] = "FIXED_LOT"  # "FIXED_LOT" or "DYNAMIC_RISK_PCT"
+    risk_pct: Optional[float] = 1.0
+    fixed_lot_size: Optional[float] = 0.01
+    allowed_instruments: Optional[List[str]] = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "US100", "USDCHF"]
+    max_concurrent_trades: Optional[int] = 3
+    max_daily_loss_pct: Optional[float] = 3.0
+
+
+@router.get("/cloud/preferences")
+def get_user_execution_preferences(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    account = db.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == current_user.id).first()
+    if not account:
+        return {
+            "risk_mode": "FIXED_LOT",
+            "risk_pct": 1.0,
+            "fixed_lot_size": 0.01,
+            "allowed_instruments": ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "US100", "USDCHF"],
+            "max_concurrent_trades": 3,
+            "max_daily_loss_pct": 3.0,
+        }
+
+    return {
+        "risk_mode": account.risk_mode or "FIXED_LOT",
+        "risk_pct": account.risk_pct or 1.0,
+        "fixed_lot_size": account.fixed_lot_size or 0.01,
+        "allowed_instruments": account.allowed_instruments if isinstance(account.allowed_instruments, list) else ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "US100", "USDCHF"],
+        "max_concurrent_trades": account.max_concurrent_trades or 3,
+        "max_daily_loss_pct": account.max_daily_loss_pct or 3.0,
+    }
+
+
+@router.post("/cloud/preferences")
+def update_user_execution_preferences(
+    req: UpdatePreferencesRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    account = db.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == current_user.id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="No active broker account found to configure preferences")
+
+    if req.risk_mode:
+        account.risk_mode = req.risk_mode
+    if req.risk_pct is not None:
+        account.risk_pct = max(0.1, min(5.0, req.risk_pct))
+    if req.fixed_lot_size is not None:
+        account.fixed_lot_size = max(0.01, min(10.0, req.fixed_lot_size))
+    if req.allowed_instruments is not None:
+        account.allowed_instruments = [sym.upper() for sym in req.allowed_instruments]
+    if req.max_concurrent_trades is not None:
+        account.max_concurrent_trades = max(1, min(10, req.max_concurrent_trades))
+    if req.max_daily_loss_pct is not None:
+        account.max_daily_loss_pct = max(0.5, min(15.0, req.max_daily_loss_pct))
+
+    db.commit()
+    db.refresh(account)
+
+    return {
+        "status": "UPDATED",
+        "preferences": {
+            "risk_mode": account.risk_mode,
+            "risk_pct": account.risk_pct,
+            "fixed_lot_size": account.fixed_lot_size,
+            "allowed_instruments": account.allowed_instruments,
+            "max_concurrent_trades": account.max_concurrent_trades,
+            "max_daily_loss_pct": account.max_daily_loss_pct,
+        }
+    }
+
+
 class ForceTestTradeRequest(BaseModel):
     instrument: str = "EURUSD"
     direction: str = "LONG"
@@ -356,25 +431,32 @@ def get_assigned_accounts_for_worker(
             "password": decrypted_pw,
             "server": acc.broker_server,
             "auto_execution_enabled": acc.auto_execution_enabled and cloud_router.is_execution_allowed(acc.id),
+            "risk_mode": acc.risk_mode or "FIXED_LOT",
+            "risk_pct": acc.risk_pct or 1.0,
+            "fixed_lot_size": acc.fixed_lot_size or 0.01,
+            "allowed_instruments": acc.allowed_instruments if isinstance(acc.allowed_instruments, list) else ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "US100", "USDCHF"],
+            "max_concurrent_trades": acc.max_concurrent_trades or 3,
+            "max_daily_loss_pct": acc.max_daily_loss_pct or 3.0,
         })
     return results
 
 
 @router.get("/worker/poll-orders")
 def poll_orders_for_worker(
+    account_id: Optional[int] = None,
     worker: WorkerNode = Depends(authenticate_worker),
     db: Session = Depends(get_db),
 ):
-    accounts = db.query(UserBrokerAccount).filter(
-        UserBrokerAccount.is_active == True,
-        UserBrokerAccount.auto_execution_enabled == True,
-    ).all()
+    if account_id:
+        target_ids = [account_id]
+    else:
+        accounts = db.query(UserBrokerAccount).filter(
+            UserBrokerAccount.is_active == True,
+            UserBrokerAccount.auto_execution_enabled == True,
+        ).all()
+        target_ids = [acc.id for acc in accounts]
 
-    account_ids = [acc.id for acc in accounts]
-    if 1 not in account_ids:
-        account_ids.append(1)
-
-    orders = cloud_router.pop_orders_for_worker(account_ids)
+    orders = cloud_router.pop_orders_for_worker(target_ids)
     return {"orders": orders, "count": len(orders)}
 
 
@@ -404,6 +486,32 @@ def report_order_fill(
         details={"comment": f"Executed by Worker {worker.worker_id}"},
     )
     db.add(audit_entry)
+
+    # 1. Synchronize real MT5 ticket ID and actual fill price with TradeRecord in Auto Journal
+    trade = None
+    if "-TR-" in req.signal_id:
+        try:
+            tr_part = req.signal_id.split("-TR-")[1].split("-")[0]
+            trade_id = int(tr_part)
+            trade = db.query(TradeRecord).filter(TradeRecord.id == trade_id).first()
+        except Exception:
+            trade = None
+
+    if not trade and req.account_id:
+        # Fallback match most recent ACTIVE trade for this instrument on this account
+        trade = db.query(TradeRecord).join(SetupSnapshot, SetupSnapshot.id == TradeRecord.setup_snapshot_id).filter(
+            TradeRecord.account_id == req.account_id,
+            TradeRecord.lifecycle_state == "ACTIVE",
+            SetupSnapshot.instrument == req.instrument,
+            TradeRecord.broker_ticket.is_(None)
+        ).order_by(TradeRecord.id.desc()).first()
+
+    if trade:
+        trade.broker_ticket = str(req.ticket_id)
+        trade.actual_entry = req.fill_price
+        trade.execution_status = "FILLED"
+        trade.entry_timestamp = datetime.datetime.utcnow()
+
     db.commit()
 
     # Store in active positions list for instant UI display
@@ -441,8 +549,41 @@ def report_positions(
     account_id: int,
     positions: List[Dict[str, Any]],
     worker: WorkerNode = Depends(authenticate_worker),
+    db: Session = Depends(get_db),
 ):
     cloud_router.update_positions_from_worker(account_id, positions)
+
+    # Closed-loop live reconciliation with database TradeRecords
+    active_mt5_tickets = {str(p.get("ticket_id")) for p in positions if p.get("ticket_id")}
+
+    # Update live MAE/MFE/PnL from MT5 ticks directly into TradeRecords
+    for p in positions:
+        t_id = str(p.get("ticket_id"))
+        if not t_id:
+            continue
+        trade = db.query(TradeRecord).filter(
+            TradeRecord.broker_ticket == t_id,
+            TradeRecord.lifecycle_state == "ACTIVE"
+        ).first()
+        if trade:
+            trade.max_mae_pips = max(trade.max_mae_pips or 0.0, float(p.get("max_mae_pips", 0.0)))
+            trade.max_mfe_pips = max(trade.max_mfe_pips or 0.0, float(p.get("max_mfe_pips", 0.0)))
+            trade.pnl_pips = float(p.get("current_pnl_pips", trade.pnl_pips or 0.0))
+
+    # Reconcile external closes: if an active TradeRecord with broker_ticket is no longer open in MT5
+    active_db_trades = db.query(TradeRecord).filter(
+        TradeRecord.account_id == account_id,
+        TradeRecord.lifecycle_state == "ACTIVE",
+        TradeRecord.broker_ticket.isnot(None)
+    ).all()
+
+    for trade in active_db_trades:
+        if trade.broker_ticket not in active_mt5_tickets:
+            # Position closed externally on MT5 (SL/TP hit or manual close)
+            exit_p = trade.actual_entry or 0.0
+            JournalService._finalize_trade(trade, exit_price=exit_p, exit_reason="BROKER_CLOSED")
+
+    db.commit()
     return {"status": "SYNCED", "count": len(positions)}
 
 
@@ -452,13 +593,34 @@ def report_order_close(
     worker: WorkerNode = Depends(authenticate_worker),
     db: Session = Depends(get_db),
 ):
+    # 1. Update ExecutionAuditLog
     audit = db.query(ExecutionAuditLog).filter(ExecutionAuditLog.ticket_id == req.ticket_id).first()
     if audit:
         audit.exit_reason = req.exit_reason
         audit.exit_price = req.exit_price
         audit.pnl_r = req.pnl_r
         audit.status = "CLOSED"
-        db.commit()
+
+    # 2. Update TradeRecord in AutoJournal!
+    trade = db.query(TradeRecord).filter(
+        TradeRecord.broker_ticket == str(req.ticket_id),
+        TradeRecord.lifecycle_state == "ACTIVE"
+    ).first()
+
+    if trade:
+        JournalService._finalize_trade(trade, exit_price=req.exit_price, exit_reason=req.exit_reason)
+        if audit:
+            audit.pnl_r = trade.pnl_r
+            audit.exit_reason = trade.exit_reason
+            audit.exit_price = trade.exit_price
+
+    # 3. Clean up active positions cache in cloud router
+    cloud_router.active_positions[req.account_id] = [
+        p for p in cloud_router.active_positions.get(req.account_id, [])
+        if str(p.get("ticket_id")) != str(req.ticket_id)
+    ]
+
+    db.commit()
     return {"status": "CLOSED_LOGGED", "ticket_id": req.ticket_id}
 
 
@@ -524,15 +686,24 @@ def get_admin_operations_dashboard(
 ):
     workers = db.query(WorkerNode).all()
     accounts = db.query(UserBrokerAccount).all()
-    recent_audits = db.query(ExecutionAuditLog).order_by(ExecutionAuditLog.timestamp.desc()).limit(20).all()
+    all_users = db.query(User).order_by(User.id.asc()).all()
+    recent_audits = db.query(ExecutionAuditLog).order_by(ExecutionAuditLog.timestamp.desc()).limit(40).all()
 
     account_summaries = []
     for acc in accounts:
         user = db.query(User).filter(User.id == acc.user_id).first()
         positions = cloud_router.get_positions_for_account(acc.id)
+        
+        # Determine execution mode: LIVE_BROKER vs SANDBOX_SIMULATION
+        # An account is LIVE_BROKER if it has ping_ms < 5000 and valid balance, otherwise SANDBOX_FALLBACK
+        is_live_broker = (acc.ping_ms is not None and acc.ping_ms < 2000.0 and acc.balance > 0.0)
+        mode_label = "LIVE_BROKER" if is_live_broker else "SANDBOX_FALLBACK"
+
         account_summaries.append({
             "account_id": acc.id,
+            "user_id": acc.user_id,
             "user_email": user.email if user else "Unknown",
+            "user_role": user.role if user else "trader",
             "login": acc.login,
             "server": acc.broker_server,
             "worker_id": acc.allocated_worker_id,
@@ -541,8 +712,12 @@ def get_admin_operations_dashboard(
             "ping_ms": acc.ping_ms,
             "is_active": acc.is_active,
             "auto_execution_enabled": acc.auto_execution_enabled,
+            "execution_mode": mode_label,
             "killswitch_active": cloud_router.account_killswitches[acc.id],
             "open_positions": len(positions),
+            "allowed_instruments": acc.allowed_instruments,
+            "risk_pct": acc.risk_pct,
+            "fixed_lot_size": acc.fixed_lot_size,
             "last_heartbeat": acc.last_heartbeat.isoformat() if acc.last_heartbeat else None,
             "error": acc.error_message,
         })
@@ -552,13 +727,13 @@ def get_admin_operations_dashboard(
         is_healthy = False
         if w.last_heartbeat:
             age_s = (datetime.datetime.utcnow() - w.last_heartbeat).total_seconds()
-            is_healthy = (age_s < 30)
+            is_healthy = (age_s < 120)
 
         worker_summaries.append({
             "worker_id": w.worker_id,
             "hostname": w.hostname,
             "ip_address": w.ip_address,
-            "status": "ONLINE" if is_healthy and w.status != "REVOKED" else w.status,
+            "status": "ONLINE" if is_healthy and w.status != "REVOKED" else ("OFFLINE" if w.status == "ONLINE" else w.status),
             "cpu_pct": w.cpu_pct,
             "ram_pct": w.ram_pct,
             "active_terminals": w.active_terminals,
@@ -568,9 +743,12 @@ def get_admin_operations_dashboard(
 
     audit_summaries = []
     for a in recent_audits:
+        is_sandbox = a.ticket_id.startswith("MT5-W-") if a.ticket_id else False
         audit_summaries.append({
             "id": a.id,
+            "user_id": a.user_id,
             "ticket_id": a.ticket_id,
+            "is_sandbox": is_sandbox,
             "signal_id": a.signal_id,
             "instrument": a.instrument,
             "direction": a.direction,
@@ -583,12 +761,30 @@ def get_admin_operations_dashboard(
             "timestamp": a.timestamp.isoformat(),
         })
 
+    user_summaries = []
+    for u in all_users:
+        has_acc = db.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == u.id).first()
+        user_summaries.append({
+            "id": u.id,
+            "email": u.email,
+            "full_name": u.full_name,
+            "role": u.role,
+            "is_admin": u.is_admin,
+            "is_active": u.is_active,
+            "has_broker_linked": bool(has_acc),
+            "linked_login": has_acc.login if has_acc else None,
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+            "last_login": u.last_login.isoformat() if u.last_login else None,
+        })
+
     return {
         "global_killswitch_active": cloud_router.global_killswitch_active,
+        "total_users": len(all_users),
         "total_subscribers": len(accounts),
         "total_workers": len(workers),
         "workers": worker_summaries,
         "accounts": account_summaries,
+        "users": user_summaries,
         "recent_audits": audit_summaries,
     }
 
@@ -610,3 +806,152 @@ def toggle_admin_account_killswitch(
 ):
     res = cloud_router.toggle_account_killswitch(account_id, req.enabled)
     return {"status": "SUCCESS", "account_id": account_id, "killswitch_active": res}
+
+
+class AdminUserActionRequest(BaseModel):
+    action: str  # "toggle_active", "toggle_admin", "delete"
+
+
+@router.post("/admin/users/{user_id}/action")
+def manage_user_account(
+    user_id: int,
+    req: AdminUserActionRequest,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    target = db.query(User).filter(User.id == user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if target.id == current_admin.id and req.action in ["delete", "toggle_active"]:
+        raise HTTPException(status_code=400, detail="Cannot disable or delete your own admin account.")
+
+    if req.action == "toggle_active":
+        target.is_active = not target.is_active
+        db.commit()
+        return {"status": "SUCCESS", "user_id": user_id, "is_active": target.is_active}
+
+    elif req.action == "toggle_admin":
+        target.is_admin = not target.is_admin
+        target.role = "admin" if target.is_admin else "trader"
+        db.commit()
+        return {"status": "SUCCESS", "user_id": user_id, "is_admin": target.is_admin, "role": target.role}
+
+    elif req.action == "delete":
+        # Cascade delete broker account
+        db.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == user_id).delete()
+        db.query(ExecutionAuditLog).filter(ExecutionAuditLog.user_id == user_id).delete()
+        db.delete(target)
+        db.commit()
+        return {"status": "SUCCESS", "deleted_user_id": user_id}
+
+    raise HTTPException(status_code=400, detail=f"Unknown action: {req.action}")
+
+
+class AdminCreateUserRequest(BaseModel):
+    email: str
+    password: str
+    full_name: Optional[str] = "Beta Trader"
+    role: Optional[str] = "trader"
+
+
+@router.post("/admin/users/create")
+def admin_create_user(
+    req: AdminCreateUserRequest,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    from ..auth import hash_password
+    existing = db.query(User).filter(User.email == req.email.lower()).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="An account with this email already exists")
+
+    is_adm = (req.role == "admin")
+    user = User(
+        email=req.email.lower(),
+        hashed_password=hash_password(req.password),
+        full_name=req.full_name,
+        role=req.role,
+        is_active=True,
+        is_admin=is_adm,
+        email_verified=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return {"status": "SUCCESS", "user_id": user.id, "email": user.email}
+
+
+@router.post("/admin/flatten-fleet")
+def emergency_flatten_fleet(
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Emergency liquidate all open positions across all active broker accounts."""
+    accounts = db.query(UserBrokerAccount).filter(UserBrokerAccount.is_active == True).all()
+    closed_orders_count = 0
+
+    for acc in accounts:
+        positions = cloud_router.get_positions_for_account(acc.id)
+        for pos in positions:
+            ticket = pos.get("ticket_id")
+            inst = pos.get("instrument", "EURUSD")
+            if ticket:
+                cloud_router.queue_close_order(acc.id, str(ticket), inst, reason="EMERGENCY_ADMIN_FLATTEN")
+                closed_orders_count += 1
+
+    return {"status": "SUCCESS", "liquidated_positions_queued": closed_orders_count}
+ 
+ 
+@router.get("/admin/waitlist")
+def get_admin_waitlist_leads(
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Fetch all waitlist applicants for founder review and cohort selection."""
+    leads = db.query(WaitlistLead).order_by(WaitlistLead.created_at.desc()).all()
+    return [
+        {
+            "id": l.id,
+            "full_name": l.full_name,
+            "email": l.email,
+            "broker_platform": l.broker_platform or "MT5",
+            "contact_method": l.contact_method or "Email",
+            "why_interested": l.why_interested or "",
+            "consent_given": l.consent_given,
+            "status": l.status or "PENDING",
+            "created_at": l.created_at.isoformat() if l.created_at else None,
+        }
+        for l in leads
+    ]
+
+
+@router.post("/admin/waitlist/{lead_id}/approve")
+def approve_waitlist_lead(
+    lead_id: int,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Approve a waitlist lead, mark as INVITED, and prepare their access."""
+    lead = db.query(WaitlistLead).filter(WaitlistLead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Waitlist lead not found")
+    lead.status = "INVITED"
+    db.commit()
+    return {"status": "SUCCESS", "message": f"Lead {lead.email} marked as INVITED", "lead_id": lead.id}
+
+
+@router.delete("/admin/waitlist/{lead_id}")
+def delete_waitlist_lead(
+    lead_id: int,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Delete a spam or test waitlist submission."""
+    lead = db.query(WaitlistLead).filter(WaitlistLead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Waitlist lead not found")
+    db.delete(lead)
+    db.commit()
+    return {"status": "SUCCESS", "message": "Lead deleted"}
+

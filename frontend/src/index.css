@@ -642,5 +642,97 @@ button, select, input {
     padding: 10px 16px;
     font-size: 13px;
   }
+
+  .chart-header-bar {
+    padding: 10px 12px !important;
+    gap: 8px !important;
+  }
+
+  .chart-symbol-group {
+    width: 100% !important;
+    justify-content: flex-start !important;
+  }
+
+  .chart-tools-group {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+}
+
+/* Floating Feedback Button Responsive Rules */
+.floating-feedback-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 8999;
+  background: linear-gradient(135deg, var(--accent-teal), var(--accent-blue));
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50px;
+  padding: 10px 18px;
+  color: #000;
+  font-weight: 800;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 8px 25px rgba(0, 242, 254, 0.45);
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+@media (max-width: 960px) {
+  .floating-feedback-btn {
+    bottom: calc(75px + env(safe-area-inset-bottom, 0px));
+    right: 16px;
+    padding: 8px 14px;
+    font-size: 11px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  }
+}
+
+@media (max-width: 520px) {
+  .floating-feedback-btn {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 50%;
+    justify-content: center;
+  }
+
+  .floating-feedback-btn span {
+    display: none !important;
+  }
+}
+
+/* Standalone Admin Dashboard Responsive Styles */
+.admin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .admin-header-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .admin-header-actions button {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 8px !important;
+    font-size: 12px !important;
+    min-height: 40px;
+  }
+
+  .admin-header-actions .full-width-mobile {
+    grid-column: span 2;
+  }
 }
 

@@ -110,6 +110,15 @@ interface ReplaySnapshot {
   opportunity_max_mae?: number;
 }
 
+interface PolicyStat {
+  policy: string;
+  label: string;
+  win_rate_pct: number;
+  avg_r: number | null;
+  sample_size: number;
+  source: string;
+}
+
 export function ReplayTab() {
   const [startDate, setStartDate] = useState<string>('2024-01-01');
   const [endDate, setEndDate] = useState<string>('2024-06-01');
@@ -119,6 +128,7 @@ export function ReplayTab() {
 
   const [executionPolicy, setExecutionPolicy] = useState<string>('MARKET_ENTRY');
   const [frictionPips, setFrictionPips] = useState<string>('2.5');
+  const [policyStats, setPolicyStats] = useState<Record<string, PolicyStat>>({});
 
   const [running, setRunning] = useState<boolean>(false);
   const [exporting, setExporting] = useState<boolean>(false);
@@ -137,12 +147,18 @@ export function ReplayTab() {
 
   const fetchReplayData = async () => {
     try {
-      const [analyticsRes, historyRes, passedRes, batchesRes] = await Promise.all([
+      const [analyticsRes, historyRes, passedRes, batchesRes, policyStatsRes] = await Promise.all([
         fetch(`${API_BASE}/replay/analytics`),
         fetch(`${API_BASE}/replay/history`),
         fetch(`${API_BASE}/replay/passed`),
-        fetch(`${API_BASE}/replay/batches`)
+        fetch(`${API_BASE}/replay/batches`),
+        fetch(`${API_BASE}/replay/policy-stats`).catch(() => null)
       ]);
+
+      if (policyStatsRes && policyStatsRes.ok) {
+        const statsData = await policyStatsRes.json();
+        setPolicyStats(statsData);
+      }
       if (analyticsRes.ok) setAnalytics(await analyticsRes.json());
       if (historyRes.ok) setReplayHistory(await historyRes.json());
       if (passedRes.ok) setReplayPassed(await passedRes.json());
@@ -188,6 +204,14 @@ export function ReplayTab() {
   useEffect(() => {
     fetchReplayData();
   }, []);
+
+  const formatPolicyOption = (key: string, fallbackLabel: string) => {
+    const stat = policyStats[key];
+    if (!stat) return fallbackLabel;
+    const rText = stat.avg_r !== null ? ` · ${stat.avg_r >= 0 ? '+' : ''}${stat.avg_r.toFixed(3)}R` : '';
+    const sampleTag = stat.source === 'live' && stat.sample_size > 0 ? ` [${stat.sample_size.toLocaleString()} live trades]` : ' [estimated]';
+    return `${stat.label} (${stat.win_rate_pct.toFixed(1)}% WR${rText}${sampleTag})`;
+  };
 
   const handleRunReplay = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -368,7 +392,6 @@ export function ReplayTab() {
           </div>
         )}
 
-
         {/* Replay Configuration Form */}
         <form onSubmit={handleRunReplay} style={{ background: '#0a0d14', padding: '18px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' }}>
@@ -404,11 +427,21 @@ export function ReplayTab() {
                 onChange={(e) => setExecutionPolicy(e.target.value)}
                 style={{ width: '100%' }}
               >
-                <option value="MARKET_ENTRY">★ Validated Market Open Entry (44.0% WR · +0.265R)</option>
-                <option value="RETEST_LIMIT_ENTRY">Pullback to Open Retest Limit (44.0% WR · +0.265R)</option>
-                <option value="RECALIBRATED_DEVIATION">Deviation Recovery: Recalibrated Stop (42.0% WR · +0.219R)</option>
-                <option value="EXECUTION_DEVIATION">Deviation: Late Blind Chase [+5p] (43.1% WR · +0.180R)</option>
-                <option value="DEPRECATED_DEEP_LIMIT">⚠️ [DEPRECATED] Old V4 Deep Limit (13.3% WR · Toxic Adverse Selection)</option>
+                <option value="MARKET_ENTRY">
+                  {formatPolicyOption('MARKET_ENTRY', '★ Market Open — Session Price (33.7% WR · +0.403R [2,233 live trades])')}
+                </option>
+                <option value="RETEST_LIMIT_ENTRY">
+                  {formatPolicyOption('RETEST_LIMIT_ENTRY', 'Pullback Limit — Wait for Retest (44.0% WR · +0.265R [estimated])')}
+                </option>
+                <option value="RECALIBRATED_DEVIATION">
+                  {formatPolicyOption('RECALIBRATED_DEVIATION', 'Missed Open — Recalibrated Stop (42.0% WR · +0.219R [estimated])')}
+                </option>
+                <option value="EXECUTION_DEVIATION">
+                  {formatPolicyOption('EXECUTION_DEVIATION', 'Late Entry — Blind Chase (+5p risk) (43.1% WR · +0.180R [estimated])')}
+                </option>
+                <option value="DEPRECATED_DEEP_LIMIT">
+                  {formatPolicyOption('DEPRECATED_DEEP_LIMIT', '⚠️ Deep Limit [REMOVED — Do Not Use] (13.3% WR)')}
+                </option>
               </select>
             </div>
 

@@ -171,6 +171,8 @@ class TradeRecordResponse(BaseModel):
     id: int
     setup_snapshot_id: int
     lifecycle_state: str
+    execution_status: Optional[str] = "QUEUED"
+    broker_ticket: Optional[str] = None
     decision_at: Optional[datetime.datetime]
     decision_type: Optional[str]
 

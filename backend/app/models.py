@@ -173,6 +173,7 @@ class SetupSnapshot(Base):
     setup_thesis = Column(String, nullable=True)
 
     snapshot_source = Column(String, nullable=False, default="AUTO")
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     trades = relationship("TradeRecord", back_populates="setup")
@@ -182,8 +183,12 @@ class TradeRecord(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     setup_snapshot_id = Column(Integer, ForeignKey("setup_snapshots.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    account_id = Column(Integer, ForeignKey("user_broker_accounts.id"), nullable=True, index=True)
 
     lifecycle_state = Column(String, nullable=False, default="PENDING")
+    execution_status = Column(String, nullable=False, default="QUEUED")  # QUEUED, FILLED, REJECTED, CLOSED
+    broker_ticket = Column(String, nullable=True, index=True)
 
     decision_at = Column(DateTime, nullable=True)
     decision_type = Column(String, nullable=True)
@@ -409,6 +414,14 @@ class UserBrokerAccount(Base):
     leverage = Column(Integer, default=100)
     ping_ms = Column(Float, default=4.0)
 
+    # Risk & Asset Sizing Preferences (Prop Desk Model)
+    risk_mode = Column(String, default="FIXED_LOT", nullable=False)  # "FIXED_LOT" or "DYNAMIC_RISK_PCT"
+    risk_pct = Column(Float, default=1.0, nullable=False)  # 0.25 to 2.0%
+    fixed_lot_size = Column(Float, default=0.01, nullable=False)  # 0.01 to 2.0 lots
+    allowed_instruments = Column(JSON, default=lambda: ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "US100", "USDCHF"], nullable=False)
+    max_concurrent_trades = Column(Integer, default=3, nullable=False)
+    max_daily_loss_pct = Column(Float, default=3.0, nullable=False)
+
     last_heartbeat = Column(DateTime, nullable=True)
     error_message = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
@@ -473,5 +486,21 @@ class BetaFeedback(Base):
     status = Column(String, default="NEW", nullable=False)         # NEW, REVIEWED, RESOLVED
     admin_notes = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class WaitlistLead(Base):
+    """Exclusive Early Access Waitlist Cohort for 20 traders."""
+    __tablename__ = "waitlist_leads"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    full_name = Column(String, nullable=False)
+    email = Column(String, index=True, nullable=False, unique=True)
+    broker_platform = Column(String, nullable=True)       # MT5, OANDA, FTMO, etc.
+    contact_method = Column(String, nullable=True)         # Email, Telegram, Discord, WhatsApp
+    why_interested = Column(String, nullable=True)         # Qualitative feedback
+    consent_given = Column(Boolean, default=True, nullable=False)
+    status = Column(String, default="PENDING", nullable=False) # PENDING, INVITED, ONBOARDED
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
 
 

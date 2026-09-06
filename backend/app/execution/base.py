@@ -29,12 +29,14 @@ class OrderType(str, Enum):
 
 
 class ExecutionOrder(BaseModel):
+    action_type: str = "OPEN"  # "OPEN" or "CLOSE"
+    ticket_id: Optional[str] = None
     signal_id: str
     instrument: str
     direction: OrderDirection
     order_type: OrderType = OrderType.MARKET
-    entry_reference_price: float
-    stop_loss: float
+    entry_reference_price: float = 0.0
+    stop_loss: float = 0.0
     take_profit: float = 0.0
     risk_r_pips: float = 20.0
     position_size_lots: float = 0.1

@@ -15,9 +15,11 @@ pip install psutil requests MetaTrader5 cryptography --quiet
 
 # 3. Environment configuration
 Write-Host "[2/3] Configuring worker environment..." -ForegroundColor Yellow
-$env:WORKER_SHARED_SECRET = "MarketOS_Worker_Secret_Key_Token_2026"
+$env:WORKER_ID = "vps-lon-worker-1"
+$env:WORKER_KEY = "wkey_master_cloud_london"
 $env:MARKETOS_CLOUD_URL = "http://127.0.0.1:8000"
 
 # 4. Launch worker service
 Write-Host "[3/3] Launching Market OS Cloud Worker..." -ForegroundColor Green
 python marketos_worker.py
+

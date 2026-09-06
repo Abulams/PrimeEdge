@@ -82,6 +82,24 @@ class CloudExecutionRouter:
         logger.info(f"[Router] Queued order {order.signal_id} ({order.instrument} {order.direction}) for account {account_id}")
         return {"status": "QUEUED", "account_id": account_id, "signal_id": order.signal_id}
 
+    def queue_close_order_for_account(self, account_id: int, ticket_id: str, instrument: str, reason: str = "MANUAL") -> Dict[str, Any]:
+        """
+        Queues a position liquidation / close order for MT5 execution.
+        """
+        close_signal_id = f"CLOSE-{ticket_id}-{int(datetime.datetime.utcnow().timestamp())}"
+        order_dict = {
+            "action_type": "CLOSE",
+            "ticket_id": str(ticket_id),
+            "signal_id": close_signal_id,
+            "instrument": instrument,
+            "account_id": account_id,
+            "reason": reason,
+            "queued_at": datetime.datetime.utcnow().isoformat()
+        }
+        self.pending_order_queues[account_id].append(order_dict)
+        logger.info(f"[Router] Queued CLOSE order for Ticket #{ticket_id} ({instrument}) on Account {account_id} [Reason: {reason}]")
+        return {"status": "CLOSE_QUEUED", "account_id": account_id, "ticket_id": ticket_id}
+
     def pop_orders_for_worker(self, account_ids: List[int]) -> List[Dict[str, Any]]:
         """Worker polls queued orders for its assigned accounts."""
         orders_to_dispatch = []

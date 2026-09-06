@@ -54,21 +54,9 @@ export default function LoginPage() {
         </div>
 
         <div className="glass-panel" style={{ padding: '32px' }}>
-          <div style={{ display: 'flex', background: 'var(--bg-primary)', borderRadius: '8px', padding: '3px', marginBottom: '28px', border: '1px solid var(--border-color)' }}>
-            {(['login', 'register'] as Mode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => { setMode(m); setError(''); }}
-                style={{
-                  flex: 1, padding: '8px', border: 'none', borderRadius: '6px',
-                  cursor: 'pointer', fontSize: '13px', fontWeight: 600,
-                  background: mode === m ? 'var(--bg-secondary)' : 'transparent',
-                  color: mode === m ? 'var(--text-primary)' : 'var(--text-secondary)',
-                }}
-              >
-                {m === 'login' ? 'Sign In' : 'Create Account'}
-              </button>
-            ))}
+          <div style={{ marginBottom: '24px', textAlign: 'center' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px 0' }}>Trader Authentication</h2>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Private Platform — Invite Only</span>
           </div>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

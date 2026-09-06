@@ -8,6 +8,7 @@ import {
   AlertTriangle, 
   CheckCircle, 
   ShieldAlert, 
+  Shield,
   Activity, 
   Zap, 
   ArrowRightLeft,
@@ -37,10 +38,13 @@ import { AutoJournalTab } from './AutoJournalTab';
 import { ReplayTab } from './ReplayTab';
 import EvidenceAuditTab from './EvidenceAuditTab';
 import { ExecutionTab } from './ExecutionTab';
+import { FounderAdminDashboard } from './FounderAdminDashboard';
 import { Play } from 'lucide-react';
-import { AuthProvider, useAuth } from './AuthContext';
+import { AuthProvider, useAuth, getAccessToken } from './AuthContext';
 import LoginPage from './LoginPage';
 import FeedbackModal from './FeedbackModal';
+import { notificationService } from './NotificationService';
+import { Bell, BellOff, Volume2, VolumeX } from 'lucide-react';
 
 
 const API_BASE = (import.meta.env.VITE_API_URL ?? "") + "/api/v1";
@@ -421,6 +425,21 @@ function HorizonBadge({ type }: { type: 'intraday' | 'macro' }) {
 
 function App() {
   const { isAuthenticated, isLoading, user, logout } = useAuth();
+  const [currentPath, setCurrentPath] = useState<string>(() => window.location.pathname);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateTo = (path: string) => {
+    window.history.pushState({}, '', path);
+    setCurrentPath(path);
+  };
+
   const [activeTab, setActiveTab] = useState<'find' | 'plan' | 'why' | 'journal' | 'chat' | 'replay' | 'execution'>('find');
   const [selectedInstrument, setSelectedInstrument] = useState<string>('GBPUSD');
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
@@ -479,9 +498,13 @@ function App() {
 
     setTakeSetupSymbol(symbol);
     try {
+      const token = getAccessToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch(`${API_BASE}/journal/snapshot`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ instrument: symbol, source: 'TAKE_SETUP_BUTTON' })
       });
       if (res.ok) {
@@ -507,16 +530,20 @@ function App() {
 
   const handlePassSetup = async (symbol: string) => {
     try {
+      const token = getAccessToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const snapRes = await fetch(`${API_BASE}/journal/snapshot`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ instrument: symbol, source: 'PASS_BUTTON' })
       });
       if (snapRes.ok) {
         const snap = await snapRes.json();
         await fetch(`${API_BASE}/journal/pass`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ snapshot_id: snap.id, notes: 'Passed from Opportunity Radar' })
         });
         alert(`Setup for ${symbol} recorded as PASSED for post-session opportunity audit.`);
@@ -529,9 +556,13 @@ function App() {
   const handleConfirmTakeSetup = async (payload: any) => {
     if (!takeSetupSnapshotId) return;
     try {
+      const token = getAccessToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch(`${API_BASE}/journal/accept`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           snapshot_id: takeSetupSnapshotId,
           ...payload
@@ -552,6 +583,12 @@ function App() {
   const [liveFundamentals, setLiveFundamentals] = useState<LiveFundamentals | null>(null);
   const [fundamentalsLoading, setFundamentalsLoading] = useState<boolean>(false);
   const [csiMode, setCsiMode] = useState<'macro' | 'intraday'>('intraday');
+
+  // Push Notification & Alert State
+  const [soundOn, setSoundOn] = useState(notificationService.isSoundEnabled());
+  const [pushOn, setPushOn] = useState(notificationService.isPushEnabled());
+  const [alertBanner, setAlertBanner] = useState<{ instrument: string; direction: string; winRate: number; why: string } | null>(null);
+  const prevWatchlistRef = React.useRef<Record<string, string>>({});
 
   // Load Dashboard Data
   // NOTE: csiMode is included in the currency-strength URL so this function
@@ -576,6 +613,37 @@ function App() {
       setTimeline(timelineData);
       setRealtimeStatus(statusData);
       setCurrencyStrength(strengthData);
+
+      // --- READY Card Transition Detection ---
+      if (Array.isArray(watchlistData)) {
+        const prev = prevWatchlistRef.current;
+        const newStates: Record<string, string> = {};
+        for (const item of watchlistData) {
+          const inst = item.instrument;
+          const currStatus = item.status_state || 'WAIT';
+          newStates[inst] = currStatus;
+          // Fire notification only on transition from non-READY -> READY
+          if (currStatus === 'READY' && prev[inst] && prev[inst] !== 'READY') {
+            notificationService.notifyReadyCard(
+              inst,
+              item.direction || 'LONG',
+              item.continuation_probability || 0.5,
+              item.why_this_now || item.supporting_explanation,
+              () => { setSelectedInstrument(inst); setActiveTab('find'); }
+            );
+            // Show in-app alert banner
+            setAlertBanner({
+              instrument: inst,
+              direction: item.direction || 'LONG',
+              winRate: item.continuation_probability || 0.5,
+              why: item.why_this_now || item.supporting_explanation || ''
+            });
+            // Auto-dismiss after 15 seconds
+            setTimeout(() => setAlertBanner(prev => prev?.instrument === inst ? null : prev), 15000);
+          }
+        }
+        prevWatchlistRef.current = newStates;
+      }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     }
@@ -781,6 +849,32 @@ function App() {
     return <LoginPage />;
   }
 
+  if (currentPath.startsWith('/admin')) {
+    if (!user?.is_admin) {
+      return (
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', color: '#fff', padding: '24px', textAlign: 'center' }}>
+          <ShieldAlert size={48} color="var(--accent-red)" style={{ marginBottom: '16px' }} />
+          <h2 style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 8px 0' }}>Restricted Access</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', maxWidth: '420px', marginBottom: '24px' }}>
+            The Founder Operations Command Center is restricted to platform administrators.
+          </p>
+          <button 
+            onClick={() => navigateTo('/')}
+            className="btn btn-primary"
+            style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+          >
+            Back to Trader Terminal
+          </button>
+        </div>
+      );
+    }
+    return (
+      <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', padding: '16px 20px', maxWidth: '1440px', margin: '0 auto' }}>
+        <FounderAdminDashboard onNavigateTerminal={() => navigateTo('/')} />
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
       {/* Mobile Top Header */}
@@ -803,6 +897,27 @@ function App() {
           }}>
             {activeTab.toUpperCase()}
           </div>
+          {user?.is_admin && (
+            <button
+              onClick={() => navigateTo('/admin')}
+              title="Founder Operations Command Center"
+              style={{
+                background: 'rgba(0, 242, 254, 0.15)',
+                border: '1px solid rgba(0, 242, 254, 0.35)',
+                borderRadius: '7px',
+                padding: '6px 10px',
+                color: 'var(--accent-teal)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontSize: '11px',
+                fontWeight: 800
+              }}
+            >
+              <Shield size={13} /> Admin
+            </button>
+          )}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             style={{
@@ -910,8 +1025,90 @@ function App() {
               <MessageSquare /> AI Analyst
             </div>
           </li>
+          {user?.is_admin && (
+            <li style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <div 
+                className="nav-item"
+                style={{
+                  color: 'var(--accent-teal)',
+                  background: 'rgba(0, 242, 254, 0.08)',
+                  border: '1px solid rgba(0, 242, 254, 0.25)',
+                  fontWeight: 800,
+                  cursor: 'pointer'
+                }}
+                onClick={() => { navigateTo('/admin'); setMobileMenuOpen(false); }}
+              >
+                <Shield size={16} /> Founder Command
+              </div>
+            </li>
+          )}
         </ul>
 
+        {/* Notification Bell Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: 'auto', marginRight: '12px' }}>
+          <button
+            title={soundOn ? 'Mute alert sounds' : 'Unmute alert sounds'}
+            onClick={() => { const next = !soundOn; setSoundOn(next); notificationService.setSoundEnabled(next); }}
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--border-color)',
+              borderRadius: '6px',
+              color: soundOn ? 'var(--accent-teal)' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              padding: '5px 7px',
+              display: 'flex',
+              alignItems: 'center',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            {soundOn ? <Volume2 size={14} /> : <VolumeX size={14} />}
+          </button>
+
+          <button
+            title={pushOn ? 'Disable desktop notifications' : 'Enable desktop notifications'}
+            onClick={async () => {
+              if (!pushOn) {
+                const perm = await notificationService.requestPermission();
+                if (perm === 'granted') { setPushOn(true); }
+              } else {
+                notificationService.setPushEnabled(false);
+                setPushOn(false);
+              }
+            }}
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--border-color)',
+              borderRadius: '6px',
+              color: pushOn ? 'var(--accent-green)' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              padding: '5px 7px',
+              display: 'flex',
+              alignItems: 'center',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            {pushOn ? <Bell size={14} /> : <BellOff size={14} />}
+          </button>
+
+          <button
+            title="Test alert (chime + desktop notification)"
+            onClick={() => notificationService.testAlert()}
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--border-color)',
+              borderRadius: '6px',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              padding: '4px 8px',
+              fontSize: '10px',
+              fontWeight: 700,
+              letterSpacing: '0.3px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            TEST
+          </button>
+        </div>
 
         <div className="user-profile">
           <div className="avatar" style={{ background: 'linear-gradient(135deg, var(--accent-teal), var(--accent-blue))' }}>
@@ -997,7 +1194,61 @@ function App() {
 
       {/* Main Panel Content */}
       <main className="main-content">
-        
+
+        {/* === READY SIGNAL ALERT BANNER === */}
+        {alertBanner && (
+          <div style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '10px 20px',
+            background: 'linear-gradient(135deg, rgba(16,185,129,0.25), rgba(0,242,254,0.15))',
+            borderBottom: '2px solid var(--accent-green)',
+            backdropFilter: 'blur(12px)',
+            animation: 'pulse 2s infinite',
+          }}>
+            <Bell size={18} color="var(--accent-green)" style={{ flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--accent-green)', marginRight: '8px' }}>
+                🚨 READY SIGNAL:
+              </span>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>
+                {alertBanner.instrument} {alertBanner.direction} — {Math.round(alertBanner.winRate * 100)}% Win Probability
+              </span>
+              {alertBanner.why && (
+                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginLeft: '10px' }}>
+                  {alertBanner.why.slice(0, 80)}{alertBanner.why.length > 80 ? '…' : ''}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => { setSelectedInstrument(alertBanner.instrument); setActiveTab('find'); setAlertBanner(null); }}
+              style={{
+                padding: '5px 14px',
+                borderRadius: '6px',
+                border: 'none',
+                background: 'var(--accent-green)',
+                color: '#000',
+                fontSize: '11px',
+                fontWeight: 800,
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              View Setup →
+            </button>
+            <button
+              onClick={() => setAlertBanner(null)}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px', flexShrink: 0 }}
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
         {/* --- SCREEN 1: FIND (Opportunity Radar) --- */}
         {activeTab === 'find' && (
           <div className="animate-fade-in">
@@ -1578,32 +1829,13 @@ function App() {
         macroRegime={macroRegime}
       />
 
-      {/* Floating Beta Feedback Button */}
+      {/* Floating Beta Feedback Button (Clean, responsive, never blocks mobile UI) */}
       <button
         onClick={() => setFeedbackOpen(true)}
-        style={{
-          position: 'fixed',
-          bottom: '24px',
-          right: '24px',
-          zIndex: 8999,
-          background: 'linear-gradient(135deg, var(--accent-teal), var(--accent-blue))',
-          border: '1px solid rgba(255, 255, 255, 0.3)',
-          borderRadius: '50px',
-          padding: '10px 18px',
-          color: '#000',
-          fontWeight: 800,
-          fontSize: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          cursor: 'pointer',
-          boxShadow: '0 8px 25px rgba(0, 242, 254, 0.45)',
-          backdropFilter: 'blur(8px)',
-          transition: 'all 0.2s ease',
-        }}
+        className="floating-feedback-btn"
         title="Share bug or suggestion directly with Market OS team"
       >
-        <MessageSquare size={15} />
+        <MessageSquare size={16} />
         <span>Beta Feedback</span>
       </button>
 

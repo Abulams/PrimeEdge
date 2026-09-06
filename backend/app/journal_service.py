@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 class JournalService:
 
     @staticmethod
-    def create_setup_snapshot(db: Session, instrument: str, source: str = "MANUAL") -> SetupSnapshot:
+    def create_setup_snapshot(db: Session, instrument: str, source: str = "MANUAL", user_id: Optional[int] = None) -> SetupSnapshot:
         """
         Captures an immutable setup snapshot grounded at T₀ (Daily Open).
         Preserves all V4 corridor levels, percentiles, regime data, and setup thesis.
@@ -84,6 +84,7 @@ class JournalService:
             setup_thesis=profile.get("trade_thesis") or profile.get("why_this_now"),
 
             snapshot_source=source,
+            user_id=user_id,
             created_at=datetime.datetime.utcnow()
         )
 
@@ -104,7 +105,8 @@ class JournalService:
         risk_pct: float = 1.0,
         account_balance: float = 10000.0,
         notes: Optional[str] = None,
-        account_id: Optional[int] = None
+        account_id: Optional[int] = None,
+        user_id: Optional[int] = None
     ) -> TradeRecord:
         """
         Records that the trader accepted a Market OS setup and executed a trade.
@@ -143,7 +145,11 @@ class JournalService:
         now = datetime.datetime.utcnow()
         trade = TradeRecord(
             setup_snapshot_id=snapshot.id,
+            user_id=user_id,
+            account_id=account_id,
             lifecycle_state="ACTIVE",
+            execution_status="QUEUED",
+            broker_ticket=None,
             decision_at=now,
             decision_type="ACCEPTED",
 
@@ -176,48 +182,40 @@ class JournalService:
         db.commit()
         db.refresh(trade)
 
-        # Dispatch to 24/7 Cloud MT5 Execution Bridge
+        # Dispatch to 24/7 Cloud MT5 Execution Bridge ONLY for the specific target account
         try:
-            from .execution.cloud_router import CloudExecutionRouter
+            from .routers.execution_cloud_router import cloud_router
             from .execution.base import ExecutionOrder, OrderDirection, OrderType
-            from .models import UserBrokerAccount
             
             target_acc_id = account_id
-            if not target_acc_id:
-                primary_acc = db.query(UserBrokerAccount).filter(UserBrokerAccount.is_active == True).first()
-                if primary_acc:
-                    target_acc_id = primary_acc.id
-                else:
-                    target_acc_id = 1
-
-            exec_router = CloudExecutionRouter()
-            dir_enum = OrderDirection.LONG if snapshot.direction == "LONG" else OrderDirection.SHORT
-            order_type_enum = OrderType.MARKET if entry_type.upper() == "MARKET" else OrderType.LIMIT
-            
-            exec_order = ExecutionOrder(
-                signal_id=f"SNAP-{snapshot.id}-TR-{trade.id}",
-                instrument=snapshot.instrument,
-                direction=dir_enum,
-                order_type=order_type_enum,
-                entry_reference_price=actual_entry,
-                stop_loss=actual_sl,
-                take_profit=actual_tp,
-                position_size_lots=position_size_lots,
-                risk_pct=risk_pct,
-                account_balance=account_balance
-            )
-            exec_router.queue_order_for_account(account_id=target_acc_id, order=exec_order)
-            logger.info(f"🚀 Queued order for account {target_acc_id}: {snapshot.instrument} {dir_enum.value}")
+            if target_acc_id:
+                dir_enum = OrderDirection.LONG if snapshot.direction == "LONG" else OrderDirection.SHORT
+                order_type_enum = OrderType.MARKET if entry_type.upper() == "MARKET" else OrderType.LIMIT
+                
+                exec_order = ExecutionOrder(
+                    signal_id=f"SNAP-{snapshot.id}-TR-{trade.id}",
+                    instrument=snapshot.instrument,
+                    direction=dir_enum,
+                    order_type=order_type_enum,
+                    entry_reference_price=actual_entry,
+                    stop_loss=actual_sl,
+                    take_profit=actual_tp,
+                    position_size_lots=position_size_lots,
+                    risk_pct=risk_pct,
+                    account_balance=account_balance
+                )
+                cloud_router.queue_order_for_account(account_id=target_acc_id, order=exec_order)
+                logger.info(f"Queued MT5 cloud order for {snapshot.instrument} {dir_enum} on Account ID {target_acc_id}")
         except Exception as e:
-            logger.warning(f"Cloud execution dispatch warning: {e}")
+            logger.error(f"Error dispatching MT5 cloud execution: {e}")
 
         return trade
 
     @staticmethod
-    def pass_setup(db: Session, snapshot_id: int, notes: Optional[str] = None) -> TradeRecord:
+    def pass_setup(db: Session, snapshot_id: int, notes: Optional[str] = None, user_id: Optional[int] = None) -> TradeRecord:
         """
         Records that the trader explicitly passed on a Market OS setup.
-        Allows post-session tracking of missed opportunities.
+        Allows post-session counterfactual analysis of passed setups.
         """
         snapshot = db.query(SetupSnapshot).filter(SetupSnapshot.id == snapshot_id).first()
         if not snapshot:
@@ -226,6 +224,7 @@ class JournalService:
         now = datetime.datetime.utcnow()
         trade = TradeRecord(
             setup_snapshot_id=snapshot.id,
+            user_id=user_id,
             lifecycle_state="PASSED",
             decision_at=now,
             decision_type="PASSED",
@@ -249,6 +248,9 @@ class JournalService:
         updated_trades = []
 
         for trade in active_trades:
+            if trade.execution_status == "QUEUED":
+                continue  # Allow worker to fill trade before evaluating quote excursions
+
             setup = trade.setup
             if not setup:
                 continue
@@ -298,20 +300,25 @@ class JournalService:
                 trade.mfe_p90_reached = 1
 
             # Calculate risk parameters for dynamic early invalidation
+            min_floor = 15.0 if ("XAU" in symbol or "US100" in symbol) else 6.0
             risk_dist = abs(entry - trade.actual_sl) if trade.actual_sl else (setup.mae_p90_pips / pip_mult if setup and setup.mae_p90_pips else 0.0035)
             risk_pips = max(1.0, risk_dist * pip_mult)
             early_inval_r = 0.35
-            early_inval_pips = early_inval_r * risk_pips
+            early_inval_pips = max(min_floor, early_inval_r * risk_pips)
 
             # Auto-close check on Early Invalidation / SL / TP breach
             should_close = False
             exit_reason = None
             exit_price = current_price
 
+            # Grace period check: allow at least 45 seconds for position to absorb initial spread noise
+            elapsed_sec = (datetime.datetime.utcnow() - (trade.entry_timestamp or datetime.datetime.utcnow())).total_seconds()
+            grace_passed = elapsed_sec >= 45.0
+
             # Directive: MAE_FIRST Early Invalidation Check (-0.35R MAE before +0.35R MFE)
             # If MFE achieves +0.35R first, the early invalidation rule is disarmed
             early_inval_disarmed = (trade.max_mfe_pips or 0.0) >= early_inval_pips
-            if not early_inval_disarmed and (trade.max_mae_pips or 0.0) >= early_inval_pips:
+            if grace_passed and not early_inval_disarmed and (trade.max_mae_pips or 0.0) >= early_inval_pips:
                 should_close = True
                 exit_reason = "EARLY_INVALIDATION_MAE"
                 exit_price = (entry - early_inval_r * risk_dist) if setup.direction == "LONG" else (entry + early_inval_r * risk_dist)
@@ -326,18 +333,32 @@ class JournalService:
                     exit_reason = "STOP_LOSS"
                     exit_price = trade.actual_sl
 
+            # Take Profit: only trigger if actual_tp is positioned in the PROFITABLE direction relative to entry
             if not should_close and trade.actual_tp:
-                if setup.direction == "LONG" and high_price >= trade.actual_tp:
+                if setup.direction == "LONG" and trade.actual_tp > entry and high_price >= trade.actual_tp:
                     should_close = True
                     exit_reason = "TAKE_PROFIT"
                     exit_price = trade.actual_tp
-                elif setup.direction == "SHORT" and low_price <= trade.actual_tp:
+                elif setup.direction == "SHORT" and trade.actual_tp < entry and low_price <= trade.actual_tp:
                     should_close = True
                     exit_reason = "TAKE_PROFIT"
                     exit_price = trade.actual_tp
 
             if should_close:
                 JournalService._finalize_trade(trade, exit_price, exit_reason)
+                # Bidirectional dispatch: if position has an active MT5 ticket, queue close command to worker!
+                if trade.broker_ticket and trade.account_id and setup:
+                    try:
+                        from .routers.execution_cloud_router import cloud_router
+                        cloud_router.queue_close_order_for_account(
+                            account_id=trade.account_id,
+                            ticket_id=trade.broker_ticket,
+                            instrument=setup.instrument,
+                            reason=exit_reason
+                        )
+                        logger.info(f"Auto-dispatched MT5 CLOSE order for Ticket #{trade.broker_ticket} ({setup.instrument}) on Account ID {trade.account_id}")
+                    except Exception as ce:
+                        logger.error(f"Error dispatching auto-close to MT5: {ce}")
 
             trade.updated_at = datetime.datetime.utcnow()
             updated_trades.append(trade)
@@ -349,6 +370,7 @@ class JournalService:
     def close_trade(db: Session, trade_id: int, exit_price: float, exit_reason: str = "MANUAL") -> TradeRecord:
         """
         Manually closes an active trade. Computes PnL, outcomes, and distribution percentiles.
+        Dispatches immediate CLOSE command to MT5 execution bridge if broker ticket exists.
         """
         trade = db.query(TradeRecord).options(joinedload(TradeRecord.setup)).filter(TradeRecord.id == trade_id).first()
         if not trade:
@@ -357,6 +379,21 @@ class JournalService:
         JournalService._finalize_trade(trade, exit_price, exit_reason)
         db.commit()
         db.refresh(trade)
+
+        # Bidirectional dispatch: If this trade has an MT5 broker ticket, dispatch CLOSE to MT5 worker!
+        if trade.broker_ticket and trade.account_id and trade.setup:
+            try:
+                from .routers.execution_cloud_router import cloud_router
+                cloud_router.queue_close_order_for_account(
+                    account_id=trade.account_id,
+                    ticket_id=trade.broker_ticket,
+                    instrument=trade.setup.instrument,
+                    reason=exit_reason
+                )
+                logger.info(f"Dispatched MT5 CLOSE order for Ticket #{trade.broker_ticket} ({trade.setup.instrument}) on Account ID {trade.account_id}")
+            except Exception as e:
+                logger.error(f"Error dispatching MT5 close order: {e}")
+
         return trade
 
     @staticmethod
@@ -392,6 +429,7 @@ class JournalService:
             exec_outcome = "SYSTEM_LOSS"
 
         trade.lifecycle_state = "CLOSED"
+        trade.execution_status = "CLOSED"
         trade.exit_price = exit_price
         trade.exit_timestamp = datetime.datetime.utcnow()
         trade.exit_reason = exit_reason
@@ -407,12 +445,19 @@ class JournalService:
             trade.max_mae_percentile = round(min(1.0, (trade.max_mae_pips or 0.0) / setup.mae_p90_pips) * 90.0, 1)
 
     @staticmethod
-    def get_performance_summary(db: Session) -> Dict[str, Any]:
+    def get_performance_summary(db: Session, user_id: Optional[int] = None) -> Dict[str, Any]:
         """
-        Generates aggregated performance stats comparing Market OS expectations vs actual trader execution.
+        Generates aggregated performance stats comparing Market OS expectations vs actual trader execution specifically for a user.
         """
-        closed_trades = db.query(TradeRecord).filter(TradeRecord.lifecycle_state == "CLOSED").all()
-        passed_trades = db.query(TradeRecord).filter(TradeRecord.lifecycle_state == "PASSED").all()
+        q_closed = db.query(TradeRecord).filter(TradeRecord.lifecycle_state == "CLOSED")
+        q_passed = db.query(TradeRecord).filter(TradeRecord.lifecycle_state == "PASSED")
+
+        if user_id is not None:
+            q_closed = q_closed.filter(TradeRecord.user_id == user_id)
+            q_passed = q_passed.filter(TradeRecord.user_id == user_id)
+
+        closed_trades = q_closed.all()
+        passed_trades = q_passed.all()
 
         total_closed = len(closed_trades)
         wins = [t for t in closed_trades if t.outcome == "WIN"]
