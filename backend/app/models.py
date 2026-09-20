@@ -470,6 +470,36 @@ class ExecutionAuditLog(Base):
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
 
 
+class ExecutionOrderQueue(Base):
+    """
+    Durable Transactional Outbox for cloud order dispatch.
+    Persisted to SQLite so restarts, reboots, and network blips NEVER drop orders.
+    """
+    __tablename__ = "execution_orders_queue"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    signal_id = Column(String, unique=True, index=True, nullable=False)
+    trade_id = Column(Integer, ForeignKey("trade_records.id"), nullable=True, index=True)
+    account_id = Column(Integer, ForeignKey("user_broker_accounts.id"), nullable=False, index=True)
+    action_type = Column(String, default="OPEN", nullable=False)  # "OPEN" or "CLOSE"
+    ticket_id = Column(String, nullable=True)  # for CLOSE actions
+    instrument = Column(String, nullable=False)
+    direction = Column(String, nullable=False)  # "LONG" or "SHORT"
+    order_type = Column(String, default="MARKET", nullable=False)
+    entry_reference_price = Column(Float, nullable=False, default=0.0)
+    stop_loss = Column(Float, nullable=False, default=0.0)
+    take_profit = Column(Float, nullable=False, default=0.0)
+    position_size_lots = Column(Float, nullable=False, default=0.01)
+    risk_pct = Column(Float, nullable=False, default=1.0)
+    account_balance = Column(Float, nullable=False, default=10000.0)
+    status = Column(String, default="QUEUED", index=True, nullable=False)  # "QUEUED", "DISPATCHED", "FILLED", "REJECTED", "EXPIRED"
+    error_comment = Column(String, nullable=True)
+    retcode = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+    dispatched_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+
 class BetaFeedback(Base):
     """Direct user feedback submitted from the web UI during closed beta."""
     __tablename__ = "beta_feedbacks"

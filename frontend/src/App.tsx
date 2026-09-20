@@ -42,6 +42,8 @@ import { FounderAdminDashboard } from './FounderAdminDashboard';
 import { Play } from 'lucide-react';
 import { AuthProvider, useAuth, getAccessToken } from './AuthContext';
 import LoginPage from './LoginPage';
+import LandingPage from './LandingPage';
+import ActivatePage from './ActivatePage';
 import FeedbackModal from './FeedbackModal';
 import { notificationService } from './NotificationService';
 import { Bell, BellOff, Volume2, VolumeX } from 'lucide-react';
@@ -440,6 +442,9 @@ function App() {
     setCurrentPath(path);
   };
 
+  // Subdomain detection — ops.primeedge.app renders Founder Dashboard only
+  const isOpsSubdomain = window.location.hostname === 'ops.primeedge.app';
+
   const [activeTab, setActiveTab] = useState<'find' | 'plan' | 'why' | 'journal' | 'chat' | 'replay' | 'execution'>('find');
   const [selectedInstrument, setSelectedInstrument] = useState<string>('GBPUSD');
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
@@ -476,7 +481,7 @@ function App() {
 
   // Chat State
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    { sender: 'ai', text: "Hello! I am your Market OS quantitative AI analyst. Ask me any question about GBPUSD, EURUSD, XAUUSD, AUDUSD, or USDJPY market regimes and signatures. I base all explanations on historical statistical MSD observations." }
+    { sender: 'ai', text: "Hello! I am your PrimeEdge quantitative AI analyst. Ask me any question about GBPUSD, EURUSD, XAUUSD, AUDUSD, or USDJPY market regimes and signatures. I base all explanations on historical statistical MSD observations." }
   ]);
   const [chatInput, setChatInput] = useState<string>('');
   const [chatLoading, setChatLoading] = useState<boolean>(false);
@@ -836,6 +841,65 @@ function App() {
     handleSendMessage(q);
   };
 
+  // ── OPS Subdomain: Standalone Founder Dashboard ───────────────────────────
+  if (isOpsSubdomain) {
+    if (isLoading) {
+      return (
+        <div style={{ minHeight: '100vh', background: '#08090d', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ color: '#94a3b8', fontSize: '14px' }}>Loading Founder Operations...</div>
+        </div>
+      );
+    }
+    if (!isAuthenticated) {
+      // Show restricted admin-only login page for ops subdomain
+      return (
+        <div style={{ minHeight: '100vh', background: '#08090d', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+            <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #00f2fe, #38bdf8)', borderRadius: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '16px', color: '#08090d' }}>P</div>
+            <span style={{ fontSize: '20px', fontWeight: 800, color: '#fff' }}>PrimeEdge</span>
+            <span style={{ padding: '2px 8px', borderRadius: '4px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', fontSize: '10px', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase' }}>RESTRICTED</span>
+          </div>
+          <LoginPage />
+        </div>
+      );
+    }
+    if (!user?.is_admin) {
+      return (
+        <div style={{ minHeight: '100vh', background: '#08090d', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', padding: '24px', textAlign: 'center', gap: '16px' }}>
+          <ShieldAlert size={48} color="#ef4444" />
+          <h2 style={{ fontSize: '22px', fontWeight: 800, margin: 0 }}>Founder Command Center</h2>
+          <p style={{ color: '#94a3b8', fontSize: '14px', maxWidth: '400px' }}>
+            This subdomain is restricted to authorised platform administrators. Contact the founder to request admin access.
+          </p>
+          <button onClick={logout} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '8px 20px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}>
+            Sign Out
+          </button>
+        </div>
+      );
+    }
+    // Admin authenticated on ops subdomain — show FounderAdminDashboard fullscreen
+    return (
+      <div style={{ minHeight: '100vh', background: '#08090d' }}>
+        <div style={{ backgroundColor: '#0c0e14', borderBottom: '1px solid rgba(0, 242, 254, 0.15)', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '28px', height: '28px', background: 'linear-gradient(135deg, #00f2fe, #38bdf8)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '14px', color: '#08090d' }}>P</div>
+            <span style={{ fontSize: '16px', fontWeight: 800, color: '#fff' }}>PrimeEdge</span>
+            <span style={{ padding: '2px 8px', borderRadius: '4px', background: 'rgba(0, 242, 254, 0.1)', border: '1px solid rgba(0, 242, 254, 0.25)', fontSize: '10px', fontWeight: 800, color: '#00f2fe', textTransform: 'uppercase' }}>Founder Operations</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <a href="https://primeedge.app" style={{ color: '#94a3b8', fontSize: '12px', textDecoration: 'none' }}>← Back to Platform</a>
+            <button onClick={logout} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', padding: '5px 12px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}>
+              Sign Out
+            </button>
+          </div>
+        </div>
+        <div style={{ padding: '20px' }}>
+          <FounderAdminDashboard onNavigateTerminal={() => { window.location.href = 'https://primeedge.app'; }} />
+        </div>
+      </div>
+    );
+  }
+
   // Auth gate
   if (isLoading) {
     return (
@@ -845,8 +909,37 @@ function App() {
     );
   }
 
+  // Routing for unauthenticated visitors or public overview
+  if (currentPath === '/activate' || currentPath.startsWith('/activate')) {
+    return <ActivatePage />;
+  }
+
+  if (currentPath === '/login') {
+    if (isAuthenticated) {
+      navigateTo('/');
+    } else {
+      return <LoginPage />;
+    }
+  }
+
   if (!isAuthenticated) {
-    return <LoginPage />;
+    return (
+      <LandingPage
+        isAuthenticated={false}
+        onEnterApp={() => navigateTo('/login')}
+        onOpenWaitlist={() => { window.location.href = '/waitlist'; }}
+      />
+    );
+  }
+
+  if (currentPath === '/overview') {
+    return (
+      <LandingPage
+        isAuthenticated={true}
+        onEnterApp={() => navigateTo('/')}
+        onOpenWaitlist={() => { window.location.href = '/waitlist'; }}
+      />
+    );
   }
 
   if (currentPath.startsWith('/admin')) {
@@ -880,8 +973,8 @@ function App() {
       {/* Mobile Top Header */}
       <header className="mobile-topbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div className="logo-icon" style={{ width: '30px', height: '30px', fontSize: '15px' }}>M</div>
-          <span style={{ fontSize: '16px', fontWeight: 800, letterSpacing: '0.5px', color: '#fff' }}>MARKET OS</span>
+          <div className="logo-icon" style={{ width: '30px', height: '30px', fontSize: '15px' }}>P</div>
+          <span style={{ fontSize: '16px', fontWeight: 800, letterSpacing: '0.2px', color: '#fff' }}>PrimeEdge</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -946,9 +1039,15 @@ function App() {
       {/* Sidebar Navigation */}
       <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="logo-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div className="logo-icon">M</div>
-            <h1 className="logo-text">MARKET OS</h1>
+          <div 
+            style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', transition: 'opacity 0.2s' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.opacity = '0.75'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.opacity = '1'; }}
+            onClick={() => { navigateTo('/overview'); setMobileMenuOpen(false); }}
+            title="View PrimeEdge Platform Overview"
+          >
+            <div className="logo-icon">P</div>
+            <h1 className="logo-text">PrimeEdge</h1>
           </div>
           {/* Close button in mobile drawer */}
           <button
@@ -1119,7 +1218,7 @@ function App() {
               {user?.full_name || user?.email}
             </h4>
             <p style={{ fontSize: '10px', color: 'var(--text-secondary)', margin: '2px 0 0 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              {user?.is_admin ? 'Admin' : user?.role || 'Trader'} · Market OS v2.1
+              {user?.is_admin ? 'Admin' : user?.role || 'Trader'} · PrimeEdge v2.1
             </p>
           </div>
           <button
@@ -1321,7 +1420,7 @@ function App() {
               <div style={{ padding: '16px 20px', borderRadius: '12px', background: 'rgba(148, 163, 184, 0.1)', border: '1px solid rgba(148, 163, 184, 0.3)', color: '#cbd5e1', margin: '16px 0', display: 'flex', alignItems: 'center', gap: '14px' }}>
                 <ShieldAlert size={24} style={{ color: '#94a3b8', flexShrink: 0 }} />
                 <div>
-                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#f8fafc' }}>NO HIGH-QUALITY SETUP RIGHT NOW — Market OS Rewards Patience</div>
+                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#f8fafc' }}>NO HIGH-QUALITY SETUP RIGHT NOW — PrimeEdge Rewards Patience</div>
                   <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>No instrument currently meets the minimum historical conditions for an actionable setup.</div>
                 </div>
               </div>
@@ -1680,7 +1779,7 @@ function App() {
                 {[
                   { label: `What is ${selectedInstrument || 'GBPUSD'} doing?`, q: `What is ${selectedInstrument || 'GBPUSD'} doing right now?` },
                   { label: 'Compare all pairs', q: 'Compare GBPUSD vs EURUSD vs XAUUSD vs AUDUSD vs USDJPY' },
-                  { label: 'What does READY mean?', q: 'What does READY mean in Market OS?' },
+                  { label: 'What does READY mean?', q: 'What does READY mean in PrimeEdge?' },
                   { label: 'What is P90?', q: 'What is P90 invalidation and why is it used?' },
                   { label: `Entry analysis ${selectedInstrument || 'GBPUSD'}`, q: `Where should I enter ${selectedInstrument || 'GBPUSD'}? Market or limit?` },
                   { label: `${selectedInstrument || 'GBPUSD'} drops 10 pips?`, q: `What if ${selectedInstrument || 'GBPUSD'} drops 10 pips from current price?` },
@@ -1760,7 +1859,7 @@ function App() {
                 {chatLoading && (
                   <div className="chat-bubble bubble-ai" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Loader className="animate-spin" style={{ color: 'var(--accent-teal)', width: '16px', height: '16px' }} />
-                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Market OS AI is reasoning from quantitative data...</span>
+                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>PrimeEdge AI is reasoning from quantitative data...</span>
                   </div>
                 )}
               </div>
@@ -1833,7 +1932,7 @@ function App() {
       <button
         onClick={() => setFeedbackOpen(true)}
         className="floating-feedback-btn"
-        title="Share bug or suggestion directly with Market OS team"
+        title="Share bug or suggestion directly with PrimeEdge team"
       >
         <MessageSquare size={16} />
         <span>Beta Feedback</span>
@@ -1881,7 +1980,7 @@ function SignalScreenshotModal({
   const winRate = Math.round(item.continuation_probability * 100);
   const rr = profile?.reward_feasibility_ratio ?? 2.06;
 
-  const tweetText = `🚨 MARKET OS QUANT SIGNAL: $${item.instrument}
+  const tweetText = `🚨 PRIMEEDGE QUANT SIGNAL: $${item.instrument}
 Direction: ${item.direction} 📈
 Status: ${item.status_state}
 
@@ -1894,7 +1993,7 @@ Status: ${item.status_state}
 🌐 Macro: ${macroRegime?.dxy_regime ?? 'BEARISH'} DXY · ${macroRegime?.risk_sentiment ?? 'RISK ON'} VIX
 ⏰ Optimal Window: ${item.best_session} Corridor
 
-#Trading #Forex #Quant #MarketOS #${item.instrument}`;
+#Trading #Forex #Quant #PrimeEdge #${item.instrument}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(tweetText);
@@ -1943,10 +2042,10 @@ Status: ${item.status_state}
                 fontWeight: 900,
                 fontSize: '16px'
               }}>
-                M
+                P
               </div>
               <div>
-                <div style={{ fontSize: '15px', fontWeight: 900, letterSpacing: '0.5px' }}>MARKET OS</div>
+                <div style={{ fontSize: '16px', fontWeight: 800, letterSpacing: '-0.3px' }}>PrimeEdge</div>
                 <div style={{ fontSize: '9px', color: 'var(--accent-teal)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 800 }}>Institutional Decision Intelligence</div>
               </div>
             </div>

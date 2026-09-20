@@ -1,8 +1,8 @@
-# Market OS
+# PrimeEdge
 
 > **Private repository — authorised contributors only.**
 
-An institutional-grade execution and decision intelligence platform for active FX and commodities traders. Market OS combines real-time macro regime analysis, structured trade planning, cloud-native MT5 auto-execution, and a forensic replay engine into a single, unified interface.
+An institutional-grade execution and decision intelligence platform for active FX and commodities traders. PrimeEdge combines real-time macro regime analysis, structured trade planning, cloud-native MT5 auto-execution, and a forensic replay engine into a single, unified interface.
 
 ---
 
@@ -67,7 +67,7 @@ market-os/
 ```
 Subscriber (any device / browser)
         ↓  HTTPS via Cloudflare Tunnel
-Market OS Backend (FastAPI · port 8000)
+PrimeEdge Backend (FastAPI · port 8000)
         ↓
 Cloud Execution Router (multi-tenant · in-memory queues)
         ↓

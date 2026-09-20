@@ -46,6 +46,33 @@ def create_refresh_token(subject: str) -> str:
     payload = {"sub": subject, "type": "refresh", "exp": expire}
     return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
+def create_invite_token(email: str, full_name: Optional[str] = None) -> str:
+    """Generate a single-use onboarding invitation token valid for 7 days."""
+    expire = datetime.datetime.utcnow() + datetime.timedelta(days=7)
+    payload = {
+        "sub": email.lower(),
+        "name": full_name or "",
+        "type": "cohort_invite",
+        "exp": expire
+    }
+    return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+def decode_invite_token(token: str) -> dict:
+    """Verify and decode an onboarding invite token."""
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        if payload.get("type") != "cohort_invite":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid token type: not an invitation token"
+            )
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invitation link is invalid or has expired"
+        )
+
 def decode_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])

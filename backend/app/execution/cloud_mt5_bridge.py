@@ -4,11 +4,17 @@ Runs on the London VPS Node to execute trades dispatched from any mobile/web dev
 Zero downloads or installations required by end users.
 """
 
+import sys
 import time
 import datetime
 import logging
 import requests
 from typing import Dict, Any, List, Optional
+
+# SAFETY GUARD: This legacy bridge has been superseded by worker/worker_pool_manager.py
+# and worker/account_worker.py which provide isolated multi-tenant sandboxes.
+print("DEPRECATED: cloud_mt5_bridge.py is retired. Use worker/worker_pool_manager.py.")
+sys.exit(0)
 
 logging.basicConfig(
     level=logging.INFO,

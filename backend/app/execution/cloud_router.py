@@ -79,12 +79,39 @@ class CloudExecutionRouter:
         self.pending_order_queues[account_id].append(order_dict)
         self.processed_signals.add(idempotency_key)
 
+        # Durable DB queue persistence
+        try:
+            from ..database import SessionLocal
+            from ..models import ExecutionOrderQueue
+            with SessionLocal() as db:
+                existing = db.query(ExecutionOrderQueue).filter(ExecutionOrderQueue.signal_id == order.signal_id).first()
+                if not existing:
+                    db_order = ExecutionOrderQueue(
+                        signal_id=order.signal_id,
+                        account_id=account_id,
+                        action_type="OPEN",
+                        instrument=order.instrument,
+                        direction="LONG" if "LONG" in str(order.direction).upper() else "SHORT",
+                        order_type="MARKET",
+                        entry_reference_price=order.entry_reference_price,
+                        stop_loss=order.stop_loss,
+                        take_profit=order.take_profit,
+                        position_size_lots=order.position_size_lots,
+                        risk_pct=order.risk_pct,
+                        account_balance=order.account_balance,
+                        status="QUEUED"
+                    )
+                    db.add(db_order)
+                    db.commit()
+        except Exception as e:
+            logger.error(f"Error persisting order to DB queue: {e}")
+
         logger.info(f"[Router] Queued order {order.signal_id} ({order.instrument} {order.direction}) for account {account_id}")
         return {"status": "QUEUED", "account_id": account_id, "signal_id": order.signal_id}
 
     def queue_close_order_for_account(self, account_id: int, ticket_id: str, instrument: str, reason: str = "MANUAL") -> Dict[str, Any]:
         """
-        Queues a position liquidation / close order for MT5 execution.
+        Queues a position liquidation / close order for MT5 execution with durable DB persistence.
         """
         close_signal_id = f"CLOSE-{ticket_id}-{int(datetime.datetime.utcnow().timestamp())}"
         order_dict = {
@@ -97,6 +124,32 @@ class CloudExecutionRouter:
             "queued_at": datetime.datetime.utcnow().isoformat()
         }
         self.pending_order_queues[account_id].append(order_dict)
+
+        # Durable DB queue persistence
+        try:
+            from ..database import SessionLocal
+            from ..models import ExecutionOrderQueue
+            with SessionLocal() as db:
+                db_close = ExecutionOrderQueue(
+                    signal_id=close_signal_id,
+                    account_id=account_id,
+                    action_type="CLOSE",
+                    ticket_id=str(ticket_id),
+                    instrument=instrument,
+                    direction="CLOSE",
+                    order_type="MARKET",
+                    entry_reference_price=0.0,
+                    stop_loss=0.0,
+                    take_profit=0.0,
+                    position_size_lots=0.0,
+                    status="QUEUED"
+                )
+                db.add(db_close)
+                db.commit()
+                logger.info(f"💾 [Durable Outbox] Queued CLOSE order for Ticket #{ticket_id} ({instrument}) on Account {account_id}")
+        except Exception as e:
+            logger.error(f"Error persisting durable close order: {e}")
+
         logger.info(f"[Router] Queued CLOSE order for Ticket #{ticket_id} ({instrument}) on Account {account_id} [Reason: {reason}]")
         return {"status": "CLOSE_QUEUED", "account_id": account_id, "ticket_id": ticket_id}
 

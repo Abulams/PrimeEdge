@@ -3,31 +3,32 @@
   "batch_id": 1,
   "batch_name": "Backtest Simulation",
   "execution_policy": "MARKET_ENTRY",
-  "start_date": "2020-10-01",
+  "start_date": "2021-01-01",
   "end_date": "2026-01-31",
   "instruments": [
-    "GBPUSD"
+    "US100",
+    "AUDJPY"
   ],
   "friction_pips": 1.0,
   "database_schema_version": "v2.1",
-  "git_commit_hash": "UNKNOWN_GIT_COMMIT",
+  "git_commit_hash": "8e9173144ec929c7adce65fbec08cc6aa52e412f",
   "source_engine_hashes": {
-    "engine.py": "04bd99af2dfac78567a48a957c2d20b75af174b914a4ad3d9df4107a2adb09ec",
-    "replay_engine.py": "1ca7700d17d8dc5d5fe5c8723ad7d0943928234268b6623f97d772bf63f1d25e",
-    "signature_builder.py": "43677f2403a09e597c9bfd8e9ae2be7fb74bfc5ced885d143a3e4c0b34178b71",
-    "models.py": "c25143c68356f1899a71738ac944d2834674eb1836ad0bb76f9d7027362440e6",
-    "replay_service.py": "f30a58ad69ebba759b5d4eb6af9c8a2185741190ac6a1f7229ac53aa46ed208b"
+    "engine.py": "d5d23035c12760cd34373db46d6da086e3dc7e660ea57e644711e8ccbb64d13d",
+    "replay_engine.py": "7a65a5ccfd9a5b149ab1c3d7fda6bc9fa464d6283700fe6869e6bd29c267fa06",
+    "signature_builder.py": "09ebf3e09c892e175874ba12a61f1967b6c9bf897347e9e718654337d7d155f2",
+    "models.py": "9e4778a95d278d25155e1bad7aff3edf32c0aaf9d7c4af78b2dc4857b8c28ecf",
+    "replay_service.py": "faee347cc426f012ced9cb57aa4719bb7d02b41d33946f5b08f31581124717d5"
   },
-  "total_setups_evaluated": 1388,
-  "total_trades_taken": 910,
-  "total_setups_passed": 478,
-  "population_checksum_hash": "eadab5e6e68ce53b69c6a56ca566d440f50567075862000fb65b9460b85f413c",
-  "exported_at": "2026-08-20T01:40:01.823794Z",
+  "total_setups_evaluated": 2644,
+  "total_trades_taken": 1718,
+  "total_setups_passed": 926,
+  "population_checksum_hash": "93008a2c4d5685249923dd83c939861848ad5afe0fb15c8627943013c71ca380",
+  "exported_at": "2026-09-14T08:34:11.121060Z",
   "file_manifest": {
-    "batch.json": "45b39c02361927a1998673f5a85b81142b9679c926b299f0f4a0a8f3848cc4ae",
-    "analytics.json": "f93fad42123c780896bb29a5394f4e40ca42a5c2f5214527767a5e3421c9b166",
+    "batch.json": "33eba153109cb59ebc77f1b5cf55413b48498e4bc18dc5488544af31705c9c1a",
+    "analytics.json": "f15c99104a266aab82aff1d78349829596e9e3c6d87c3880a93fd8fa2af63826",
     "integrity.json": "f8672094eb56b0c4ad3b12c959230f07c728288767a5213f0ae9f1d4a578769c",
-    "setup_snapshots.csv": "f484f7302477b2f4d900181d58f1e16763efe17e63256a863a37fd4c9004b2e3",
-    "trade_records.csv": "f6b3635b2edff55047e7872bbe7761738da07ec5e9ad1696ac75acb2590024b3"
+    "setup_snapshots.csv": "de6fc33c432da00b70e80c225ebc9c27997d3fb225b0d16495e8a77ea79c1a61",
+    "trade_records.csv": "ddb20f8f69f953d3413a19ca76b8256a82c8a174f9667004a76821272694dcf6"
   }
 }

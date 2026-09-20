@@ -1,0 +1,21 @@
+# PrimeEdge Production Web Server & Reverse Proxy Configuration
+# Caddy handles automatic Let's Encrypt TLS/SSL certificates for primeedge.app
+
+{
+    admin off
+}
+
+# Domain HTTPS Virtual Hosts
+primeedge.app, www.primeedge.app {
+    reverse_proxy 127.0.0.1:8000
+}
+
+# Founder Operations Dashboard (standalone subdomain — admin only)
+ops.primeedge.app {
+    reverse_proxy 127.0.0.1:8000
+}
+
+# Direct VPS IP Access (fallback before or alongside DNS propagation)
+:80 {
+    reverse_proxy 127.0.0.1:8000
+}

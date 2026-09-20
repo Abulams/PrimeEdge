@@ -55,22 +55,30 @@ class WorkerPoolManager:
     def __init__(self):
         self.active_processes: Dict[int, subprocess.Popen] = {}
         self.failures: Dict[int, Dict] = {}  # acc_id -> {"count": int, "last_failure": float, "spawn_time": float}
+        self.cached_accounts: Dict[int, Dict] = {}
+        self.absent_cycles: Dict[int, int] = {}  # acc_id -> consecutive absence count
         self.last_sync_time = 0
 
     def fetch_target_accounts(self) -> Dict[int, Dict]:
-        """Fetch all accounts that have auto_execution_enabled=True."""
+        """
+        Fetch all connected accounts.
+        Resilient: if the backend is restarting or under load, returns cached accounts
+        rather than an empty dict, preventing accidental mass-termination of workers.
+        """
         try:
             r = requests.get(f"{CLOUD_URL}/api/v1/execution/worker/accounts", headers=HEADERS, timeout=8)
             if r.status_code == 200:
                 accounts = r.json()
                 active = {}
                 for acc in accounts:
-                    if acc.get("auto_execution_enabled"):
-                        active[acc["account_id"]] = acc
+                    active[acc["account_id"]] = acc
+                self.cached_accounts = active
                 return active
+            else:
+                logger.warning(f"Non-200 response from cloud accounts ({r.status_code}) — preserving cached state.")
         except Exception as e:
-            logger.error(f"Error fetching active accounts from cloud: {e}")
-        return {}
+            logger.warning(f"Transient error fetching active accounts from cloud: {e} — preserving cached state.")
+        return self.cached_accounts
 
     def spawn_worker_for_account(self, account_id: int, login: int):
         """Spawns an isolated Python subprocess for the given account."""
@@ -109,15 +117,21 @@ class WorkerPoolManager:
             del self.active_processes[account_id]
         if account_id in self.failures:
             del self.failures[account_id]
+        if account_id in self.absent_cycles:
+            del self.absent_cycles[account_id]
 
     def reconcile_pool(self):
         """Reconciles active subprocesses with desired cloud state."""
         target_accounts = self.fetch_target_accounts()
 
-        # 1. Stop workers for accounts that are no longer active
+        # 1. Stop workers for accounts that are persistently absent (hysteresis >= 3 cycles)
         for acc_id in list(self.active_processes.keys()):
             if acc_id not in target_accounts:
-                self.stop_worker_for_account(acc_id)
+                self.absent_cycles[acc_id] = self.absent_cycles.get(acc_id, 0) + 1
+                if self.absent_cycles[acc_id] >= 3:
+                    self.stop_worker_for_account(acc_id)
+            else:
+                self.absent_cycles[acc_id] = 0
 
         # 2. Start or health-check workers for active accounts
         now = time.time()
@@ -157,15 +171,42 @@ class WorkerPoolManager:
                         logger.warning(f"⚠️ Worker for Account #{acc_id} exited with code {ret} (attempt {f_info['count']}/3). Restarting...")
                         self.spawn_worker_for_account(acc_id, login)
 
+    def report_node_heartbeat(self):
+        """Reports host node health (CPU, RAM, active terminals) to cloud router."""
+        try:
+            import psutil
+            active_count = len([p for p in self.active_processes.values() if p.poll() is None])
+            payload = {
+                "worker_id": WORKER_ID,
+                "cpu_pct": psutil.cpu_percent(),
+                "ram_pct": psutil.virtual_memory().percent,
+                "active_terminals": active_count,
+                "terminal_statuses": {}
+            }
+            requests.post(
+                f"{CLOUD_URL}/api/v1/execution/worker/heartbeat",
+                json=payload,
+                headers=HEADERS,
+                timeout=5
+            )
+        except Exception as e:
+            logger.debug(f"Node heartbeat report error: {e}")
+
     def run(self):
         logger.info("================================================================")
         logger.info("  MARKET-OS 20-ACCOUNT CLOUD WORKER POOL MANAGER                ")
         logger.info("  ISOLATION: FULL PROCESS & PORTABLE MT5 SANDBOX                ")
         logger.info("================================================================")
 
+        last_hb = 0
         while True:
             try:
                 self.reconcile_pool()
+
+                if time.time() - last_hb >= 15:
+                    self.report_node_heartbeat()
+                    last_hb = time.time()
+
                 time.sleep(8)
             except KeyboardInterrupt:
                 logger.info("Pool manager shutting down. Terminating all workers...")

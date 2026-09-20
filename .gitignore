@@ -38,6 +38,8 @@ backend/audit_*.py
 
 # Binaries & Sandbox Terminals
 cloudflared.exe
+caddy.exe
+*.exe
 terminals/
 backups/
 backend/scratch/

@@ -2,13 +2,13 @@ import datetime
 import os
 import secrets
 import hashlib
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, Header, status, Body
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import User, UserBrokerAccount, WorkerNode, ExecutionAuditLog, TradeRecord, SetupSnapshot, WaitlistLead
+from ..models import User, UserBrokerAccount, WorkerNode, ExecutionAuditLog, TradeRecord, SetupSnapshot, WaitlistLead, ExecutionOrderQueue
 from ..journal_service import JournalService
 from ..auth import get_current_user, get_current_admin
 from ..execution.base import ExecutionOrder, OrderDirection, OrderType, PlatformType
@@ -53,7 +53,7 @@ class WorkerHeartbeatRequest(BaseModel):
 
 class WorkerFillReportRequest(BaseModel):
     account_id: int
-    ticket_id: str
+    ticket_id: Optional[str] = None   # None when order was REJECTED before a ticket was assigned
     signal_id: str
     instrument: str
     direction: str
@@ -62,7 +62,9 @@ class WorkerFillReportRequest(BaseModel):
     sl: float
     tp: float
     latency_ms: float
-    status: str = "FILLED"
+    status: str = "FILLED"            # "FILLED" or "REJECTED"
+    error_comment: Optional[str] = None
+    retcode: Optional[int] = None
 
 
 class WorkerCloseReportRequest(BaseModel):
@@ -135,8 +137,8 @@ def connect_cloud_account(
             is_active=True,
             auto_execution_enabled=True,
             allocated_worker_id=allocated_worker_id,
-            balance=100000.0,
-            equity=100000.0,
+            balance=0.0,
+            equity=0.0,
             currency="USD",
             leverage=100,
             ping_ms=3.8,
@@ -456,8 +458,57 @@ def poll_orders_for_worker(
         ).all()
         target_ids = [acc.id for acc in accounts]
 
-    orders = cloud_router.pop_orders_for_worker(target_ids)
-    return {"orders": orders, "count": len(orders)}
+    allowed_ids = [aid for aid in target_ids if cloud_router.is_execution_allowed(aid)]
+    if not allowed_ids:
+        return {"orders": [], "count": 0}
+
+    now = datetime.datetime.utcnow()
+
+    # 1. Lease recovery: if an order has been stuck in DISPATCHED for > 120s with no fill report, recover or expire it
+    stale_lease = now - datetime.timedelta(seconds=120)
+    stuck_orders = db.query(ExecutionOrderQueue).filter(
+        ExecutionOrderQueue.account_id.in_(allowed_ids),
+        ExecutionOrderQueue.status == "DISPATCHED",
+        ExecutionOrderQueue.dispatched_at < stale_lease
+    ).all()
+    for stuck in stuck_orders:
+        if (now - stuck.created_at).total_seconds() > 300:
+            stuck.status = "EXPIRED"
+            stuck.completed_at = now
+        else:
+            stuck.status = "QUEUED"
+
+    # 2. Fetch all durable QUEUED orders for these allowed accounts
+    queued_orders = db.query(ExecutionOrderQueue).filter(
+        ExecutionOrderQueue.account_id.in_(allowed_ids),
+        ExecutionOrderQueue.status == "QUEUED"
+    ).order_by(ExecutionOrderQueue.id.asc()).all()
+
+    orders_to_dispatch = []
+    for o in queued_orders:
+        orders_to_dispatch.append({
+            "action_type": o.action_type,
+            "ticket_id": o.ticket_id,
+            "signal_id": o.signal_id,
+            "instrument": o.instrument,
+            "direction": o.direction,
+            "order_type": o.order_type,
+            "entry_reference_price": o.entry_reference_price,
+            "stop_loss": o.stop_loss,
+            "take_profit": o.take_profit,
+            "position_size_lots": o.position_size_lots,
+            "risk_pct": o.risk_pct,
+            "account_id": o.account_id,
+            "account_balance": o.account_balance,
+            "queued_at": o.created_at.isoformat() if o.created_at else now.isoformat()
+        })
+        o.status = "DISPATCHED"
+        o.dispatched_at = now
+
+    if queued_orders or stuck_orders:
+        db.commit()
+
+    return {"orders": orders_to_dispatch, "count": len(orders_to_dispatch)}
 
 
 @router.post("/worker/report-fill")
@@ -472,7 +523,7 @@ def report_order_fill(
     audit_entry = ExecutionAuditLog(
         user_id=user_id,
         worker_id=worker.worker_id,
-        ticket_id=req.ticket_id,
+        ticket_id=req.ticket_id or "NONE",
         signal_id=req.signal_id,
         instrument=req.instrument,
         direction=req.direction,
@@ -481,13 +532,25 @@ def report_order_fill(
         sl=req.sl,
         tp=req.tp,
         volume=req.volume,
-        status="FILLED",
+        status="FILLED" if req.status == "FILLED" else "REJECTED",
         latency_ms=req.latency_ms,
         details={"comment": f"Executed by Worker {worker.worker_id}"},
     )
     db.add(audit_entry)
 
-    # 1. Synchronize real MT5 ticket ID and actual fill price with TradeRecord in Auto Journal
+    # 1. Update Durable Outbox Queue record
+    queue_order = db.query(ExecutionOrderQueue).filter(ExecutionOrderQueue.signal_id == req.signal_id).first()
+    if queue_order:
+        queue_order.completed_at = datetime.datetime.utcnow()
+        if req.status == "FILLED":
+            queue_order.status = "FILLED"
+            queue_order.ticket_id = str(req.ticket_id)
+        else:
+            queue_order.status = "REJECTED"
+            queue_order.error_comment = getattr(req, "error_comment", None)
+            queue_order.retcode = getattr(req, "retcode", None)
+
+    # 2. Synchronize real MT5 ticket ID and actual fill price with TradeRecord in Auto Journal
     trade = None
     if "-TR-" in req.signal_id:
         try:
@@ -498,7 +561,6 @@ def report_order_fill(
             trade = None
 
     if not trade and req.account_id:
-        # Fallback match most recent ACTIVE trade for this instrument on this account
         trade = db.query(TradeRecord).join(SetupSnapshot, SetupSnapshot.id == TradeRecord.setup_snapshot_id).filter(
             TradeRecord.account_id == req.account_id,
             TradeRecord.lifecycle_state == "ACTIVE",
@@ -506,6 +568,19 @@ def report_order_fill(
             TradeRecord.broker_ticket.is_(None)
         ).order_by(TradeRecord.id.desc()).first()
 
+    # ── REJECTION PATH ─────────────────────────────────────────────────
+    if req.status == "REJECTED":
+        if trade:
+            trade.execution_status = "REJECTED"
+            trade.lifecycle_state = "CLOSED"
+            trade.exit_reason = "BROKER_REJECTED"
+            trade.exit_timestamp = datetime.datetime.utcnow()
+            trade.outcome = "REJECTED"
+        audit_entry.status = "REJECTED"
+        db.commit()
+        return {"status": "REJECTION_LOGGED", "signal_id": req.signal_id}
+
+    # ── FILL PATH ──────────────────────────────────────────────────────
     if trade:
         trade.broker_ticket = str(req.ticket_id)
         trade.actual_entry = req.fill_price
@@ -547,10 +622,36 @@ def report_order_fill(
 @router.post("/worker/report-positions/{account_id}")
 def report_positions(
     account_id: int,
-    positions: List[Dict[str, Any]],
+    payload: Union[List[Dict[str, Any]], Dict[str, Any]] = Body(...),
     worker: WorkerNode = Depends(authenticate_worker),
     db: Session = Depends(get_db),
 ):
+    if isinstance(payload, dict):
+        positions = payload.get("positions", [])
+        balance = payload.get("balance")
+        equity = payload.get("equity")
+        ping_ms = payload.get("ping_ms")
+    else:
+        positions = payload
+        balance = None
+        equity = None
+        ping_ms = None
+
+    # Update account live balance, equity, and heartbeat in database
+    account = db.query(UserBrokerAccount).filter(UserBrokerAccount.id == account_id).first()
+    if account:
+        if balance is not None and float(balance) > 0.0:
+            account.balance = float(balance)
+        if equity is not None and float(equity) > 0.0:
+            account.equity = float(equity)
+        if ping_ms is not None:
+            account.ping_ms = float(ping_ms)
+        account.last_heartbeat = datetime.datetime.utcnow()
+        if isinstance(payload, dict) and payload.get("error"):
+            account.error_message = str(payload["error"])
+        elif balance is not None:
+            account.error_message = None
+
     cloud_router.update_positions_from_worker(account_id, positions)
 
     # Closed-loop live reconciliation with database TradeRecords
@@ -569,19 +670,15 @@ def report_positions(
             trade.max_mae_pips = max(trade.max_mae_pips or 0.0, float(p.get("max_mae_pips", 0.0)))
             trade.max_mfe_pips = max(trade.max_mfe_pips or 0.0, float(p.get("max_mfe_pips", 0.0)))
             trade.pnl_pips = float(p.get("current_pnl_pips", trade.pnl_pips or 0.0))
-
-    # Reconcile external closes: if an active TradeRecord with broker_ticket is no longer open in MT5
-    active_db_trades = db.query(TradeRecord).filter(
-        TradeRecord.account_id == account_id,
-        TradeRecord.lifecycle_state == "ACTIVE",
-        TradeRecord.broker_ticket.isnot(None)
-    ).all()
-
-    for trade in active_db_trades:
-        if trade.broker_ticket not in active_mt5_tickets:
-            # Position closed externally on MT5 (SL/TP hit or manual close)
-            exit_p = trade.actual_entry or 0.0
-            JournalService._finalize_trade(trade, exit_price=exit_p, exit_reason="BROKER_CLOSED")
+            # Calculate floating R-multiple so active trades in Auto-Journal show live R
+            setup = trade.setup
+            if setup:
+                from ..journal_service import get_pip_multiplier
+                pip_mult = get_pip_multiplier(setup.instrument)
+                entry = trade.actual_entry or setup.setup_ref_price
+                risk_dist = abs(entry - trade.actual_sl) if trade.actual_sl else (setup.mae_p90_pips / pip_mult if setup.mae_p90_pips else 0.0020)
+                risk_pips = max(1.0, risk_dist * pip_mult)
+                trade.pnl_r = round(trade.pnl_pips / risk_pips, 2)
 
     db.commit()
     return {"status": "SYNCED", "count": len(positions)}
@@ -602,10 +699,17 @@ def report_order_close(
         audit.status = "CLOSED"
 
     # 2. Update TradeRecord in AutoJournal!
+    # Check for active trade, or recently closed trade (to overwrite any race-condition placeholders)
     trade = db.query(TradeRecord).filter(
         TradeRecord.broker_ticket == str(req.ticket_id),
         TradeRecord.lifecycle_state == "ACTIVE"
     ).first()
+
+    if not trade:
+        trade = db.query(TradeRecord).filter(
+            TradeRecord.broker_ticket == str(req.ticket_id),
+            TradeRecord.lifecycle_state == "CLOSED"
+        ).order_by(TradeRecord.id.desc()).first()
 
     if trade:
         JournalService._finalize_trade(trade, exit_price=req.exit_price, exit_reason=req.exit_reason)
@@ -932,13 +1036,35 @@ def approve_waitlist_lead(
     _: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    """Approve a waitlist lead, mark as INVITED, and prepare their access."""
+    """Approve a waitlist lead, mark as INVITED, and send their activation email with invite token."""
     lead = db.query(WaitlistLead).filter(WaitlistLead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Waitlist lead not found")
+
+    from ..auth import create_invite_token
+    from ..email_service import send_applicant_invite_email
+
+    invite_token = create_invite_token(lead.email, lead.full_name)
+    email_sent = False
+    try:
+        email_sent = send_applicant_invite_email(
+            full_name=lead.full_name,
+            email=lead.email,
+            invite_token=invite_token,
+            spot_number=lead.id,
+        )
+    except Exception as err:
+        logger.error(f"Error sending invite email to {lead.email}: {err}")
+
     lead.status = "INVITED"
     db.commit()
-    return {"status": "SUCCESS", "message": f"Lead {lead.email} marked as INVITED", "lead_id": lead.id}
+    return {
+        "status": "SUCCESS",
+        "message": f"Invitation email sent to {lead.email}" if email_sent else f"Lead marked as INVITED (email send failed or pending)",
+        "lead_id": lead.id,
+        "email_sent": email_sent,
+        "activation_url": f"https://primeedge.app/activate?token={invite_token}"
+    }
 
 
 @router.delete("/admin/waitlist/{lead_id}")

@@ -100,33 +100,10 @@ class ReplayEngine:
                 else:
                     frozen_tp = profile.get("empirical_target_price") or (ref_price + (mfe_target_pips * pip_unit if is_long else -mfe_target_pips * pip_unit))
 
-                if policy in ["MARKET_ENTRY", "VALIDATED_MARKET_OPEN"]:
-                    entry_type = "MARKET"
-                    frozen_entry = ref_price + (friction_offset if is_long else -friction_offset)
-                    frozen_sl = default_sl
-                elif policy in ["RETEST_LIMIT_ENTRY", "RETEST_LIMIT_DEVIATION"]:
-                    entry_type = "LIMIT"
-                    frozen_entry = ref_price + (friction_offset if is_long else -friction_offset) # Retest at Open
-                    frozen_sl = default_sl
-                elif policy == "RECALIBRATED_DEVIATION":
-                    entry_type = "MARKET"
-                    late_pips = 5.0 * pip_unit
-                    frozen_entry = ref_price + (late_pips if is_long else -late_pips)
-                    inval_mae_pips = profile.get("empirical_invalidation_pips", 15.0)
-                    frozen_sl = frozen_entry - (inval_mae_pips * pip_unit) if is_long else frozen_entry + (inval_mae_pips * pip_unit)
-                elif policy == "EXECUTION_DEVIATION":  # (+5 pips late entry, blind chase)
-                    entry_type = "MARKET"
-                    late_pips = 5.0 * pip_unit
-                    frozen_entry = ref_price + (late_pips if is_long else -late_pips)
-                    frozen_sl = default_sl
-                elif policy in ["STRICT_V4_LIMIT", "DEPRECATED_DEEP_LIMIT"]:
-                    entry_type = "LIMIT"
-                    frozen_entry = corridor.get("p25_price") or ref_price
-                    frozen_sl = default_sl
-                else:
-                    entry_type = "MARKET"
-                    frozen_entry = ref_price + (friction_offset if is_long else -friction_offset)
-                    frozen_sl = default_sl
+                # Single execution standard: Market Entry at session reference price (+/- friction)
+                entry_type = "MARKET"
+                frozen_entry = ref_price + (friction_offset if is_long else -friction_offset)
+                frozen_sl = default_sl
 
                 # 3. Create Immutable Replay Setup Snapshot
                 mfe_dist = profile.get("mfe_distribution", {})

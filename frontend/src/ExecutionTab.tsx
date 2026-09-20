@@ -496,17 +496,17 @@ export const ExecutionTab: React.FC = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <div style={{ background: 'var(--bg-primary)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                     <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Login Account</div>
-                    <div style={{ fontSize: '15px', fontWeight: 700, marginTop: '2px' }}>#{acc.login || '8809124'}</div>
+                    <div style={{ fontSize: '15px', fontWeight: 700, marginTop: '2px' }}>#{acc.login || '—'}</div>
                     <div style={{ fontSize: '10px', color: 'var(--accent-teal)', marginTop: '2px' }}>{acc.server || 'MarketOS-Cloud'}</div>
                   </div>
 
                   <div style={{ background: 'var(--bg-primary)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                     <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Account Equity</div>
-                    <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--accent-green)', marginTop: '2px' }}>
-                      ${(acc.equity || 100000.0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    <div style={{ fontSize: '15px', fontWeight: 700, color: (acc.equity ?? 0) > 0 ? 'var(--accent-green)' : 'var(--text-secondary)', marginTop: '2px' }}>
+                      ${(acc.equity ?? 0.0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </div>
                     <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      Bal: ${(acc.balance || 100000.0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      Bal: ${(acc.balance ?? 0.0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </div>
                   </div>
                 </div>

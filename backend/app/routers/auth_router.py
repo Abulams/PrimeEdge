@@ -179,3 +179,90 @@ def admin_update_user(
     db.refresh(user)
     return user
 
+
+class AdminCreateUserRequest(BaseModel):
+    email: str
+    password: str
+    full_name: Optional[str] = None
+    role: str = "trader"
+
+
+@router.post("/admin/create-user", response_model=UserProfileResponse, status_code=201)
+def admin_create_user_direct(
+    req: AdminCreateUserRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    """[Admin-only] Create a new platform account directly — bypasses public registration block."""
+    existing = db.query(User).filter(User.email == req.email.strip().lower()).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="An account with this email already exists")
+    new_user = User(
+        email=req.email.strip().lower(),
+        hashed_password=hash_password(req.password),
+        full_name=req.full_name,
+        role=req.role,
+        is_active=True,
+        is_admin=(req.role == "admin"),
+        email_verified=True,
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
+
+
+class AccountActivationRequest(BaseModel):
+    token: str
+    password: str
+    full_name: Optional[str] = None
+
+
+@router.post("/activate-invite", response_model=TokenResponse)
+def activate_invite_account(
+    req: AccountActivationRequest,
+    db: Session = Depends(get_db),
+):
+    """Activate an account via secure invitation token and set password."""
+    from ..auth import decode_invite_token
+    payload = decode_invite_token(req.token)
+    email = payload.get("sub")
+    if not email:
+        raise HTTPException(status_code=400, detail="Invalid token: missing email")
+
+    if len(req.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    user = db.query(User).filter(User.email == email.lower()).first()
+    if user:
+        # Existing user setting/resetting their password via invite
+        user.hashed_password = hash_password(req.password)
+        user.is_active = True
+        user.email_verified = True
+        if req.full_name and not user.full_name:
+            user.full_name = req.full_name
+    else:
+        # New user creation
+        name = req.full_name or payload.get("name") or None
+        user = User(
+            email=email.lower(),
+            hashed_password=hash_password(req.password),
+            full_name=name,
+            role="trader",
+            is_active=True,
+            is_admin=False,
+            email_verified=True,
+        )
+        db.add(user)
+
+    user.last_login = datetime.datetime.utcnow()
+    db.commit()
+    db.refresh(user)
+
+    return TokenResponse(
+        access_token=create_access_token(user.email),
+        refresh_token=create_refresh_token(user.email),
+        user=UserProfileResponse.model_validate(user),
+    )
+
+

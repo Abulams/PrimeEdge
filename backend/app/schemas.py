@@ -265,7 +265,7 @@ class ReplayRunRequest(BaseModel):
     start_date: datetime.date
     end_date: datetime.date
     instruments: Optional[List[str]] = ["GBPUSD", "EURUSD", "XAUUSD", "AUDUSD", "USDJPY"]
-    execution_policy: Optional[str] = "STRICT_V4_LIMIT"  # STRICT_V4_LIMIT, MARKET_ENTRY, EXECUTION_DEVIATION
+    execution_policy: Optional[str] = "MARKET_ENTRY"  # Canonical institutional standard: Market Entry
     friction_pips: Optional[float] = 2.5  # 1.5 spread + 1.0 slippage
 
 class ReplayBatchResponse(BaseModel):

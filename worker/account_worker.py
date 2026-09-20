@@ -160,6 +160,9 @@ class AccountWorker:
 
     def initialize_terminal(self) -> bool:
         """Provisions portable directory and establishes persistent MT5 connection."""
+        import psutil as _psutil
+        import subprocess as _subprocess
+
         self.logger.info(f"Provisioning portable MT5 sandbox for #{self.login}...")
         self.terminal_exe = provision_terminal_for_account(self.account_id, self.login, self.server)
 
@@ -167,17 +170,81 @@ class AccountWorker:
             self.logger.error("MetaTrader5 python module not installed.")
             return False
 
-        # Terminate any stale process for this specific terminal path
+        # --- Step 1: Check if terminal is already running for this sandbox ---
+        sandbox_dir = os.path.dirname(self.terminal_exe).replace('\\', '/').lower()
+        already_running_pid = None
+        try:
+            for proc in _psutil.process_iter(['pid', 'exe']):
+                try:
+                    exe = proc.info.get('exe') or ''
+                    if 'terminal64' in exe.lower() and sandbox_dir in exe.replace('\\', '/').lower():
+                        already_running_pid = proc.info['pid']
+                        break
+                except (_psutil.NoSuchProcess, _psutil.AccessDenied):
+                    pass
+        except Exception:
+            pass
+
+        if already_running_pid:
+            self.logger.info(f"Terminal already running for acc_{self.account_id} (PID: {already_running_pid}). Attaching...")
+            ok = mt5.initialize(
+                path=self.terminal_exe,
+                login=self.login,
+                password=self.password,
+                server=self.server,
+                portable=True,
+                timeout=15000
+            )
+            if ok:
+                acc_info = mt5.account_info()
+                if acc_info and acc_info.login == self.login:
+                    self.logger.info(f"✅ Reattached to running MT5 instance for #{self.login}!")
+                    return True
+
+        # --- Step 2: Cleanly terminate any stuck/unresponsive process for this sandbox ---
+        try:
+            mt5.shutdown()
+        except Exception:
+            pass
+        time.sleep(1)
+
+        killed = 0
+        try:
+            for proc in _psutil.process_iter(['pid', 'exe']):
+                try:
+                    exe = proc.info.get('exe') or ''
+                    if 'terminal64' in exe.lower() and sandbox_dir in exe.replace('\\', '/').lower():
+                        proc.kill()
+                        killed += 1
+                except (_psutil.NoSuchProcess, _psutil.AccessDenied):
+                    pass
+        except Exception as ke:
+            self.logger.warning(f"Process cleanup warning: {ke}")
+
+        if killed:
+            self.logger.info(f"Cleaned up {killed} stale terminal process(es) for acc_{self.account_id}.")
+            time.sleep(2)
+
+        # --- Step 3: Launch dedicated terminal cleanly with /portable /expert ---
+        self.logger.info(f"Launching dedicated MT5 terminal for #{self.login}...")
+        try:
+            _subprocess.Popen(
+                [self.terminal_exe, '/portable', '/expert'],
+                cwd=os.path.dirname(self.terminal_exe),
+            )
+            time.sleep(5)
+        except Exception as launch_err:
+            self.logger.warning(f"Launch warning: {launch_err}")
+
+        # --- Step 4: Connect via MT5 Python API ---
         self.logger.info(f"Connecting to dedicated MT5 instance: {self.terminal_exe}...")
-        
-        # Initialize terminal in portable mode
         ok = mt5.initialize(
             path=self.terminal_exe,
             login=self.login,
             password=self.password,
             server=self.server,
             portable=True,
-            timeout=60000
+            timeout=30000
         )
 
         if not ok:
@@ -186,9 +253,26 @@ class AccountWorker:
             return False
 
         acc_info = mt5.account_info()
+        if not acc_info or acc_info.login != self.login:
+            self.logger.info(f"Invoking explicit mt5.login for #{self.login} on {self.server}...")
+            login_ok = mt5.login(login=self.login, password=self.password, server=self.server)
+            if not login_ok:
+                err = mt5.last_error()
+                self.logger.error(f"mt5.login failed for #{self.login}: {err}")
+                return False
+            acc_info = mt5.account_info()
+
         if not acc_info:
             self.logger.error(f"Cannot get account_info for #{self.login}")
             return False
+
+        # Verify AutoTrading status
+        term_info = mt5.terminal_info()
+        trade_ok = term_info and term_info.trade_allowed
+        if not trade_ok:
+            self.logger.warning(f"⚠️ trade_allowed=False for acc_{self.account_id} — orders may be rejected with 10027.")
+        else:
+            self.logger.info(f"✅ AutoTrading enabled (trade_allowed=True)")
 
         self.logger.info(f"✅ CONNECTED! Account #{acc_info.login} ({acc_info.server}) | Balance: ${acc_info.balance:.2f} | Equity: ${acc_info.equity:.2f}")
         return True
@@ -224,21 +308,41 @@ class AccountWorker:
 
                 self.logger.info(f"Position Ticket #{ticket_id} confirmed closed on MT5 broker.")
                 exit_price = pos.get("current_price", open_price)
+                pnl_currency = 0.0
+                exit_reason = "BROKER_SL_TP_OR_MANUAL"
+
+                # Query authentic broker closing deal from MT5 history
+                if MT5_AVAILABLE:
+                    try:
+                        deals = mt5.history_deals_get(position=int(ticket_id))
+                        if deals:
+                            # Closing deals typically have entry == 1 (DEAL_ENTRY_OUT) or non-zero profit
+                            close_deals = [d for d in deals if getattr(d, 'entry', -1) == 1 or d.profit != 0.0]
+                            target_deal = close_deals[-1] if close_deals else deals[-1]
+                            if target_deal and target_deal.price > 0:
+                                exit_price = float(target_deal.price)
+                                pnl_currency = float(target_deal.profit)
+                                if getattr(target_deal, 'comment', ''):
+                                    exit_reason = f"BROKER_{target_deal.comment.upper()}"
+                                self.logger.info(f"Retrieved real MT5 closing deal for #{ticket_id}: exit_price={exit_price}, profit=${pnl_currency}")
+                    except Exception as deal_err:
+                        self.logger.warning(f"Could not retrieve history deal for #{ticket_id}: {deal_err}")
+
                 try:
                     requests.post(
                         f"{CLOUD_URL}/api/v1/execution/worker/report-close",
                         json={
                             "account_id": self.account_id,
                             "ticket_id": ticket_id,
-                            "exit_reason": "BROKER_SL_TP_OR_MANUAL",
+                            "exit_reason": exit_reason,
                             "exit_price": exit_price,
                             "pnl_r": 0.0,
-                            "pnl_currency": 0.0
+                            "pnl_currency": pnl_currency
                         },
                         headers=HEADERS, timeout=5
                     )
-                except Exception:
-                    pass
+                except Exception as post_err:
+                    self.logger.error(f"Failed to report close to backend: {post_err}")
                 del self.tracked_positions[ticket_id]
 
         # Track any new positions found directly on MT5
@@ -312,7 +416,42 @@ class AccountWorker:
                 del self.tracked_positions[ticket_id]
 
     def execute_order(self, order: Dict):
-        """Executes market order with broker stop normalization and resilient fallback."""
+        """Executes market order or close order with broker stop normalization and resilient fallback."""
+        action_type = order.get("action_type", "OPEN").upper()
+
+        # Handle CLOSE / Liquidation Orders
+        if action_type == "CLOSE":
+            ticket_id = order.get("ticket_id")
+            reason = order.get("reason", "AUTO_CLOSE")
+            raw_symbol = order.get("instrument", "")
+            symbol = resolve_broker_symbol(raw_symbol)
+            self.logger.info(f"Received CLOSE Order for Ticket #{ticket_id} on {symbol} [Reason: {reason}]")
+            if ticket_id and str(ticket_id).isdigit():
+                try:
+                    res = mt5.Close(symbol, ticket=int(ticket_id))
+                    if res:
+                        self.logger.info(f"✅ Successfully closed Ticket #{ticket_id}")
+                        if ticket_id in self.tracked_positions:
+                            del self.tracked_positions[ticket_id]
+                        requests.post(
+                            f"{CLOUD_URL}/api/v1/execution/worker/report-close",
+                            json={
+                                "account_id": self.account_id,
+                                "ticket_id": str(ticket_id),
+                                "exit_reason": reason,
+                                "exit_price": 0.0,
+                                "pnl_r": 0.0,
+                                "pnl_currency": 0.0
+                            },
+                            headers=HEADERS, timeout=5
+                        )
+                    else:
+                        err = mt5.last_error()
+                        self.logger.warning(f"mt5.Close returned False for Ticket #{ticket_id}: {err}")
+                except Exception as ce:
+                    self.logger.error(f"Exception executing close order for #{ticket_id}: {ce}")
+            return
+
         raw_symbol = order.get("instrument", "")
         symbol = resolve_broker_symbol(raw_symbol)
         direction = order.get("direction", "LONG").upper()
@@ -323,7 +462,12 @@ class AccountWorker:
 
         self.logger.info(f"Received Order: {direction} {volume} lots on {symbol} (Signal: {signal_id})")
 
+        mt5.symbol_select(symbol, True)
         tick = mt5.symbol_info_tick(symbol)
+        if not tick:
+            time.sleep(0.5)
+            tick = mt5.symbol_info_tick(symbol)
+
         if not tick:
             self.logger.error(f"No tick data available for {symbol}")
             return
@@ -343,7 +487,7 @@ class AccountWorker:
             "tp": norm_tp,
             "deviation": 20,
             "magic": 888001,
-            "comment": f"MOS-{signal_id[:10]}",
+            "comment": f"PE-{signal_id[:10]}",
             "type_time": mt5.ORDER_TIME_GTC,
             "type_filling": filling_mode,
         }
@@ -355,7 +499,11 @@ class AccountWorker:
         # Resilient Tier 2 fallback if tight stops rejected
         if not res or res.retcode != mt5.TRADE_RETCODE_DONE:
             self.logger.warning(f"Initial order_send retcode={res.retcode if res else 'None'}. Retrying pure market order...")
-            for alt_fill in [mt5.ORDER_FILLING_IOC, mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_RETURN]:
+            # Build filling mode list: symbol's native mode first, then alternatives
+            native_fill = filling_mode
+            all_fills = [mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_IOC, mt5.ORDER_FILLING_RETURN]
+            ordered_fills = [native_fill] + [m for m in all_fills if m != native_fill]
+            for alt_fill in ordered_fills:
                 req["sl"] = 0.0
                 req["tp"] = 0.0
                 req["type_filling"] = alt_fill
@@ -424,7 +572,32 @@ class AccountWorker:
             }
         else:
             err_c = res.comment if res else str(mt5.last_error())
-            self.logger.error(f"Order failed on broker for #{self.login}: {err_c}")
+            retcode = res.retcode if res else -1
+            self.logger.error(f"Order failed on broker for #{self.login}: {err_c} (retcode={retcode})")
+            # Report rejection back to backend so the TradeRecord is marked REJECTED
+            # and does NOT permanently consume a concurrency slot (zombie trade prevention).
+            try:
+                requests.post(
+                    f"{CLOUD_URL}/api/v1/execution/worker/report-fill",
+                    json={
+                        "account_id": self.account_id,
+                        "ticket_id": None,
+                        "signal_id": signal_id,
+                        "instrument": symbol,
+                        "direction": direction,
+                        "fill_price": 0.0,
+                        "volume": volume,
+                        "sl": 0.0,
+                        "tp": 0.0,
+                        "latency_ms": latency_ms,
+                        "status": "REJECTED",
+                        "error_comment": err_c,
+                        "retcode": retcode,
+                    },
+                    headers=HEADERS, timeout=5
+                )
+            except Exception as re_err:
+                self.logger.error(f"Failed to report order rejection to backend: {re_err}")
 
     def poll_orders(self):
         """Polls cloud router for pending orders for this specific account."""
@@ -441,21 +614,53 @@ class AccountWorker:
             self.logger.debug(f"Order poll exception: {e}")
 
     def report_heartbeat(self, positions: List[Dict]):
-        """Sends account telemetry and positions report."""
+        """Sends account telemetry, live balance, equity, and positions report."""
         try:
+            balance = None
+            equity = None
+            if MT5_AVAILABLE:
+                acc_info = mt5.account_info()
+                if acc_info and acc_info.login == self.login:
+                    balance = float(acc_info.balance)
+                    equity = float(acc_info.equity)
+
+            payload = {
+                "positions": positions,
+                "balance": balance,
+                "equity": equity,
+                "ping_ms": 2.5
+            }
             requests.post(
                 f"{CLOUD_URL}/api/v1/execution/worker/report-positions/{self.account_id}",
-                json={"positions": positions},
+                json=payload,
                 headers=HEADERS, timeout=5
             )
-        except Exception:
-            pass
+        except Exception as e:
+            self.logger.debug(f"Heartbeat report exception: {e}")
 
     def run(self):
-        """Continuous execution loop."""
-        if not self.initialize_terminal():
-            self.logger.error("Terminal initialization failed. Exiting worker.")
-            sys.exit(1)
+        """Continuous execution loop with resilient standby on connection failure."""
+        connected = False
+        while not connected:
+            if self.initialize_terminal():
+                connected = True
+                break
+
+            self.logger.warning(f"Terminal connection failed for #{self.login}. Reporting error to cloud and entering 60s standby...")
+            try:
+                requests.post(
+                    f"{CLOUD_URL}/api/v1/execution/worker/report-positions/{self.account_id}",
+                    json={
+                        "positions": [],
+                        "balance": None,
+                        "equity": None,
+                        "error": f"Broker connection failed on {self.server}"
+                    },
+                    headers=HEADERS, timeout=5
+                )
+            except Exception:
+                pass
+            time.sleep(60)
 
         self.logger.info(f"=== WORKER ACTIVE FOR ACCOUNT #{self.login} (Zero-Switch Dedicated Session) ===")
         last_hb = 0

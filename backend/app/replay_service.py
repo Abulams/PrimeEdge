@@ -34,7 +34,7 @@ class ReplayService:
         end_date: datetime.date,
         instruments: List[str],
         batch_name: str = "Control Group Audit",
-        execution_policy: str = "STRICT_V4_LIMIT",
+        execution_policy: str = "MARKET_ENTRY",
         friction_pips: float = 2.5
     ) -> ReplayBatch:
         """Creates a new ReplayBatch record."""

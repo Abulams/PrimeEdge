@@ -136,10 +136,10 @@ async def lifespan(app: FastAPI):
     # Stop the service on shutdown
     await realtime_service.stop()
 
-app = FastAPI(title="Market OS API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="PrimeEdge API", version="2.4.0", lifespan=lifespan)
 
 # Enable CORS for frontend and API clients
-_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:8000,http://127.0.0.1:8000,http://51.105.32.248:8000,https://51.105.32.248")
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "https://primeedge.app,https://www.primeedge.app,http://primeedge.app,http://www.primeedge.app,http://localhost:5173,http://localhost:8000,http://127.0.0.1:8000,http://51.105.32.248:8000,https://51.105.32.248")
 ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 if "*" in _raw_origins or os.getenv("ENVIRONMENT") != "production":
     ALLOWED_ORIGINS = ["*"]
@@ -476,22 +476,32 @@ def get_trade_history(
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """Returns all CLOSED trades specifically for the authenticated user."""
-    q = db.query(TradeRecord).filter(TradeRecord.lifecycle_state == "CLOSED")
+    """Returns all genuine CLOSED trades specifically for the authenticated user."""
+    q = db.query(TradeRecord).filter(
+        TradeRecord.lifecycle_state == "CLOSED",
+        TradeRecord.outcome.in_(["WIN", "LOSS", "BREAKEVEN"]),
+        TradeRecord.actual_entry.isnot(None)
+    )
     if current_user:
         q = q.filter(TradeRecord.user_id == current_user.id)
-    return q.order_by(TradeRecord.exit_timestamp.desc()).all()
+    return q.order_by(TradeRecord.exit_timestamp.desc(), TradeRecord.id.desc()).all()
 
 @app.get("/api/v1/journal/passed", response_model=List[TradeRecordResponse])
 def get_passed_setups(
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """Returns all PASSED setups for the authenticated user."""
-    q = db.query(TradeRecord).filter(TradeRecord.lifecycle_state == "PASSED")
+    """Returns all PASSED or REJECTED/UNFILLED setups for the authenticated user."""
+    from sqlalchemy import or_
+    q = db.query(TradeRecord).filter(
+        or_(
+            TradeRecord.lifecycle_state == "PASSED",
+            TradeRecord.execution_status == "REJECTED"
+        )
+    )
     if current_user:
         q = q.filter(TradeRecord.user_id == current_user.id)
-    return q.order_by(TradeRecord.created_at.desc()).all()
+    return q.order_by(TradeRecord.created_at.desc(), TradeRecord.id.desc()).all()
 
 @app.get("/api/v1/journal/performance", response_model=AutoJournalPerformanceResponse)
 def get_journal_performance(
@@ -583,13 +593,9 @@ def get_policy_stats(db: Session = Depends(get_db)):
     from sqlalchemy import func, case
     from .models import ReplayBatch, ReplaySetupSnapshot, ReplayTradeRecord
 
-    # Reference values per policy (design-time estimates, used as fallback when N < 30)
+    # Reference values per policy (Market Entry is the canonical standard)
     REFERENCE = {
-        "MARKET_ENTRY":            {"label": "Market Open — Session Price",         "ref_wr": 44.0, "ref_r": 0.265},
-        "RETEST_LIMIT_ENTRY":      {"label": "Pullback Limit — Wait for Retest",    "ref_wr": 44.0, "ref_r": 0.265},
-        "RECALIBRATED_DEVIATION":  {"label": "Missed Open — Recalibrated Stop",     "ref_wr": 42.0, "ref_r": 0.219},
-        "EXECUTION_DEVIATION":     {"label": "Late Entry — Blind Chase (+5p risk)",  "ref_wr": 43.1, "ref_r": 0.180},
-        "DEPRECATED_DEEP_LIMIT":   {"label": "⚠ Deep Limit [REMOVED — Do Not Use]", "ref_wr": 13.3, "ref_r": None},
+        "MARKET_ENTRY": {"label": "Market Open — Session Price", "ref_wr": 44.0, "ref_r": 0.265},
     }
 
     # Query live stats from DB
@@ -1606,12 +1612,56 @@ def submit_waitlist(req: WaitlistSubmitRequest, request: Request, db: Session = 
     db.refresh(lead)
 
     remaining = max(0, total_spots - (count + 1))
+
+    # Fire-and-forget email notifications:
+    # 1. Admin Alert -> support@primeedge.app
+    # 2. Applicant Invitation with secure activation token -> applicant's email
+    import threading
+    try:
+        from .auth import create_invite_token
+        from .email_service import notify_admin_new_waitlist_lead, send_applicant_invite_email
+
+        invite_token = create_invite_token(lead.email, lead.full_name)
+
+        # Mark as INVITED immediately since we're sending the invite instantly
+        lead.status = "INVITED"
+        db.commit()
+
+        def _dispatch_emails():
+            try:
+                notify_admin_new_waitlist_lead(
+                    full_name=lead.full_name,
+                    email=lead.email,
+                    broker_platform=lead.broker_platform,
+                    contact_method=lead.contact_method,
+                    why_interested=lead.why_interested,
+                    spot_number=count + 1,
+                    remaining_spots=remaining,
+                )
+            except Exception:
+                pass
+            try:
+                send_applicant_invite_email(
+                    full_name=lead.full_name,
+                    email=lead.email,
+                    invite_token=invite_token,
+                    spot_number=count + 1,
+                )
+            except Exception:
+                pass
+
+        t = threading.Thread(target=_dispatch_emails, daemon=True)
+        t.start()
+    except Exception:
+        pass  # Never block the API response due to email failure
+
     return {
         "status": "SUCCESS",
-        "message": "Thank you for applying. We'll reach out within 48h.",
+        "message": "Thank you for applying. We've emailed your activation link to access PrimeEdge.",
         "lead_id": lead.id,
         "spot_number": count + 1,
-        "remaining_spots": remaining
+        "remaining_spots": remaining,
+        "activation_url": f"/activate?token={invite_token}" if 'invite_token' in locals() else None
     }
 
 
@@ -1650,6 +1700,9 @@ _DIST = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
 
 if os.path.isdir(_DIST):
     app.mount("/assets", StaticFiles(directory=os.path.join(_DIST, "assets")), name="assets")
+    _SCREENSHOTS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "screenshots")
+    if os.path.isdir(_SCREENSHOTS_DIR):
+        app.mount("/screenshots", StaticFiles(directory=_SCREENSHOTS_DIR), name="screenshots")
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_fallback(full_path: str):

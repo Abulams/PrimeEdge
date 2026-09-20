@@ -425,22 +425,10 @@ export function ReplayTab() {
                 className="form-input"
                 value={executionPolicy}
                 onChange={(e) => setExecutionPolicy(e.target.value)}
-                style={{ width: '100%' }}
+                style={{ width: '100%', background: 'rgba(0, 242, 254, 0.04)', borderColor: 'rgba(0, 242, 254, 0.25)' }}
               >
                 <option value="MARKET_ENTRY">
-                  {formatPolicyOption('MARKET_ENTRY', '★ Market Open — Session Price (33.7% WR · +0.403R [2,233 live trades])')}
-                </option>
-                <option value="RETEST_LIMIT_ENTRY">
-                  {formatPolicyOption('RETEST_LIMIT_ENTRY', 'Pullback Limit — Wait for Retest (44.0% WR · +0.265R [estimated])')}
-                </option>
-                <option value="RECALIBRATED_DEVIATION">
-                  {formatPolicyOption('RECALIBRATED_DEVIATION', 'Missed Open — Recalibrated Stop (42.0% WR · +0.219R [estimated])')}
-                </option>
-                <option value="EXECUTION_DEVIATION">
-                  {formatPolicyOption('EXECUTION_DEVIATION', 'Late Entry — Blind Chase (+5p risk) (43.1% WR · +0.180R [estimated])')}
-                </option>
-                <option value="DEPRECATED_DEEP_LIMIT">
-                  {formatPolicyOption('DEPRECATED_DEEP_LIMIT', '⚠️ Deep Limit [REMOVED — Do Not Use] (13.3% WR)')}
+                  {formatPolicyOption('MARKET_ENTRY', '★ Market Open — Session Price (Execution Standard)')}
                 </option>
               </select>
             </div>
@@ -603,7 +591,7 @@ export function ReplayTab() {
                   {replayHistory.length === 0 ? (
                     <tr>
                       <td colSpan={9} style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                        No executed trades recorded under strict execution policy. Limit setups remained unfilled.
+                        No executed trades recorded for this simulation period.
                       </td>
                     </tr>
                   ) : (

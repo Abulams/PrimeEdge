@@ -30,6 +30,8 @@ os.makedirs(LOGS_DIR, exist_ok=True)
 
 PYTHON_EXE = r"C:\Python311\python.exe"
 MT5_EXE = r"C:\Program Files\MetaTrader 5\terminal64.exe"
+CADDY_EXE = r"C:\Market-OS\caddy.exe"
+CADDYFILE = r"C:\Market-OS\Caddyfile"
 
 # Logging setup
 log_file = os.path.join(LOGS_DIR, "watchdog.log")
@@ -47,7 +49,8 @@ logger = logging.getLogger("Watchdog")
 procs = {
     "uvicorn": None,
     "mt5": None,
-    "worker": None
+    "worker": None,
+    "caddy": None
 }
 
 def is_uvicorn_responsive() -> bool:
@@ -128,14 +131,40 @@ def start_worker():
         )
         procs["worker"] = p
         time.sleep(2)
-        logger.info(f"[OK] Market-OS Worker Pool Manager started (PID: {p.pid}).")
+        logger.info(f"[OK] PrimeEdge Worker Pool Manager started (PID: {p.pid}).")
     except Exception as e:
         logger.error(f"Failed to start worker pool manager: {e}")
 
+def start_caddy():
+    """Start Caddy HTTPS/TLS automated reverse proxy for primeedge.app."""
+    if not os.path.exists(CADDY_EXE) or not os.path.exists(CADDYFILE):
+        return
+    logger.info("[START] Starting Caddy HTTPS reverse proxy for primeedge.app...")
+    try:
+        for p in psutil.process_iter(['name']):
+            try:
+                if 'caddy' in (p.info.get('name') or '').lower():
+                    p.kill()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+
+        p = subprocess.Popen(
+            [CADDY_EXE, "run", "--config", CADDYFILE],
+            cwd=BASE_DIR,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            shell=False
+        )
+        procs["caddy"] = p
+        time.sleep(2)
+        logger.info(f"[OK] Caddy reverse proxy started (PID: {p.pid}).")
+    except Exception as e:
+        logger.error(f"Failed to start Caddy: {e}")
+
 def main():
     logger.info("==========================================================")
-    logger.info("  MARKET-OS 24/7 SELF-HEALING SUPERVISOR WATCHDOG ACTIVE  ")
-    logger.info("  POOL SUPERVISOR: 20-ACCOUNT PROCESS-ISOLATED POOL       ")
+    logger.info("  PRIMEEDGE 24/7 SELF-HEALING SUPERVISOR WATCHDOG ACTIVE  ")
+    logger.info("  DOMAIN: primeedge.app | TLS / HTTPS SUPERVISED          ")
     logger.info("==========================================================")
     
     consecutive_http_fails = 0
@@ -169,8 +198,25 @@ def main():
                         pass
 
             if not worker_alive:
-                logger.warning("[WARNING] Market-OS Worker Pool Manager NOT detected. Launching pool manager...")
+                logger.warning("[WARNING] PrimeEdge Worker Pool Manager NOT detected. Launching pool manager...")
                 start_worker()
+
+            # 3. Check & Ensure Caddy Reverse Proxy (primeedge.app HTTPS / Port 80 & 443)
+            caddy_alive = False
+            if procs["caddy"] and procs["caddy"].poll() is None:
+                caddy_alive = True
+            else:
+                for p in psutil.process_iter(['name']):
+                    try:
+                        if 'caddy' in (p.info.get('name') or '').lower():
+                            caddy_alive = True
+                            break
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
+
+            if not caddy_alive and os.path.exists(CADDY_EXE):
+                logger.warning("[WARNING] Caddy reverse proxy NOT detected. Launching Caddy...")
+                start_caddy()
 
             # 3. Daily Automated Online Database Backup (every 24 hours)
             if time.time() - last_backup_time > 86400:

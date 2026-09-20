@@ -182,32 +182,36 @@ class JournalService:
         db.commit()
         db.refresh(trade)
 
-        # Dispatch to 24/7 Cloud MT5 Execution Bridge ONLY for the specific target account
+        # Dispatch to 24/7 Cloud MT5 Execution Bridge via Durable DB Queue (Transactional Outbox)
         try:
+            from .models import ExecutionOrderQueue
             from .routers.execution_cloud_router import cloud_router
-            from .execution.base import ExecutionOrder, OrderDirection, OrderType
             
             target_acc_id = account_id
-            if target_acc_id:
-                dir_enum = OrderDirection.LONG if snapshot.direction == "LONG" else OrderDirection.SHORT
-                order_type_enum = OrderType.MARKET if entry_type.upper() == "MARKET" else OrderType.LIMIT
-                
-                exec_order = ExecutionOrder(
-                    signal_id=f"SNAP-{snapshot.id}-TR-{trade.id}",
+            if target_acc_id and cloud_router.is_execution_allowed(target_acc_id):
+                signal_id = f"SNAP-{snapshot.id}-TR-{trade.id}"
+                db_order = ExecutionOrderQueue(
+                    signal_id=signal_id,
+                    trade_id=trade.id,
+                    account_id=target_acc_id,
+                    action_type="OPEN",
+                    ticket_id=None,
                     instrument=snapshot.instrument,
-                    direction=dir_enum,
-                    order_type=order_type_enum,
+                    direction=snapshot.direction,
+                    order_type=entry_type.upper(),
                     entry_reference_price=actual_entry,
                     stop_loss=actual_sl,
                     take_profit=actual_tp,
                     position_size_lots=position_size_lots,
                     risk_pct=risk_pct,
-                    account_balance=account_balance
+                    account_balance=account_balance,
+                    status="QUEUED"
                 )
-                cloud_router.queue_order_for_account(account_id=target_acc_id, order=exec_order)
-                logger.info(f"Queued MT5 cloud order for {snapshot.instrument} {dir_enum} on Account ID {target_acc_id}")
+                db.add(db_order)
+                db.commit()
+                logger.info(f"💾 [Durable Outbox] Queued order {signal_id} ({snapshot.instrument} {snapshot.direction}) for Account ID {target_acc_id}")
         except Exception as e:
-            logger.error(f"Error dispatching MT5 cloud execution: {e}")
+            logger.error(f"Error persisting durable execution order: {e}")
 
         return trade
 
@@ -459,24 +463,31 @@ class JournalService:
         closed_trades = q_closed.all()
         passed_trades = q_passed.all()
 
-        total_closed = len(closed_trades)
-        wins = [t for t in closed_trades if t.outcome == "WIN"]
-        losses = [t for t in closed_trades if t.outcome == "LOSS"]
+        # Only evaluate genuine executed/filled trades that reached a completed outcome
+        # Exclude unfilled/rejected/expired orders that never executed on a broker
+        executed_trades = [
+            t for t in closed_trades
+            if t.outcome in ["WIN", "LOSS", "BREAKEVEN"] and t.actual_entry is not None
+        ]
 
-        win_rate = round(len(wins) / total_closed * 100, 1) if total_closed > 0 else 0.0
-        avg_r = round(float(np.mean([t.pnl_r for t in closed_trades if t.pnl_r is not None])), 2) if total_closed > 0 else 0.0
-        avg_mae = round(float(np.mean([t.max_mae_pips for t in closed_trades if t.max_mae_pips is not None])), 1) if total_closed > 0 else 0.0
-        avg_mfe = round(float(np.mean([t.max_mfe_pips for t in closed_trades if t.max_mfe_pips is not None])), 1) if total_closed > 0 else 0.0
+        total_executed = len(executed_trades)
+        wins = [t for t in executed_trades if t.outcome == "WIN"]
+        losses = [t for t in executed_trades if t.outcome == "LOSS"]
+
+        win_rate = round(len(wins) / total_executed * 100, 1) if total_executed > 0 else 0.0
+        avg_r = round(float(np.mean([t.pnl_r for t in executed_trades if t.pnl_r is not None])), 2) if total_executed > 0 else 0.0
+        avg_mae = round(float(np.mean([t.max_mae_pips for t in executed_trades if t.max_mae_pips is not None])), 1) if total_executed > 0 else 0.0
+        avg_mfe = round(float(np.mean([t.max_mfe_pips for t in executed_trades if t.max_mfe_pips is not None])), 1) if total_executed > 0 else 0.0
 
         # Setup vs Execution
-        setup_worked_count = sum(1 for t in closed_trades if t.setup_outcome == "SUCCESSFUL")
-        setup_success_rate = round(setup_worked_count / total_closed * 100, 1) if total_closed > 0 else 0.0
+        setup_worked_count = sum(1 for t in executed_trades if t.setup_outcome == "SUCCESSFUL")
+        setup_success_rate = round(setup_worked_count / total_executed * 100, 1) if total_executed > 0 else 0.0
 
         # Execution deviation impact
-        poor_exec_losses = sum(1 for t in closed_trades if t.execution_outcome == "POOR_EXECUTION_SETUP_WORKED")
+        poor_exec_losses = sum(1 for t in executed_trades if t.execution_outcome == "POOR_EXECUTION_SETUP_WORKED")
 
         return {
-            "total_trades_logged": total_closed,
+            "total_trades_logged": total_executed,
             "total_passed_setups": len(passed_trades),
             "trader_win_rate": win_rate,
             "setup_success_rate": setup_success_rate,

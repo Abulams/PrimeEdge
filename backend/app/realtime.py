@@ -192,6 +192,24 @@ class RealtimeService:
                                 if allowed and inst not in allowed:
                                     continue
 
+                                # Clean up any stale QUEUED trades (> 180s without broker ticket) to prevent zombie lockouts
+                                stale_cutoff = datetime.datetime.utcnow() - datetime.timedelta(seconds=180)
+                                stale_trades = db.query(TradeRecord).filter(
+                                    TradeRecord.account_id == acc.id,
+                                    TradeRecord.lifecycle_state == "ACTIVE",
+                                    TradeRecord.execution_status == "QUEUED",
+                                    TradeRecord.broker_ticket.is_(None),
+                                    TradeRecord.created_at < stale_cutoff
+                                ).all()
+                                for st in stale_trades:
+                                    st.lifecycle_state = "CLOSED"
+                                    st.execution_status = "REJECTED"
+                                    st.exit_reason = "EXPIRED_UNFILLED_QUEUED"
+                                    st.exit_timestamp = datetime.datetime.utcnow()
+                                    st.outcome = "REJECTED"
+                                if stale_trades:
+                                    db.commit()
+
                                 # Guard B: Check Max Concurrent Open Trades
                                 open_count = db.query(TradeRecord).filter(
                                     TradeRecord.account_id == acc.id,
