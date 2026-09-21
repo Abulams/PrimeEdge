@@ -475,6 +475,12 @@ def poll_orders_for_worker(
         if (now - stuck.created_at).total_seconds() > 300:
             stuck.status = "EXPIRED"
             stuck.completed_at = now
+            if stuck.trade_id:
+                stuck_trade = db.query(TradeRecord).filter(TradeRecord.id == stuck.trade_id).first()
+                if stuck_trade and stuck_trade.execution_status == "QUEUED":
+                    stuck_trade.execution_status = "EXPIRED"
+                    stuck_trade.lifecycle_state = "CANCELLED"
+                    stuck_trade.notes = "Order lease expired after 300s without worker fill"
         else:
             stuck.status = "QUEUED"
 

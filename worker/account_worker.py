@@ -84,24 +84,48 @@ def fetch_account_details(account_id: int) -> Optional[Dict]:
 
 
 def resolve_broker_symbol(symbol: str) -> str:
-    """Resolves instrument alias across brokers (e.g. US100 -> USTEC on MetaQuotes/ICMarkets)."""
+    """Resolves instrument alias across brokers (e.g. US100 -> USTEC on MetaQuotes/ICMarkets) ensuring trading is enabled."""
     if not MT5_AVAILABLE or not symbol:
         return symbol
-    info = mt5.symbol_info(symbol)
-    if info:
-        mt5.symbol_select(symbol, True)
-        return symbol
 
+    # Normalization dictionary mapping standard system identifiers to common broker variants
     aliases = {
-        "US100": ["USTEC", "US100", "NAS100", "US100.cash", "NAS100USD", "USTECH100M", "NDX", "US_Tech100"],
-        "NAS100": ["USTEC", "US100", "NAS100", "US100.cash", "NAS100USD", "USTECH100M", "NDX"],
-        "US30": ["US30", "DJ30", "WS30", "US30.cash", "WALLSTREET30"],
-        "XAUUSD": ["XAUUSD", "GOLD", "XAUUSD.cash"],
+        "US100": ["USTEC", "NAS100", "US100", "US100.cash", "NAS100USD", "USTECH100M", "NDX", "US_Tech100", "NQ"],
+        "NAS100": ["USTEC", "NAS100", "US100", "US100.cash", "NAS100USD", "USTECH100M", "NDX"],
+        "US30": ["US30", "DJ30", "WS30", "US30.cash", "WALLSTREET30", "YM"],
+        "XAUUSD": ["XAUUSD", "GOLD", "XAUUSD.cash", "XAUUSDm", "XAUUSD_i"],
+        "EURUSD": ["EURUSD", "EURUSDm", "EURUSD.cash", "EURUSD_i"],
+        "GBPUSD": ["GBPUSD", "GBPUSDm", "GBPUSD.cash", "GBPUSD_i"],
+        "AUDUSD": ["AUDUSD", "AUDUSDm", "AUDUSD.cash", "AUDUSD_i"],
+        "USDJPY": ["USDJPY", "USDJPYm", "USDJPY.cash", "USDJPY_i"],
+        "AUDJPY": ["AUDJPY", "AUDJPYm", "AUDJPY.cash", "AUDJPY_i"],
+        "USDCHF": ["USDCHF", "USDCHFm", "USDCHF.cash", "USDCHF_i"]
     }
-    for c in aliases.get(symbol.upper(), []):
-        if mt5.symbol_info(c):
-            mt5.symbol_select(c, True)
-            return c
+
+    sym_upper = symbol.upper()
+    candidates = aliases.get(sym_upper, [symbol])
+    if symbol not in candidates:
+        candidates.append(symbol)
+
+    # First pass: Look for candidate that exists AND has active trading enabled (trade_mode > 0)
+    disabled_candidate = None
+    for c in candidates:
+        info = mt5.symbol_info(c)
+        if info:
+            trade_mode = getattr(info, "trade_mode", 0)
+            disabled_val = getattr(mt5, "SYMBOL_TRADE_MODE_DISABLED", 0)
+            if trade_mode != disabled_val:
+                if not info.visible:
+                    mt5.symbol_select(c, True)
+                return c
+            elif disabled_candidate is None:
+                disabled_candidate = c
+
+    # Second pass fallback: If all candidates have trade disabled, return the first discovered candidate
+    if disabled_candidate:
+        mt5.symbol_select(disabled_candidate, True)
+        return disabled_candidate
+
     return symbol
 
 
@@ -170,23 +194,23 @@ class AccountWorker:
             self.logger.error("MetaTrader5 python module not installed.")
             return False
 
-        # --- Step 1: Check if terminal is already running for this sandbox ---
+        # --- Step 1: Find all terminal64 processes for this sandbox ---
         sandbox_dir = os.path.dirname(self.terminal_exe).replace('\\', '/').lower()
-        already_running_pid = None
+        matching_pids = []
         try:
             for proc in _psutil.process_iter(['pid', 'exe']):
                 try:
                     exe = proc.info.get('exe') or ''
                     if 'terminal64' in exe.lower() and sandbox_dir in exe.replace('\\', '/').lower():
-                        already_running_pid = proc.info['pid']
-                        break
+                        matching_pids.append(proc.info['pid'])
                 except (_psutil.NoSuchProcess, _psutil.AccessDenied):
                     pass
         except Exception:
             pass
 
-        if already_running_pid:
-            self.logger.info(f"Terminal already running for acc_{self.account_id} (PID: {already_running_pid}). Attaching...")
+        if len(matching_pids) == 1:
+            # Exactly one process — safe to attempt reattach
+            self.logger.info(f"Terminal already running for acc_{self.account_id} (PID: {matching_pids[0]}). Attaching...")
             ok = mt5.initialize(
                 path=self.terminal_exe,
                 login=self.login,
@@ -200,6 +224,12 @@ class AccountWorker:
                 if acc_info and acc_info.login == self.login:
                     self.logger.info(f"✅ Reattached to running MT5 instance for #{self.login}!")
                     return True
+        elif len(matching_pids) > 1:
+            # Multiple processes = zombie/duplicate infestation — kill all, do not attempt attach
+            self.logger.warning(
+                f"Found {len(matching_pids)} duplicate terminal64 instances for acc_{self.account_id} "
+                f"(PIDs: {matching_pids}). Killing all before fresh launch."
+            )
 
         # --- Step 2: Cleanly terminate any stuck/unresponsive process for this sandbox ---
         try:

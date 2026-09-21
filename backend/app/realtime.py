@@ -187,75 +187,66 @@ class RealtimeService:
                                 )
 
                             for acc in auto_accounts:
-                                # Guard A: Check Allowed Instruments Whitelist
-                                allowed = acc.allowed_instruments or []
-                                if allowed and inst not in allowed:
+                                try:
+                                    # Guard A: Check Allowed Instruments Whitelist
+                                    allowed = acc.allowed_instruments or []
+                                    if allowed and inst not in allowed:
+                                        logger.debug(f"[Auto-Execution] Instrument {inst} not in allowed list {allowed} for Account #{acc.login} (ID {acc.id})")
+                                        continue
+
+                                    # Guard B: Check Max Concurrent Open Trades
+                                    open_count = db.query(TradeRecord).filter(
+                                        TradeRecord.account_id == acc.id,
+                                        TradeRecord.lifecycle_state == "ACTIVE"
+                                    ).count()
+                                    max_open = acc.max_concurrent_trades or 3
+                                    if open_count >= max_open:
+                                        logger.debug(f"[Auto-Execution] Account #{acc.login} (ID {acc.id}) at max trades limit ({open_count}/{max_open})")
+                                        continue
+
+                                    # Guard C: STRICT 1-TRADE PER DISTINCT READY SIGNAL INSTANCE PER ACCOUNT
+                                    already_executed_signal = db.query(TradeRecord).filter(
+                                        TradeRecord.account_id == acc.id,
+                                        TradeRecord.setup_snapshot_id == snap.id
+                                    ).first()
+
+                                    if already_executed_signal:
+                                        continue  # Already executed this signal instance
+
+                                    # Determine lot size & risk from user preferences
+                                    size_lots = acc.fixed_lot_size or 0.01
+                                    risk_percentage = acc.risk_pct or 1.0
+                                    acc_balance = acc.balance if (acc.balance and acc.balance > 0) else 10000.0
+
+                                    pip_mult = 100.0 if "JPY" in inst else (10.0 if "XAU" in inst else 10000.0)
+                                    dir_sign = 1.0 if direction == "LONG" else -1.0
+                                    mfe_target_pips = snap.mfe_p75_pips or snap.mfe_p50_pips or 30.0
+
+                                    actual_entry = snap.corridor_p25_price or snap.setup_ref_price or 1.0
+                                    actual_sl = snap.p90_invalidation or round(actual_entry - (dir_sign * 25.0 / pip_mult), 5)
+                                    actual_tp = round(actual_entry + (dir_sign * mfe_target_pips / pip_mult), 5)
+
+                                    # Accept trade tied to user and account
+                                    JournalService.accept_setup(
+                                        db=db,
+                                        snapshot_id=snap.id,
+                                        actual_entry=actual_entry,
+                                        actual_sl=actual_sl,
+                                        actual_tp=actual_tp,
+                                        position_size_lots=size_lots,
+                                        risk_pct=risk_percentage,
+                                        account_balance=acc_balance,
+                                        notes=f"Market OS Autonomous Execution Engine (Signal #{snap.id})",
+                                        account_id=acc.id,
+                                        user_id=acc.user_id
+                                    )
+                                    logger.info(f"🤖 [Auto-Execution] Successfully queued READY signal #{snap.id} for {inst} on Account #{acc.login} (User {acc.user_id}, Acc ID {acc.id})")
+                                except Exception as acc_exec_err:
+                                    logger.error(f"❌ [Auto-Execution] Error executing signal #{snap.id} for Account #{acc.id} ({acc.login}): {acc_exec_err}", exc_info=True)
+                                    db.rollback()
                                     continue
-
-                                # Clean up any stale QUEUED trades (> 180s without broker ticket) to prevent zombie lockouts
-                                stale_cutoff = datetime.datetime.utcnow() - datetime.timedelta(seconds=180)
-                                stale_trades = db.query(TradeRecord).filter(
-                                    TradeRecord.account_id == acc.id,
-                                    TradeRecord.lifecycle_state == "ACTIVE",
-                                    TradeRecord.execution_status == "QUEUED",
-                                    TradeRecord.broker_ticket.is_(None),
-                                    TradeRecord.created_at < stale_cutoff
-                                ).all()
-                                for st in stale_trades:
-                                    st.lifecycle_state = "CLOSED"
-                                    st.execution_status = "REJECTED"
-                                    st.exit_reason = "EXPIRED_UNFILLED_QUEUED"
-                                    st.exit_timestamp = datetime.datetime.utcnow()
-                                    st.outcome = "REJECTED"
-                                if stale_trades:
-                                    db.commit()
-
-                                # Guard B: Check Max Concurrent Open Trades
-                                open_count = db.query(TradeRecord).filter(
-                                    TradeRecord.account_id == acc.id,
-                                    TradeRecord.lifecycle_state == "ACTIVE"
-                                ).count()
-                                if open_count >= (acc.max_concurrent_trades or 3):
-                                    continue
-
-                                # Guard C: STRICT 1-TRADE PER DISTINCT READY SIGNAL INSTANCE PER ACCOUNT
-                                # Check if THIS account has already executed a trade for THIS exact READY setup snapshot
-                                already_executed_signal = db.query(TradeRecord).filter(
-                                    TradeRecord.account_id == acc.id,
-                                    TradeRecord.setup_snapshot_id == snap.id
-                                ).first()
-
-                                if already_executed_signal:
-                                    continue # Strict 1 trade per distinct READY signal instance per account!
-
-                                # Determine lot size & risk from user preferences
-                                size_lots = acc.fixed_lot_size or 0.01
-                                risk_percentage = acc.risk_pct or 1.0
-
-                                pip_mult = 100.0 if "JPY" in inst else (10.0 if "XAU" in inst else 10000.0)
-                                dir_sign = 1.0 if direction == "LONG" else -1.0
-                                mfe_target_pips = snap.mfe_p75_pips or snap.mfe_p50_pips or 30.0
-
-                                actual_entry = snap.corridor_p25_price or snap.setup_ref_price or 1.0
-                                actual_sl = snap.p90_invalidation or round(actual_entry - (dir_sign * 25.0 / pip_mult), 5)
-                                actual_tp = round(actual_entry + (dir_sign * mfe_target_pips / pip_mult), 5)
-
-                                # Accept trade tied to user and account
-                                JournalService.accept_setup(
-                                    db=db,
-                                    snapshot_id=snap.id,
-                                    actual_entry=actual_entry,
-                                    actual_sl=actual_sl,
-                                    actual_tp=actual_tp,
-                                    position_size_lots=size_lots,
-                                    risk_pct=risk_percentage,
-                                    notes=f"Market OS Autonomous Execution Engine (Signal #{snap.id})",
-                                    account_id=acc.id,
-                                    user_id=acc.user_id
-                                )
-                                logger.info(f"🤖 [Auto-Execution] Executed READY signal #{snap.id} for {inst} on Account #{acc.login} (User {acc.user_id}, Acc ID {acc.id})")
             except Exception as auto_err:
-                logger.error(f"Error in autonomous execution scanner: {auto_err}")
+                logger.error(f"Error in autonomous execution scanner: {auto_err}", exc_info=True)
 
             logger.info("Realtime data refresh complete")
         except Exception as e:

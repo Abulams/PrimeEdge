@@ -156,7 +156,7 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 @app.get("/api/v1/health")
-def health_check():
+async def health_check():
     """Fast, zero-overhead health check endpoint for supervisor and monitors."""
     return {"status": "HEALTHY", "timestamp": datetime.datetime.utcnow().isoformat()}
 

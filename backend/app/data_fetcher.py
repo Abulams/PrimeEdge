@@ -322,11 +322,19 @@ def fetch_realtime_quotes(instruments: Optional[List[str]] = None) -> Dict[str, 
     if missing:
         with ThreadPoolExecutor(max_workers=min(len(missing), 8)) as executor:
             futures = [executor.submit(_fetch_single_quote, inst) for inst in missing]
-            for future in as_completed(futures):
-                res = future.result()
-                if res:
-                    inst, data = res
-                    quotes[inst] = data
+            try:
+                for future in as_completed(futures, timeout=6):
+                    try:
+                        res = future.result(timeout=4)
+                        if res:
+                            inst, data = res
+                            quotes[inst] = data
+                    except Exception:
+                        pass
+            except Exception as te:
+                logger.warning(f"Realtime quotes fallback timed out: {te}")
+                for f in futures:
+                    f.cancel()
 
     if quotes:
         _set_in_cache(cache_key, quotes)
@@ -337,13 +345,15 @@ def fetch_realtime_quotes(instruments: Optional[List[str]] = None) -> Dict[str, 
 def _fetch_single_macro(name: str, ticker_symbol: str) -> Optional[Tuple[str, Dict]]:
     try:
         ticker = yf.Ticker(ticker_symbol)
+        # NOTE: yfinance does NOT accept a timeout= kwarg on .history().
+        # The hard per-call timeout is enforced externally via future.result(timeout=5).
         hist = ticker.history(period="1mo", interval="1d")
-        if hist.empty:
+        if hist is None or hist.empty:
             return None
-        
+
         latest = hist.iloc[-1]
         closes = hist["Close"].tolist()
-        
+
         return name, {
             "current": round(float(latest["Close"]), 4),
             "high_52w": round(float(hist["Close"].max()), 4),
@@ -355,13 +365,15 @@ def _fetch_single_macro(name: str, ticker_symbol: str) -> Optional[Tuple[str, Di
             "percentile_25": round(float(np.percentile(closes, 25)), 4),
         }
     except Exception as e:
-        logger.error(f"Error fetching macro data for {name}: {e}")
+        logger.warning(f"Macro fetch notice for {name}: {e}")
         return None
 
 
 def fetch_macro_snapshot() -> Dict[str, Dict]:
     """
     Gets current values for DXY, VIX, and US10Y in parallel with 60s TTL cache.
+    Each individual yfinance call is hard-capped at 5s via future.result(timeout=5).
+    The entire batch is also capped at 8s via as_completed(timeout=8).
     """
     cache_key = "macro_snapshot"
     cached = _get_from_cache(cache_key, ttl_seconds=60)
@@ -370,15 +382,31 @@ def fetch_macro_snapshot() -> Dict[str, Dict]:
 
     snapshot = {}
     with ThreadPoolExecutor(max_workers=len(MACRO_TICKERS)) as executor:
-        futures = [
-            executor.submit(_fetch_single_macro, name, sym)
+        # Map future -> name so we can log which ticker timed out
+        future_to_name = {
+            executor.submit(_fetch_single_macro, name, sym): name
             for name, sym in MACRO_TICKERS.items()
-        ]
-        for future in as_completed(futures):
-            res = future.result()
-            if res:
-                name, data = res
-                snapshot[name] = data
+        }
+        try:
+            for future in as_completed(future_to_name, timeout=8):
+                ticker_name = future_to_name[future]
+                try:
+                    # Hard 5s per-future wall-clock cap — this is the real guard
+                    # against yfinance blocking indefinitely on delisted/weekend tickers.
+                    res = future.result(timeout=5)
+                    if res:
+                        name, data = res
+                        snapshot[name] = data
+                except TimeoutError:
+                    logger.warning(f"Macro fetch hard timeout (5s) for {ticker_name} — skipping.")
+                    future.cancel()
+                except Exception:
+                    pass
+        except Exception as te:
+            logger.warning(f"Macro batch fetch timed out (8s): {te}")
+            # Cancel remaining futures to release threads immediately
+            for f in future_to_name:
+                f.cancel()
 
     if snapshot:
         _set_in_cache(cache_key, snapshot)

@@ -56,7 +56,7 @@ procs = {
 def is_uvicorn_responsive() -> bool:
     """Check if the backend server is responding to HTTP requests."""
     try:
-        r = requests.get("http://127.0.0.1:8000/api/v1/health", timeout=3)
+        r = requests.get("http://127.0.0.1:8000/api/v1/health", timeout=8)
         return r.status_code == 200
     except Exception:
         return False
@@ -96,16 +96,18 @@ def start_uvicorn():
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
 
+        backend_log_path = os.path.join(LOGS_DIR, "backend.log")
+        backend_log = open(backend_log_path, "a", encoding="utf-8", buffering=1)
         p = subprocess.Popen(
             [PYTHON_EXE, "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"],
             cwd=BACKEND_DIR,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=backend_log,
+            stderr=backend_log,
             shell=False
         )
         procs["uvicorn"] = p
-        time.sleep(3)
-        logger.info(f"[OK] FastAPI backend started (PID: {p.pid}).")
+        time.sleep(6)
+        logger.info(f"[OK] FastAPI backend started (PID: {p.pid}), logging to {backend_log_path}.")
     except Exception as e:
         logger.error(f"Failed to start uvicorn: {e}")
 
@@ -122,16 +124,18 @@ def start_worker():
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
 
+        pool_log_path = os.path.join(LOGS_DIR, "pool_manager.log")
+        pool_log = open(pool_log_path, "a", encoding="utf-8", buffering=1)
         p = subprocess.Popen(
             [PYTHON_EXE, pool_script],
             cwd=WORKER_DIR,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=pool_log,
+            stderr=pool_log,
             shell=False
         )
         procs["worker"] = p
         time.sleep(2)
-        logger.info(f"[OK] PrimeEdge Worker Pool Manager started (PID: {p.pid}).")
+        logger.info(f"[OK] PrimeEdge Worker Pool Manager started (PID: {p.pid}), logging to {pool_log_path}.")
     except Exception as e:
         logger.error(f"Failed to start worker pool manager: {e}")
 
@@ -175,9 +179,9 @@ def main():
             # 1. Check & Ensure FastAPI Backend Server
             if not is_uvicorn_responsive():
                 consecutive_http_fails += 1
-                logger.warning(f"[WARNING] FastAPI Backend unresponsive (fail count: {consecutive_http_fails}/2)")
-                if consecutive_http_fails >= 2:
-                    logger.error("[FAIL] FastAPI Backend failed health check. Recycling server...")
+                logger.warning(f"[WARNING] FastAPI Backend unresponsive (fail count: {consecutive_http_fails}/5)")
+                if consecutive_http_fails >= 5:
+                    logger.error("[FAIL] FastAPI Backend failed 5 consecutive health checks. Recycling server...")
                     start_uvicorn()
                     consecutive_http_fails = 0
             else:
