@@ -45,3 +45,5 @@ backups/
 backend/scratch/
 *.csv
 caddy/
+migration_bundle/
+*.zip
