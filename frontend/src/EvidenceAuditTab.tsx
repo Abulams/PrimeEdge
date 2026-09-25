@@ -198,7 +198,7 @@ export default function EvidenceAuditTab({
 
       {/* ── SECTION 1: Executive Thesis & Mathematical Payoff Gate ──────────── */}
       {(activeSubSection === 'all' || activeSubSection === 'macro') && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '16px', marginBottom: '20px' }}>
+        <div className="why-grid-split" style={{ gap: '16px', marginBottom: '20px' }}>
           {/* Executive Thesis Box */}
           <div className="glass-panel" style={{ padding: '20px', borderRadius: '12px', borderLeft: '4px solid var(--accent-teal)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
@@ -263,12 +263,12 @@ export default function EvidenceAuditTab({
 
       {/* ── SECTION 2: Standardized Evidence Scorecard ───────────────────────── */}
       <div className="glass-panel" style={{ padding: '20px', borderRadius: '12px', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
           <h3 className="widget-title" style={{ margin: 0 }}>Standardized Historical Evidence Breakdown</h3>
           <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Verified Historical Calibration &amp; 95% Confidence Bounds</span>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
+        <div className="why-grid-4col" style={{ gap: '14px' }}>
           {/* Card 1: Sample Size */}
           <div style={{ padding: '14px', backgroundColor: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>HISTORICAL SAMPLE</div>
@@ -321,7 +321,7 @@ export default function EvidenceAuditTab({
             <span>Macro &amp; Multi-Factor Context Attribution</span>
           </h3>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
+          <div className="why-grid-4col">
             {/* Factor 1: DXY Dollar Index */}
             <div style={{ padding: '14px', background: 'var(--bg-secondary)', borderRadius: '8px', borderLeft: '3px solid #38bdf8' }}>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase' }}>DXY REGIME IMPACT</div>
@@ -383,7 +383,7 @@ export default function EvidenceAuditTab({
 
       {/* ── SECTION 4: Structural Asset DNA & Failure Mode Signature ───────── */}
       {(activeSubSection === 'all' || activeSubSection === 'dna') && instrumentDna && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '16px', marginBottom: '20px' }}>
+        <div className="why-grid-split" style={{ marginBottom: '20px' }}>
           {/* Asset DNA Card */}
           <div className="glass-panel" style={{ padding: '20px', borderRadius: '12px' }}>
             <h3 className="widget-title" style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -391,7 +391,7 @@ export default function EvidenceAuditTab({
               <span>Structural Asset DNA — {selectedInstrument}</span>
             </h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+            <div className="why-grid-3col">
               <div style={{ padding: '10px', background: 'var(--bg-secondary)', borderRadius: '6px' }}>
                 <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>P50 / P90 Pullback</div>
                 <div style={{ fontSize: '15px', fontWeight: 700, color: '#fff', marginTop: '2px' }}>
@@ -579,7 +579,7 @@ export default function EvidenceAuditTab({
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="why-grid-2col">
             {/* Option A: Market Entry */}
             <div style={{ padding: '16px', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--accent-green)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>

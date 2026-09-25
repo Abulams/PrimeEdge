@@ -391,12 +391,12 @@ export default function MSDTradingViewChart({ symbol, onSymbolChange, onDataLoad
         gap: '10px',
       }}>
         {/* Symbol Selector Group */}
-        <div className="chart-symbol-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', maxWidth: '100%', WebkitOverflowScrolling: 'touch', paddingBottom: '2px' }}>
+        <div className="chart-symbol-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', maxWidth: '100%', minWidth: 0, flex: '1 1 auto', WebkitOverflowScrolling: 'touch', paddingBottom: '2px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
             <Activity size={15} style={{ color: '#00f2fe' }} />
             <span style={{ fontWeight: 800, fontSize: '14px', color: '#fff', letterSpacing: '-0.2px' }}>MSD</span>
           </div>
-          <div style={{ display: 'flex', gap: '5px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: '5px' }}>
             {INSTRUMENTS.map(inst => (
               <button
                 key={inst}
@@ -498,8 +498,8 @@ export default function MSDTradingViewChart({ symbol, onSymbolChange, onDataLoad
           flexWrap: 'wrap',
           gap: '12px',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '16px' }}>{hColors.icon}</span>
               <span style={{ fontSize: '13px', fontWeight: 700, color: hColors.text }}>
                 {health.label}
@@ -512,9 +512,7 @@ export default function MSDTradingViewChart({ symbol, onSymbolChange, onDataLoad
               </span>
             </div>
 
-            <div style={{ width: '1px', height: '20px', backgroundColor: 'rgba(255,255,255,0.1)' }} />
-
-            <div style={{ display: 'flex', gap: '18px', fontSize: '12px', color: '#94a3b8' }}>
+            <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#94a3b8', flexWrap: 'wrap' }}>
               <span>
                 Price: <strong style={{ color: '#fff' }}>{health.current_price.toFixed(activeSymbol.includes('JPY') ? 3 : activeSymbol.includes('XAU') ? 2 : 5)}</strong>
               </span>
@@ -536,7 +534,7 @@ export default function MSDTradingViewChart({ symbol, onSymbolChange, onDataLoad
 
           {/* MAE/MFE quick stats */}
           {data && (
-            <div style={{ display: 'flex', gap: '16px', fontSize: '11px' }}>
+            <div style={{ display: 'flex', gap: '14px', fontSize: '11px', flexWrap: 'wrap' }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ color: '#ef4444', fontWeight: 700 }}>MAE 50th</div>
                 <div style={{ color: '#fff', fontFamily: 'monospace' }}>{data.mae_cloud.mae_50_pips}p</div>
@@ -571,8 +569,10 @@ export default function MSDTradingViewChart({ symbol, onSymbolChange, onDataLoad
           left: '14px',
           zIndex: 10,
           display: 'flex',
-          gap: '12px',
-          padding: '6px 12px',
+          gap: '8px 12px',
+          flexWrap: 'wrap',
+          maxWidth: 'calc(100% - 28px)',
+          padding: '6px 10px',
           borderRadius: '6px',
           background: 'rgba(13,17,23,0.85)',
           border: '1px solid rgba(255,255,255,0.08)',

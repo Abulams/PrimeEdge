@@ -1614,13 +1614,13 @@ function App() {
         {/* --- SCREEN 2: PLAN (Execution Cockpit) --- */}
         {activeTab === 'plan' && (
           <div className="animate-fade-in">
-            <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
                 <h2 className="dashboard-title">PLAN — Execution Cockpit</h2>
                 <p className="dashboard-subtitle">If I take this setup, exactly how should I execute it?</p>
               </div>
 
-              <select className="form-input" style={{ width: '160px' }} value={selectedInstrument} onChange={(e) => setSelectedInstrument(e.target.value)}>
+              <select className="form-input" style={{ width: '160px', maxWidth: '100%' }} value={selectedInstrument} onChange={(e) => setSelectedInstrument(e.target.value)}>
                 <option value="GBPUSD">GBPUSD</option>
                 <option value="EURUSD">EURUSD</option>
                 <option value="XAUUSD">XAUUSD</option>
@@ -1641,7 +1641,7 @@ function App() {
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
                   Blind market chasing degrades expected value by <strong>-32.1%</strong>. Choose a validated mitigation strategy below:
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="why-grid-2col" style={{ gap: '12px' }}>
                   <div style={{ padding: '12px', background: '#0a0d14', borderRadius: '6px', border: '1px solid var(--accent-teal)' }}>
                     <div style={{ fontSize: '11px', color: 'var(--accent-teal)', fontWeight: 800, textTransform: 'uppercase' }}>
                       Option 1: Retest {instrumentProfile?.late_entry_recovery?.order_type || 'Limit'} at Open (Recommended)
@@ -1680,7 +1680,7 @@ function App() {
             )}
 
             {/* Option A vs Option B Cards with WAITING COST */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', marginBottom: '20px' }}>
+            <div className="why-grid-2col" style={{ gap: '16px', marginBottom: '20px' }}>
               {/* Option A */}
               <div className="glass-panel" style={{ padding: '18px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>{instrumentProfile?.option_a_vs_b?.option_a?.name ? `OPTION A — ${instrumentProfile.option_a_vs_b.option_a.name}` : 'OPTION A — ENTER NOW (Market)'}</div>
@@ -1715,7 +1715,7 @@ function App() {
             </div>
 
             {/* Invalidation & Session Advice Row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', marginBottom: '20px' }}>
+            <div className="why-grid-2col" style={{ gap: '16px', marginBottom: '20px' }}>
               <div className="glass-panel" style={{ padding: '16px', borderRadius: '10px', borderLeft: '4px solid #ef4444' }}>
                 <div style={{ fontSize: '11px', color: '#ef4444', fontWeight: 800, textTransform: 'uppercase' }}>INVALIDATION BOUNDARY (P90 MAE)</div>
                 <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff', marginTop: '4px' }}>
@@ -2097,7 +2097,7 @@ Status: ${item.status_state}
           </div>
 
           {/* Key Price Levels Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '18px' }}>
+          <div className="why-grid-3col" style={{ marginBottom: '18px' }}>
             <div style={{ padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>SESSION ENTRY ANCHOR</div>
               <div style={{ fontSize: '20px', fontWeight: 800, color: '#fff', marginTop: '4px', fontFamily: 'monospace' }}>
@@ -2121,7 +2121,7 @@ Status: ${item.status_state}
           </div>
 
           {/* Statistical Edge Metrics */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '18px', padding: '12px', background: 'rgba(0,242,254,0.04)', borderRadius: '10px', border: '1px solid rgba(0,242,254,0.15)' }}>
+          <div className="why-grid-3col" style={{ marginBottom: '18px', padding: '12px', background: 'rgba(0,242,254,0.04)', borderRadius: '10px', border: '1px solid rgba(0,242,254,0.15)' }}>
             <div>
               <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>HISTORICAL WIN RATE</div>
               <div style={{ fontSize: '16px', fontWeight: 800, color: '#fff', marginTop: '2px' }}>

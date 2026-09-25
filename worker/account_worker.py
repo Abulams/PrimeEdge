@@ -493,16 +493,49 @@ class AccountWorker:
         self.logger.info(f"Received Order: {direction} {volume} lots on {symbol} (Signal: {signal_id})")
 
         mt5.symbol_select(symbol, True)
-        tick = mt5.symbol_info_tick(symbol)
-        if not tick:
-            time.sleep(0.5)
+        tick = None
+        for attempt in range(5):
             tick = mt5.symbol_info_tick(symbol)
+            if tick and (tick.ask > 0 or tick.bid > 0):
+                break
+            # Try selecting symbol again and subscribe to ticks
+            mt5.symbol_select(symbol, True)
+            time.sleep(0.3)
 
-        if not tick:
-            self.logger.error(f"No tick data available for {symbol}")
-            return
-
-        price = tick.ask if direction == "LONG" else tick.bid
+        if not tick or (tick.ask <= 0 and tick.bid <= 0):
+            # Fallback: try fetching latest bar close price
+            rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M1, 0, 1)
+            if rates is not None and len(rates) > 0:
+                last_close = float(rates[0]['close'])
+                self.logger.warning(f"Using latest M1 bar close ({last_close}) as fallback price for {symbol}")
+                price = last_close
+            else:
+                self.logger.error(f"No tick data available for {symbol} after 5 retries")
+                try:
+                    requests.post(
+                        f"{CLOUD_URL}/api/v1/execution/worker/report-fill",
+                        json={
+                            "account_id": self.account_id,
+                            "ticket_id": None,
+                            "signal_id": signal_id,
+                            "instrument": symbol,
+                            "direction": direction,
+                            "fill_price": 0.0,
+                            "volume": volume,
+                            "sl": 0.0,
+                            "tp": 0.0,
+                            "latency_ms": 0.0,
+                            "status": "REJECTED",
+                            "error_comment": f"No market data/tick available for {symbol}",
+                            "retcode": -1,
+                        },
+                        headers=HEADERS, timeout=5
+                    )
+                except Exception:
+                    pass
+                return
+        else:
+            price = tick.ask if direction == "LONG" else tick.bid
         order_type = mt5.ORDER_TYPE_BUY if direction == "LONG" else mt5.ORDER_TYPE_SELL
         norm_sl, norm_tp = normalize_order_stops(symbol, direction, price, sl, tp)
         filling_mode = get_symbol_filling_mode(symbol)

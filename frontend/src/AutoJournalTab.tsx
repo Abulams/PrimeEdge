@@ -195,7 +195,7 @@ export function AutoJournalTab() {
         </div>
 
         {/* Sub Navigation Bar */}
-        <div style={{ display: 'flex', gap: '8px', marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '14px' }}>
+        <div style={{ display: 'flex', gap: '8px', marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '14px', flexWrap: 'wrap' }}>
           {[
             { key: 'today', label: `ACTIVE TRADES (${activeTrades.length})` },
             { key: 'history', label: `TRADE HISTORY (${historyTrades.length})` },
@@ -299,12 +299,12 @@ export function AutoJournalTab() {
                     </div>
 
                     {/* Trajectory Threshold Indicators */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: '#0a0d14', padding: '12px', borderRadius: '6px' }}>
+                    <div className="why-grid-2col" style={{ gap: '12px', background: '#0a0d14', padding: '12px', borderRadius: '6px' }}>
                       <div>
                         <span style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--accent-orange)', fontWeight: 700 }}>
                           MAX ADVERSE EXCURSION (MAE): {trade.max_mae_pips || 0} pips
                         </span>
-                        <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '3px', background: trade.mae_p25_reached ? 'var(--accent-orange)' : 'rgba(255,255,255,0.05)', color: trade.mae_p25_reached ? '#000' : 'var(--text-muted)', fontWeight: 700 }}>
                             {trade.mae_p25_reached ? '✓ P25' : 'P25'}
                           </span>
@@ -324,7 +324,7 @@ export function AutoJournalTab() {
                         <span style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--accent-green)', fontWeight: 700 }}>
                           MAX FAVORABLE EXCURSION (MFE): +{trade.max_mfe_pips || 0} pips
                         </span>
-                        <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '3px', background: trade.mfe_p25_reached ? 'var(--accent-green)' : 'rgba(255,255,255,0.05)', color: trade.mfe_p25_reached ? '#000' : 'var(--text-muted)', fontWeight: 700 }}>
                             {trade.mfe_p25_reached ? '✓ P25' : 'P25'}
                           </span>
@@ -360,72 +360,74 @@ export function AutoJournalTab() {
               No closed trade history recorded yet.
             </div>
           ) : (
-            <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
-                  <th style={{ padding: '10px' }}>Instrument</th>
-                  <th style={{ padding: '10px' }}>Ticket</th>
-                  <th style={{ padding: '10px' }}>Entry & Exit</th>
-                  <th style={{ padding: '10px' }}>Max MAE</th>
-                  <th style={{ padding: '10px' }}>Max MFE</th>
-                  <th style={{ padding: '10px' }}>Realized PnL</th>
-                  <th style={{ padding: '10px' }}>Setup Outcome</th>
-                  <th style={{ padding: '10px' }}>Execution Outcome</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historyTrades.map(trade => {
-                  const isWin = trade.outcome === 'WIN';
-                  const isLoss = trade.outcome === 'LOSS';
-                  return (
-                    <tr key={trade.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                      <td style={{ padding: '10px', fontWeight: 700 }}>
-                        <div>{trade.setup?.instrument} {trade.setup?.direction}</div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{trade.entry_type} ({trade.entry_in_corridor || 'MARKET'})</div>
-                      </td>
-                      <td style={{ padding: '10px', fontFamily: 'monospace', color: 'var(--text-secondary)', fontSize: '11px' }}>
-                        {trade.broker_ticket ? `#${trade.broker_ticket}` : '—'}
-                      </td>
-                      <td style={{ padding: '10px', fontSize: '11px' }}>
-                        <div>In: <strong>{trade.actual_entry ?? '—'}</strong></div>
-                        <div style={{ color: 'var(--text-muted)' }}>Out: {trade.exit_price ?? '—'}</div>
-                      </td>
-                      <td style={{ padding: '10px', color: 'var(--accent-orange)' }}>{trade.max_mae_pips ?? 0}p</td>
-                      <td style={{ padding: '10px', color: 'var(--accent-green)' }}>+{trade.max_mfe_pips ?? 0}p</td>
-                      <td style={{ padding: '10px', fontWeight: 800, color: isWin ? 'var(--accent-green)' : (isLoss ? 'var(--accent-red)' : 'var(--text-secondary)') }}>
-                        {trade.pnl_pips !== null && trade.pnl_pips !== undefined
-                          ? `${trade.pnl_pips >= 0 ? '+' : ''}${trade.pnl_pips}p ${trade.pnl_r !== null && trade.pnl_r !== undefined ? `(${trade.pnl_r >= 0 ? '+' : ''}${trade.pnl_r}R)` : ''}`
-                          : '—'}
-                      </td>
-                      <td style={{ padding: '10px' }}>
-                        <span style={{
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          background: trade.setup_outcome === 'SUCCESSFUL' ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
-                          color: trade.setup_outcome === 'SUCCESSFUL' ? 'var(--accent-green)' : 'var(--accent-red)'
-                        }}>
-                          {trade.setup_outcome || 'N/A'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '10px' }}>
-                        <span style={{
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          background: trade.execution_outcome === 'POOR_EXECUTION_SETUP_WORKED' ? 'rgba(249,115,22,0.2)' : 'rgba(0,242,254,0.1)',
-                          color: trade.execution_outcome === 'POOR_EXECUTION_SETUP_WORKED' ? 'var(--accent-orange)' : 'var(--accent-teal)'
-                        }}>
-                          {trade.execution_outcome || 'N/A'}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="table-responsive">
+              <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
+                    <th style={{ padding: '10px' }}>Instrument</th>
+                    <th style={{ padding: '10px' }}>Ticket</th>
+                    <th style={{ padding: '10px' }}>Entry & Exit</th>
+                    <th style={{ padding: '10px' }}>Max MAE</th>
+                    <th style={{ padding: '10px' }}>Max MFE</th>
+                    <th style={{ padding: '10px' }}>Realized PnL</th>
+                    <th style={{ padding: '10px' }}>Setup Outcome</th>
+                    <th style={{ padding: '10px' }}>Execution Outcome</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyTrades.map(trade => {
+                    const isWin = trade.outcome === 'WIN';
+                    const isLoss = trade.outcome === 'LOSS';
+                    return (
+                      <tr key={trade.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                        <td style={{ padding: '10px', fontWeight: 700 }}>
+                          <div>{trade.setup?.instrument} {trade.setup?.direction}</div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{trade.entry_type} ({trade.entry_in_corridor || 'MARKET'})</div>
+                        </td>
+                        <td style={{ padding: '10px', fontFamily: 'monospace', color: 'var(--text-secondary)', fontSize: '11px' }}>
+                          {trade.broker_ticket ? `#${trade.broker_ticket}` : '—'}
+                        </td>
+                        <td style={{ padding: '10px', fontSize: '11px' }}>
+                          <div>In: <strong>{trade.actual_entry ?? '—'}</strong></div>
+                          <div style={{ color: 'var(--text-muted)' }}>Out: {trade.exit_price ?? '—'}</div>
+                        </td>
+                        <td style={{ padding: '10px', color: 'var(--accent-orange)' }}>{trade.max_mae_pips ?? 0}p</td>
+                        <td style={{ padding: '10px', color: 'var(--accent-green)' }}>+{trade.max_mfe_pips ?? 0}p</td>
+                        <td style={{ padding: '10px', fontWeight: 800, color: isWin ? 'var(--accent-green)' : (isLoss ? 'var(--accent-red)' : 'var(--text-secondary)') }}>
+                          {trade.pnl_pips !== null && trade.pnl_pips !== undefined
+                            ? `${trade.pnl_pips >= 0 ? '+' : ''}${trade.pnl_pips}p ${trade.pnl_r !== null && trade.pnl_r !== undefined ? `(${trade.pnl_r >= 0 ? '+' : ''}${trade.pnl_r}R)` : ''}`
+                            : '—'}
+                        </td>
+                        <td style={{ padding: '10px' }}>
+                          <span style={{
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            background: trade.setup_outcome === 'SUCCESSFUL' ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+                            color: trade.setup_outcome === 'SUCCESSFUL' ? 'var(--accent-green)' : 'var(--accent-red)'
+                          }}>
+                            {trade.setup_outcome || 'N/A'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px' }}>
+                          <span style={{
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            background: trade.execution_outcome === 'POOR_EXECUTION_SETUP_WORKED' ? 'rgba(249,115,22,0.2)' : 'rgba(0,242,254,0.1)',
+                            color: trade.execution_outcome === 'POOR_EXECUTION_SETUP_WORKED' ? 'var(--accent-orange)' : 'var(--accent-teal)'
+                          }}>
+                            {trade.execution_outcome || 'N/A'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}
@@ -437,7 +439,7 @@ export function AutoJournalTab() {
             System Expectation vs Trader Execution Analytics
           </h3>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+          <div className="why-grid-2col" style={{ gap: '20px' }}>
             <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <h4 style={{ fontSize: '12px', textTransform: 'uppercase', color: 'var(--accent-teal)', marginBottom: '12px' }}>
                 Statistical System Baseline
@@ -477,30 +479,32 @@ export function AutoJournalTab() {
               No passed setups recorded yet.
             </div>
           ) : (
-            <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
-                  <th style={{ padding: '10px' }}>Instrument</th>
-                  <th style={{ padding: '10px' }}>Passed At</th>
-                  <th style={{ padding: '10px' }}>Status at Pass</th>
-                  <th style={{ padding: '10px' }}>Ref Price</th>
-                  <th style={{ padding: '10px' }}>Trader Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {passedTrades.map(trade => (
-                  <tr key={trade.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                    <td style={{ padding: '10px', fontWeight: 700 }}>
-                      {trade.setup?.instrument} {trade.setup?.direction}
-                    </td>
-                    <td style={{ padding: '10px' }}>{trade.decision_at ? new Date(trade.decision_at).toLocaleTimeString() : 'N/A'}</td>
-                    <td style={{ padding: '10px' }}>{trade.setup?.status_at_snapshot}</td>
-                    <td style={{ padding: '10px' }}>{trade.setup?.setup_ref_price}</td>
-                    <td style={{ padding: '10px', color: 'var(--text-muted)' }}>{trade.notes || 'No notes'}</td>
+            <div className="table-responsive">
+              <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
+                    <th style={{ padding: '10px' }}>Instrument</th>
+                    <th style={{ padding: '10px' }}>Passed At</th>
+                    <th style={{ padding: '10px' }}>Status at Pass</th>
+                    <th style={{ padding: '10px' }}>Ref Price</th>
+                    <th style={{ padding: '10px' }}>Trader Notes</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {passedTrades.map(trade => (
+                    <tr key={trade.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                      <td style={{ padding: '10px', fontWeight: 700 }}>
+                        {trade.setup?.instrument} {trade.setup?.direction}
+                      </td>
+                      <td style={{ padding: '10px' }}>{trade.decision_at ? new Date(trade.decision_at).toLocaleTimeString() : 'N/A'}</td>
+                      <td style={{ padding: '10px' }}>{trade.setup?.status_at_snapshot}</td>
+                      <td style={{ padding: '10px' }}>{trade.setup?.setup_ref_price}</td>
+                      <td style={{ padding: '10px', color: 'var(--text-muted)' }}>{trade.notes || 'No notes'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}

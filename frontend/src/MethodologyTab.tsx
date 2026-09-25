@@ -23,7 +23,7 @@ export default function MethodologyTab() {
   return (
     <div className="animate-fade-in" style={{ paddingBottom: '40px' }}>
       {/* Header */}
-      <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <h2 className="dashboard-title">Quantitative Research Methodology</h2>
@@ -132,54 +132,56 @@ export default function MethodologyTab() {
             </div>
 
             <h4 style={{ color: '#fff', fontSize: '14px', marginBottom: '12px' }}>Primary Data Sources & Attribution</h4>
-            <table className="custom-table" style={{ marginBottom: '20px' }}>
-              <thead>
-                <tr>
-                  <th>Asset / Indicator</th>
-                  <th>Source API</th>
-                  <th>Ticker Symbol</th>
-                  <th>Resolution</th>
-                  <th>Attribution</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>FX Pairs (GBP, EUR, AUD, JPY)</strong></td>
-                  <td>Yahoo Finance API</td>
-                  <td><code>GBPUSD=X</code>, <code>EURUSD=X</code>, etc.</td>
-                  <td>Daily & 1-Hour Intraday</td>
-                  <td>Source: yfinance / FX Markets</td>
-                </tr>
-                <tr>
-                  <td><strong>Gold (XAUUSD)</strong></td>
-                  <td>Yahoo Finance API</td>
-                  <td><code>GC=F</code> / <code>XAUUSD=X</code></td>
-                  <td>Daily & 1-Hour Intraday</td>
-                  <td>Source: COMEX / yfinance</td>
-                </tr>
-                <tr>
-                  <td><strong>US Dollar Index (DXY)</strong></td>
-                  <td>Intercontinental Exchange (ICE)</td>
-                  <td><code>DX-Y.NYB</code></td>
-                  <td>Daily Close</td>
-                  <td>Source: NYBOT / ICE</td>
-                </tr>
-                <tr>
-                  <td><strong>CBOE Volatility Index (VIX)</strong></td>
-                  <td>Chicago Board Options Exchange</td>
-                  <td><code>^VIX</code></td>
-                  <td>Daily Close</td>
-                  <td>Source: CBOE</td>
-                </tr>
-                <tr>
-                  <td><strong>US 10-Year Treasury Yield</strong></td>
-                  <td>US Department of the Treasury</td>
-                  <td><code>^TNX</code></td>
-                  <td>Daily Close</td>
-                  <td>Source: FRED / US Treasury</td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="table-responsive">
+              <table className="custom-table" style={{ marginBottom: '20px' }}>
+                <thead>
+                  <tr>
+                    <th>Asset / Indicator</th>
+                    <th>Source API</th>
+                    <th>Ticker Symbol</th>
+                    <th>Resolution</th>
+                    <th>Attribution</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>FX Pairs (GBP, EUR, AUD, JPY)</strong></td>
+                    <td>Yahoo Finance API</td>
+                    <td><code>GBPUSD=X</code>, <code>EURUSD=X</code>, etc.</td>
+                    <td>Daily & 1-Hour Intraday</td>
+                    <td>Source: yfinance / FX Markets</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Gold (XAUUSD)</strong></td>
+                    <td>Yahoo Finance API</td>
+                    <td><code>GC=F</code> / <code>XAUUSD=X</code></td>
+                    <td>Daily & 1-Hour Intraday</td>
+                    <td>Source: COMEX / yfinance</td>
+                  </tr>
+                  <tr>
+                    <td><strong>US Dollar Index (DXY)</strong></td>
+                    <td>Intercontinental Exchange (ICE)</td>
+                    <td><code>DX-Y.NYB</code></td>
+                    <td>Daily Close</td>
+                    <td>Source: NYBOT / ICE</td>
+                  </tr>
+                  <tr>
+                    <td><strong>CBOE Volatility Index (VIX)</strong></td>
+                    <td>Chicago Board Options Exchange</td>
+                    <td><code>^VIX</code></td>
+                    <td>Daily Close</td>
+                    <td>Source: CBOE</td>
+                  </tr>
+                  <tr>
+                    <td><strong>US 10-Year Treasury Yield</strong></td>
+                    <td>US Department of the Treasury</td>
+                    <td><code>^TNX</code></td>
+                    <td>Daily Close</td>
+                    <td>Source: FRED / US Treasury</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
 
             {/* Data Ingestion Verification */}
             <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -205,66 +207,68 @@ export default function MethodologyTab() {
             </p>
 
             <h4 style={{ color: '#fff', fontSize: '14px', marginBottom: '12px' }}>Walk-Forward Expanding Window Matrix (2020–2025)</h4>
-            <table className="custom-table" style={{ marginBottom: '24px' }}>
-              <thead>
-                <tr>
-                  <th>Test Year</th>
-                  <th>In-Sample Train Bars</th>
-                  <th>Out-of-Sample Test Bars</th>
-                  <th>In-Sample Win Rate</th>
-                  <th>Out-of-Sample Win Rate</th>
-                  <th>OOS Profit Factor</th>
-                  <th>OOS Expectancy (R)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>2021</strong></td>
-                  <td>487</td>
-                  <td>1,296</td>
-                  <td>76.2%</td>
-                  <td><span style={{ color: 'var(--accent-green)', fontWeight: 700 }}>77.7%</span></td>
-                  <td>6.69</td>
-                  <td>+1.13 R</td>
-                </tr>
-                <tr>
-                  <td><strong>2022 (Rate Hike Regime)</strong></td>
-                  <td>1,783</td>
-                  <td>1,291</td>
-                  <td>77.3%</td>
-                  <td><span style={{ color: '#f59e0b', fontWeight: 700 }}>73.2%</span> (Regime Drift)</td>
-                  <td>5.20</td>
-                  <td>+1.10 R</td>
-                </tr>
-                <tr>
-                  <td><strong>2023</strong></td>
-                  <td>3,074</td>
-                  <td>1,290</td>
-                  <td>75.6%</td>
-                  <td><span style={{ color: 'var(--accent-green)', fontWeight: 700 }}>80.2%</span></td>
-                  <td>7.59</td>
-                  <td>+1.26 R</td>
-                </tr>
-                <tr>
-                  <td><strong>2024</strong></td>
-                  <td>4,364</td>
-                  <td>1,300</td>
-                  <td>76.9%</td>
-                  <td><span style={{ color: 'var(--accent-green)', fontWeight: 700 }}>93.0%</span></td>
-                  <td>23.12</td>
-                  <td>+1.53 R</td>
-                </tr>
-                <tr>
-                  <td><strong>2025</strong></td>
-                  <td>5,664</td>
-                  <td>1,280</td>
-                  <td>80.6%</td>
-                  <td><span style={{ color: 'var(--accent-green)', fontWeight: 700 }}>92.9%</span></td>
-                  <td>23.49</td>
-                  <td>+1.60 R</td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="table-responsive">
+              <table className="custom-table" style={{ marginBottom: '24px' }}>
+                <thead>
+                  <tr>
+                    <th>Test Year</th>
+                    <th>In-Sample Train Bars</th>
+                    <th>Out-of-Sample Test Bars</th>
+                    <th>In-Sample Win Rate</th>
+                    <th>Out-of-Sample Win Rate</th>
+                    <th>OOS Profit Factor</th>
+                    <th>OOS Expectancy (R)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>2021</strong></td>
+                    <td>487</td>
+                    <td>1,296</td>
+                    <td>76.2%</td>
+                    <td><span style={{ color: 'var(--accent-green)', fontWeight: 700 }}>77.7%</span></td>
+                    <td>6.69</td>
+                    <td>+1.13 R</td>
+                  </tr>
+                  <tr>
+                    <td><strong>2022 (Rate Hike Regime)</strong></td>
+                    <td>1,783</td>
+                    <td>1,291</td>
+                    <td>77.3%</td>
+                    <td><span style={{ color: '#f59e0b', fontWeight: 700 }}>73.2%</span> (Regime Drift)</td>
+                    <td>5.20</td>
+                    <td>+1.10 R</td>
+                  </tr>
+                  <tr>
+                    <td><strong>2023</strong></td>
+                    <td>3,074</td>
+                    <td>1,290</td>
+                    <td>75.6%</td>
+                    <td><span style={{ color: 'var(--accent-green)', fontWeight: 700 }}>80.2%</span></td>
+                    <td>7.59</td>
+                    <td>+1.26 R</td>
+                  </tr>
+                  <tr>
+                    <td><strong>2024</strong></td>
+                    <td>4,364</td>
+                    <td>1,300</td>
+                    <td>76.9%</td>
+                    <td><span style={{ color: 'var(--accent-green)', fontWeight: 700 }}>93.0%</span></td>
+                    <td>23.12</td>
+                    <td>+1.53 R</td>
+                  </tr>
+                  <tr>
+                    <td><strong>2025</strong></td>
+                    <td>5,664</td>
+                    <td>1,280</td>
+                    <td>80.6%</td>
+                    <td><span style={{ color: 'var(--accent-green)', fontWeight: 700 }}>92.9%</span></td>
+                    <td>23.49</td>
+                    <td>+1.60 R</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
 
             <div style={{ background: 'rgba(0, 242, 254, 0.05)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(0, 242, 254, 0.2)' }}>
               <div style={{ fontWeight: 700, color: 'var(--accent-teal)', fontSize: '13px', marginBottom: '6px' }}>
@@ -288,36 +292,38 @@ export default function MethodologyTab() {
               Unconditional win rates above 90% typically signal lenient classification criteria. Market OS deconstructs its historical database across 3 distinct rigor levels:
             </p>
 
-            <table className="custom-table" style={{ marginBottom: '24px' }}>
-              <thead>
-                <tr>
-                  <th>Classification Rigor</th>
-                  <th>Evaluation Standard</th>
-                  <th>Database Historical Rate</th>
-                  <th>Institutional Utility</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>1. Directional Expansion</strong></td>
-                  <td>Net session expansion in trend direction without premature reversal</td>
-                  <td><span style={{ color: '#64748b' }}>95.4%</span></td>
-                  <td>Macro trend continuation baseline</td>
-                </tr>
-                <tr>
-                  <td><strong>2. Balanced Execution (1.5:1)</strong></td>
-                  <td>Favorable run exceeds 1.5x adverse drawdown with minimum expansion target</td>
-                  <td><span style={{ color: '#38bdf8', fontWeight: 700 }}>87.1%</span></td>
-                  <td>Asymmetric reward-to-risk capture</td>
-                </tr>
-                <tr>
-                  <td><strong>3. Institutional Precision (2:1)</strong></td>
-                  <td>Favorable run reaches 2.0x target with constrained adverse excursion</td>
-                  <td><span style={{ color: '#10b981', fontWeight: 800 }}>78.5%</span></td>
-                  <td>Strict capital-preservation benchmark</td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="table-responsive">
+              <table className="custom-table" style={{ marginBottom: '24px' }}>
+                <thead>
+                  <tr>
+                    <th>Classification Rigor</th>
+                    <th>Evaluation Standard</th>
+                    <th>Database Historical Rate</th>
+                    <th>Institutional Utility</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>1. Directional Expansion</strong></td>
+                    <td>Net session expansion in trend direction without premature reversal</td>
+                    <td><span style={{ color: '#64748b' }}>95.4%</span></td>
+                    <td>Macro trend continuation baseline</td>
+                  </tr>
+                  <tr>
+                    <td><strong>2. Balanced Execution (1.5:1)</strong></td>
+                    <td>Favorable run exceeds 1.5x adverse drawdown with minimum expansion target</td>
+                    <td><span style={{ color: '#38bdf8', fontWeight: 700 }}>87.1%</span></td>
+                    <td>Asymmetric reward-to-risk capture</td>
+                  </tr>
+                  <tr>
+                    <td><strong>3. Institutional Precision (2:1)</strong></td>
+                    <td>Favorable run reaches 2.0x target with constrained adverse excursion</td>
+                    <td><span style={{ color: '#10b981', fontWeight: 800 }}>78.5%</span></td>
+                    <td>Strict capital-preservation benchmark</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -333,7 +339,8 @@ export default function MethodologyTab() {
             </p>
 
             <h4 style={{ color: '#fff', fontSize: '14px', marginBottom: '12px' }}>Evidence Quality & Reliability Grading Matrix</h4>
-            <table className="custom-table">
+            <div className="table-responsive">
+              <table className="custom-table">
               <thead>
                 <tr>
                   <th>Sample Size Bracket</th>
@@ -369,6 +376,7 @@ export default function MethodologyTab() {
                 </tr>
               </tbody>
             </table>
+            </div>
           </div>
         )}
 
@@ -383,60 +391,62 @@ export default function MethodologyTab() {
               Zero-friction backtests fail in live market environments. Market OS embeds broker spreads, ECN commissions, and slippage buffers directly into all return calculations:
             </p>
 
-            <table className="custom-table" style={{ marginBottom: '24px' }}>
-              <thead>
-                <tr>
-                  <th>Instrument</th>
-                  <th>Raw ECN Spread</th>
-                  <th>Commission</th>
-                  <th>Slippage Buffer</th>
-                  <th>Total Round-Turn Friction</th>
-                  <th>Friction-Adjusted Expectancy</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>GBPUSD</strong></td>
-                  <td>1.5 pips</td>
-                  <td>0.2 pips</td>
-                  <td>0.5 pips</td>
-                  <td><strong style={{ color: '#f59e0b' }}>2.2 pips</strong></td>
-                  <td><strong style={{ color: 'var(--accent-green)' }}>+1.40 R</strong></td>
-                </tr>
-                <tr>
-                  <td><strong>EURUSD</strong></td>
-                  <td>1.0 pips</td>
-                  <td>0.2 pips</td>
-                  <td>0.3 pips</td>
-                  <td><strong style={{ color: '#f59e0b' }}>1.5 pips</strong></td>
-                  <td><strong style={{ color: 'var(--accent-green)' }}>+1.41 R</strong></td>
-                </tr>
-                <tr>
-                  <td><strong>USDJPY</strong></td>
-                  <td>1.2 pips</td>
-                  <td>0.2 pips</td>
-                  <td>0.4 pips</td>
-                  <td><strong style={{ color: '#f59e0b' }}>1.8 pips</strong></td>
-                  <td><strong style={{ color: 'var(--accent-green)' }}>+1.43 R</strong></td>
-                </tr>
-                <tr>
-                  <td><strong>AUDUSD</strong></td>
-                  <td>1.4 pips</td>
-                  <td>0.2 pips</td>
-                  <td>0.4 pips</td>
-                  <td><strong style={{ color: '#f59e0b' }}>2.0 pips</strong></td>
-                  <td><strong style={{ color: 'var(--accent-green)' }}>+1.39 R</strong></td>
-                </tr>
-                <tr>
-                  <td><strong>XAUUSD (Gold)</strong></td>
-                  <td>3.0 pips</td>
-                  <td>0.5 pips</td>
-                  <td>1.0 pips</td>
-                  <td><strong style={{ color: '#f59e0b' }}>4.5 pips</strong></td>
-                  <td><strong style={{ color: 'var(--accent-green)' }}>+1.40 R</strong></td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="table-responsive">
+              <table className="custom-table" style={{ marginBottom: '24px' }}>
+                <thead>
+                  <tr>
+                    <th>Instrument</th>
+                    <th>Raw ECN Spread</th>
+                    <th>Commission</th>
+                    <th>Slippage Buffer</th>
+                    <th>Total Round-Turn Friction</th>
+                    <th>Friction-Adjusted Expectancy</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>GBPUSD</strong></td>
+                    <td>1.5 pips</td>
+                    <td>0.2 pips</td>
+                    <td>0.5 pips</td>
+                    <td><strong style={{ color: '#f59e0b' }}>2.2 pips</strong></td>
+                    <td><strong style={{ color: 'var(--accent-green)' }}>+1.40 R</strong></td>
+                  </tr>
+                  <tr>
+                    <td><strong>EURUSD</strong></td>
+                    <td>1.0 pips</td>
+                    <td>0.2 pips</td>
+                    <td>0.3 pips</td>
+                    <td><strong style={{ color: '#f59e0b' }}>1.5 pips</strong></td>
+                    <td><strong style={{ color: 'var(--accent-green)' }}>+1.41 R</strong></td>
+                  </tr>
+                  <tr>
+                    <td><strong>USDJPY</strong></td>
+                    <td>1.2 pips</td>
+                    <td>0.2 pips</td>
+                    <td>0.4 pips</td>
+                    <td><strong style={{ color: '#f59e0b' }}>1.8 pips</strong></td>
+                    <td><strong style={{ color: 'var(--accent-green)' }}>+1.43 R</strong></td>
+                  </tr>
+                  <tr>
+                    <td><strong>AUDUSD</strong></td>
+                    <td>1.4 pips</td>
+                    <td>0.2 pips</td>
+                    <td>0.4 pips</td>
+                    <td><strong style={{ color: '#f59e0b' }}>2.0 pips</strong></td>
+                    <td><strong style={{ color: 'var(--accent-green)' }}>+1.39 R</strong></td>
+                  </tr>
+                  <tr>
+                    <td><strong>XAUUSD (Gold)</strong></td>
+                    <td>3.0 pips</td>
+                    <td>0.5 pips</td>
+                    <td>1.0 pips</td>
+                    <td><strong style={{ color: '#f59e0b' }}>4.5 pips</strong></td>
+                    <td><strong style={{ color: 'var(--accent-green)' }}>+1.40 R</strong></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

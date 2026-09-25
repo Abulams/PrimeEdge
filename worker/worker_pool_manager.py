@@ -49,7 +49,11 @@ HEADERS = {
 }
 
 WORKER_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "account_worker.py")
+EA_SUPERVISOR_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ea_terminal_supervisor.py")
 
+# Accounts using the native MQL5 EA Bridge (zero Python IPC).
+# Set to empty so accounts 3, 5, 6 run on the proven Python worker pipeline.
+EA_MODE_ACCOUNTS = set()
 
 class WorkerPoolManager:
     def __init__(self):
@@ -81,9 +85,22 @@ class WorkerPoolManager:
         return self.cached_accounts
 
     def spawn_worker_for_account(self, account_id: int, login: int):
-        """Spawns an isolated Python subprocess for the given account."""
-        logger.info(f"🚀 Spawning dedicated worker for Account #{account_id} (Login: {login})...")
-        cmd = [sys.executable, WORKER_SCRIPT, "--account-id", str(account_id)]
+        """Spawns an isolated Python subprocess for the given account.
+
+        EA-bridge mode accounts (EA_MODE_ACCOUNTS): launch ea_terminal_supervisor.py
+        which keeps terminal64.exe alive — zero Python IPC, EA executes natively.
+
+        Legacy mode accounts: launch account_worker.py (Python IPC via MetaTrader5 module).
+        """
+        if account_id in EA_MODE_ACCOUNTS:
+            script = EA_SUPERVISOR_SCRIPT
+            mode_label = "EA Bridge Supervisor"
+        else:
+            script = WORKER_SCRIPT
+            mode_label = "Python IPC Worker"
+
+        logger.info(f"🚀 Spawning [{mode_label}] for Account #{account_id} (Login: {login})...")
+        cmd = [sys.executable, script, "--account-id", str(account_id)]
         try:
             proc = subprocess.Popen(
                 cmd,
@@ -97,9 +114,9 @@ class WorkerPoolManager:
             else:
                 self.failures[account_id]["spawn_time"] = time.time()
 
-            logger.info(f"✅ Worker for Account #{account_id} started (PID: {proc.pid})")
+            logger.info(f"✅ [{mode_label}] for Account #{account_id} started (PID: {proc.pid})")
         except Exception as e:
-            logger.error(f"Failed to spawn worker for Account #{account_id}: {e}")
+            logger.error(f"Failed to spawn [{mode_label}] for Account #{account_id}: {e}")
 
     def stop_worker_for_account(self, account_id: int):
         """Terminates the worker process for an account that was deactivated."""

@@ -493,7 +493,7 @@ export const ExecutionTab: React.FC = () => {
               </div>
 
               {isConnected ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div className="why-grid-2col" style={{ gap: '10px' }}>
                   <div style={{ background: 'var(--bg-primary)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                     <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Login Account</div>
                     <div style={{ fontSize: '15px', fontWeight: 700, marginTop: '2px' }}>#{acc.login || '—'}</div>
@@ -568,7 +568,7 @@ export const ExecutionTab: React.FC = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+              <div className="why-grid-3col">
                 <div style={{ background: 'var(--bg-primary)', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', textAlign: 'center' }}>
                   <div style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Early Inval</div>
                   <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--accent-red)', marginTop: '2px' }}>-0.35R</div>
@@ -720,7 +720,7 @@ export const ExecutionTab: React.FC = () => {
                 </div>
 
                 {/* Individual Asset Chips */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginTop: '4px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '6px', marginTop: '4px' }}>
                   {[
                     { sym: 'XAUUSD', label: 'Gold (XAU)' },
                     { sym: 'EURUSD', label: 'EUR / USD' },
@@ -769,7 +769,7 @@ export const ExecutionTab: React.FC = () => {
                   📦 Position Sizing Model
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                <div className="why-grid-2col" style={{ gap: '6px' }}>
                   <button
                     type="button"
                     onClick={() => setRiskMode('FIXED_LOT')}
@@ -820,7 +820,7 @@ export const ExecutionTab: React.FC = () => {
                         onChange={e => setFixedLotSize(parseFloat(e.target.value) || 0.01)}
                         style={{ ...inputStyle, padding: '6px 10px', fontSize: '13px', fontWeight: 700, width: '100px' }}
                       />
-                      <div style={{ display: 'flex', gap: '4px' }}>
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                         {[0.01, 0.02, 0.05, 0.10, 0.20].map(val => (
                           <button
                             key={val}
@@ -848,7 +848,7 @@ export const ExecutionTab: React.FC = () => {
                     <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
                       Account Risk Percentage (% of Balance)
                     </label>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                       <input
                         type="number"
                         step="0.25"
@@ -858,7 +858,7 @@ export const ExecutionTab: React.FC = () => {
                         onChange={e => setRiskPct(parseFloat(e.target.value) || 1.0)}
                         style={{ ...inputStyle, padding: '6px 10px', fontSize: '13px', fontWeight: 700, width: '100px' }}
                       />
-                      <div style={{ display: 'flex', gap: '4px' }}>
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                         {[0.5, 1.0, 1.5, 2.0].map(val => (
                           <button
                             key={val}
@@ -890,7 +890,7 @@ export const ExecutionTab: React.FC = () => {
                   🛡️ Prop Firm & Exposure Limits
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div className="why-grid-2col" style={{ gap: '10px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>
                       Max Concurrent Trades

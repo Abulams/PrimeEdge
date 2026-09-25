@@ -478,7 +478,7 @@ export function EntryDistributionPanel({ entryZone, symbol }: Props) {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
             <ProfileCard
               profile={profiles.aggressive}
               isOptimal={false}

@@ -526,7 +526,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                   key={step.id}
                   onClick={() => setActiveWorkflowTab(step.id as any)}
                   style={{
-                    padding: '12px 20px',
+                    padding: '10px 14px',
                     borderRadius: '10px',
                     border: active ? '1px solid #00f2fe' : '1px solid rgba(255,255,255,0.08)',
                     background: active ? 'rgba(0, 242, 254, 0.12)' : 'rgba(17, 24, 39, 0.6)',
@@ -537,11 +537,12 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                     alignItems: 'center',
                     gap: '2px',
                     transition: 'all 0.2s',
-                    minWidth: '150px'
+                    minWidth: '110px',
+                    flex: '1 1 auto'
                   }}
                 >
-                  <span style={{ fontSize: '14px', fontWeight: 800 }}>{step.label}</span>
-                  <span style={{ fontSize: '11px', opacity: 0.8 }}>{step.desc}</span>
+                  <span style={{ fontSize: '13px', fontWeight: 800 }}>{step.label}</span>
+                  <span style={{ fontSize: '10px', opacity: 0.8 }}>{step.desc}</span>
                 </button>
               );
             })}
@@ -552,11 +553,11 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
             backgroundColor: 'rgba(17, 24, 39, 0.8)',
             border: '1px solid rgba(0, 242, 254, 0.25)',
             borderRadius: '16px',
-            padding: '36px',
+            padding: '24px 16px',
             boxShadow: '0 12px 30px rgba(0,0,0,0.5)'
           }}>
             {activeWorkflowTab === 'find' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', alignItems: 'center' }}>
+              <div className="landing-workflow-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', alignItems: 'center' }}>
                 <div>
                   <div style={{ display: 'inline-flex', padding: '4px 10px', borderRadius: '6px', background: 'rgba(0,242,254,0.1)', color: '#00f2fe', fontSize: '12px', fontWeight: 800, marginBottom: '12px' }}>
                     STAGE 1: OPPORTUNITY RADAR
@@ -586,7 +587,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
             )}
 
             {activeWorkflowTab === 'plan' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', alignItems: 'center' }}>
+              <div className="landing-workflow-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', alignItems: 'center' }}>
                 <div>
                   <div style={{ display: 'inline-flex', padding: '4px 10px', borderRadius: '6px', background: 'rgba(0,242,254,0.1)', color: '#00f2fe', fontSize: '12px', fontWeight: 800, marginBottom: '12px' }}>
                     STAGE 2: TRADE PLANNER COCKPIT
@@ -616,7 +617,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
             )}
 
             {activeWorkflowTab === 'why' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', alignItems: 'center' }}>
+              <div className="landing-workflow-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', alignItems: 'center' }}>
                 <div>
                   <div style={{ display: 'inline-flex', padding: '4px 10px', borderRadius: '6px', background: 'rgba(0,242,254,0.1)', color: '#00f2fe', fontSize: '12px', fontWeight: 800, marginBottom: '12px' }}>
                     STAGE 3: WHY (EVIDENCE AUDIT)
@@ -646,7 +647,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
             )}
 
             {activeWorkflowTab === 'execute' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', alignItems: 'center' }}>
+              <div className="landing-workflow-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', alignItems: 'center' }}>
                 <div>
                   <div style={{ display: 'inline-flex', padding: '4px 10px', borderRadius: '6px', background: 'rgba(0,242,254,0.1)', color: '#00f2fe', fontSize: '12px', fontWeight: 800, marginBottom: '12px' }}>
                     STAGE 4: EXECUTION & GUARDRAILS
@@ -676,7 +677,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
             )}
 
             {activeWorkflowTab === 'learn' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', alignItems: 'center' }}>
+              <div className="landing-workflow-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', alignItems: 'center' }}>
                 <div>
                   <div style={{ display: 'inline-flex', padding: '4px 10px', borderRadius: '6px', background: 'rgba(0,242,254,0.1)', color: '#00f2fe', fontSize: '12px', fontWeight: 800, marginBottom: '12px' }}>
                     STAGE 5: AUTO-JOURNAL & REPLAY
@@ -794,6 +795,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
             display: 'flex',
             justifyContent: 'center',
             gap: '12px',
+            flexWrap: 'wrap',
             marginBottom: '32px'
           }}>
             {[
@@ -1346,7 +1348,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                 <span style={{ fontSize: '18px', fontWeight: 800, color: '#fff' }}>PrimeEdge</span>
               </div>
 
-              <div style={{ display: 'flex', gap: '24px', fontSize: '13px' }}>
+              <div style={{ display: 'flex', gap: '16px 24px', fontSize: '13px', flexWrap: 'wrap' }}>
                 <a href="/terms.html" style={{ color: '#94a3b8', textDecoration: 'none' }}>
                   Terms of Service & Risk Disclosure
                 </a>

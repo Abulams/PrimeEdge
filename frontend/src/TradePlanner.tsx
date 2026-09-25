@@ -413,7 +413,7 @@ export const TradePlanner: React.FC = () => {
                 </div>
 
                 {/* Key Metrics Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginTop: '16px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <div className="why-grid-4col" style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                   <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                     <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Calibrated WR</div>
                     <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--accent-green)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
@@ -540,7 +540,7 @@ export const TradePlanner: React.FC = () => {
                     Rather than just following price, we look at <em>where winning trades actually retrace before running</em> — and recommend entering anywhere inside that zone.
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '12px' }}>
+                  <div className="why-grid-3col" style={{ marginBottom: '12px' }}>
                     <div style={{ padding: '10px', borderRadius: '8px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', textAlign: 'center' }}>
                       <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Aggressive Entry</div>
                       <div style={{ fontSize: '15px', fontWeight: 800, color: '#fff', fontFamily: 'var(--font-mono)' }}>
@@ -583,7 +583,7 @@ export const TradePlanner: React.FC = () => {
                   Empirical Excursion Envelope vs Planned Targets
                 </h4>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="why-grid-2col" style={{ gap: '12px' }}>
                   {/* MAE Envelope */}
                   <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)' }}>
                     <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent-red)', display: 'flex', justifyContent: 'space-between' }}>
