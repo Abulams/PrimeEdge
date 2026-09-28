@@ -28,12 +28,16 @@ jobs:
         run: |
           cd backend
           pip install -r requirements.txt
+          # Ensure Stripe is installed
+          pip install stripe
 
       - name: Build React frontend
         run: |
           cd frontend
           npm install
           npm run build
+          # Verify build output exists
+          ls -la dist/
 
       - name: Copy frontend build into backend static folder
         run: |

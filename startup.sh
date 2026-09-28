@@ -6,11 +6,8 @@ cd /home/site/wwwroot
 # Install Python dependencies
 pip install -r backend/requirements.txt
 
-# Build frontend
-cd frontend
-npm install
-npm run build
-cd ..
+# Skip frontend build (already done in deployment workflow)
+# Frontend is already built and copied to backend/static/
 
 # Start the FastAPI server
 cd backend
