@@ -12,6 +12,7 @@ Manages the lifecycle of Market OS setup snapshots and trade records:
 
 import datetime
 import logging
+import re
 from typing import Any, Dict, List, Optional
 import numpy as np
 from sqlalchemy.orm import Session, joinedload
@@ -186,10 +187,26 @@ class JournalService:
         try:
             from .models import ExecutionOrderQueue
             from .routers.execution_cloud_router import cloud_router
+            from .stripe_service import StripeService
             
             target_acc_id = account_id
+            
+            # Check if user has Premium tier for auto-execution
+            if user_id and not StripeService.check_auto_execution_access(db, user_id):
+                logger.warning(f"User {user_id} attempted auto-execution without Premium tier. Order not dispatched.")
+                trade.execution_status = "BLOCKED"
+                trade.lifecycle_state = "CLOSED"
+                trade.exit_reason = "TIER_RESTRICTION"
+                trade.exit_timestamp = datetime.datetime.utcnow()
+                trade.outcome = "REJECTED"
+                db.commit()
+                return trade
+            
             if target_acc_id and cloud_router.is_execution_allowed(target_acc_id):
                 signal_id = f"SNAP-{snapshot.id}-TR-{trade.id}"
+                # Validate signal_id format to prevent downstream trade lookup failures
+                if not re.match(r'^SNAP-\d+-TR-\d+$', signal_id):
+                    raise ValueError(f"Invalid signal_id format: {signal_id}. Expected format: SNAP-{{snapshot_id}}-TR-{{trade_id}}")
                 db_order = ExecutionOrderQueue(
                     signal_id=signal_id,
                     trade_id=trade.id,

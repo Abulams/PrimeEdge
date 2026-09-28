@@ -203,6 +203,13 @@ def report_ea_fill(
             trade.exit_timestamp = now
             trade.outcome = "REJECTED"
 
+    # Link audit entry to trade for complete traceability
+    if trade:
+        audit_entry.trade_id = trade.id
+    elif queue_order and queue_order.trade_id:
+        # Fallback: use trade_id from queue order if direct lookup failed
+        audit_entry.trade_id = queue_order.trade_id
+
     db.commit()
     logger.info(f"Reported EA fill for #{req.login} | Ticket: {req.ticket_id} | Status: {req.status}")
     return {"status": "SUCCESS", "signal_id": req.signal_id}

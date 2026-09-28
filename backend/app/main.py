@@ -165,6 +165,7 @@ from .routers.auth_router import router as auth_router
 from .routers.execution_cloud_router import router as execution_cloud_router
 from .routers.feedback_router import router as feedback_router
 from .routers.ea_bridge_router import router as ea_bridge_router
+from .routers.subscription_router import router as subscription_router
 from .auth import get_current_user
 from .models import User as UserModel
 
@@ -172,6 +173,7 @@ app.include_router(auth_router)
 app.include_router(execution_cloud_router)
 app.include_router(feedback_router)
 app.include_router(ea_bridge_router)
+app.include_router(subscription_router)
 
 
 # Root endpoint — serve React app if built, otherwise API health message
@@ -1706,6 +1708,15 @@ if os.path.isdir(_DIST):
     if os.path.isdir(_SCREENSHOTS_DIR):
         app.mount("/screenshots", StaticFiles(directory=_SCREENSHOTS_DIR), name="screenshots")
 
+    @app.get("/favicon.svg", include_in_schema=False)
+    async def serve_favicon():
+        return StaticFileResponse(os.path.join(_DIST, "favicon.svg"))
+
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_fallback(full_path: str):
+        if full_path == "" or full_path == "/":
+            return StaticFileResponse(os.path.join(_DIST, "index.html"))
+        file_path = os.path.join(_DIST, full_path)
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            return StaticFileResponse(file_path)
         return StaticFileResponse(os.path.join(_DIST, "index.html"))

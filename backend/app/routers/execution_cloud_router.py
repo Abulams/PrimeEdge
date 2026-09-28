@@ -574,6 +574,13 @@ def report_order_fill(
             TradeRecord.broker_ticket.is_(None)
         ).order_by(TradeRecord.id.desc()).first()
 
+    # Link audit entry to trade for complete traceability
+    if trade:
+        audit_entry.trade_id = trade.id
+    elif queue_order and queue_order.trade_id:
+        # Fallback: use trade_id from queue order if direct lookup failed
+        audit_entry.trade_id = queue_order.trade_id
+
     # ── REJECTION PATH ─────────────────────────────────────────────────
     if req.status == "REJECTED":
         if trade:
@@ -723,6 +730,7 @@ def report_order_close(
             audit.pnl_r = trade.pnl_r
             audit.exit_reason = trade.exit_reason
             audit.exit_price = trade.exit_price
+            audit.trade_id = trade.id
 
     # 3. Clean up active positions cache in cloud router
     cloud_router.active_positions[req.account_id] = [

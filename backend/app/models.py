@@ -16,6 +16,8 @@ class User(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
     email_verified = Column(Boolean, default=False, nullable=False)
+    current_tier_id = Column(Integer, ForeignKey("subscription_tiers.id"), nullable=True)  # Current active tier
+    trial_used = Column(Boolean, default=False, nullable=False)  # Whether user has used their trial
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
 
@@ -454,6 +456,7 @@ class ExecutionAuditLog(Base):
     worker_id = Column(String, nullable=False)
     ticket_id = Column(String, index=True, nullable=False)
     signal_id = Column(String, index=True, nullable=False)
+    trade_id = Column(Integer, nullable=True, index=True)
     instrument = Column(String, nullable=False)
     direction = Column(String, nullable=False)
     order_type = Column(String, default="MARKET", nullable=False)
@@ -530,6 +533,62 @@ class WaitlistLead(Base):
     why_interested = Column(String, nullable=True)         # Qualitative feedback
     consent_given = Column(Boolean, default=True, nullable=False)
     status = Column(String, default="PENDING", nullable=False) # PENDING, INVITED, ONBOARDED
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class SubscriptionTier(Base):
+    """Subscription pricing tiers: Starter, Pro, Premium."""
+    __tablename__ = "subscription_tiers"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String, unique=True, nullable=False, index=True)  # "starter", "pro", "premium"
+    display_name = Column(String, nullable=False)  # "Starter", "Pro", "Premium"
+    description = Column(String, nullable=True)
+    price_monthly = Column(Float, nullable=False)  # Monthly price in USD
+    price_yearly = Column(Float, nullable=True)   # Yearly price in USD (optional)
+    stripe_price_id_monthly = Column(String, nullable=True)  # Stripe Price ID for monthly
+    stripe_price_id_yearly = Column(String, nullable=True)   # Stripe Price ID for yearly
+    features = Column(JSON, nullable=True)  # List of features: ["Auto-execution", "Real-time signals", etc.]
+    max_accounts = Column(Integer, default=1)  # Max MT5 accounts allowed
+    auto_execution_enabled = Column(Boolean, default=False)  # Whether tier has auto-execution access
+    api_access_enabled = Column(Boolean, default=False)  # Whether tier has API access
+    active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class UserSubscription(Base):
+    """User subscription tracking."""
+    __tablename__ = "user_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    tier_id = Column(Integer, ForeignKey("subscription_tiers.id"), nullable=False, index=True)
+    stripe_customer_id = Column(String, nullable=True, index=True)
+    stripe_subscription_id = Column(String, nullable=True, index=True)
+    status = Column(String, default="active", nullable=False)  # "active", "canceled", "past_due", "trialing"
+    billing_interval = Column(String, nullable=True)  # "month" or "year"
+    current_period_start = Column(DateTime, nullable=True)
+    current_period_end = Column(DateTime, nullable=True)
+    cancel_at_period_end = Column(Boolean, default=False, nullable=False)
+    trial_end = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    # Relationships
+    user = relationship("User", backref="subscriptions")
+    tier = relationship("SubscriptionTier")
+
+
+class StripeWebhookEvent(Base):
+    """Log of Stripe webhook events for debugging and reconciliation."""
+    __tablename__ = "stripe_webhook_events"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    stripe_event_id = Column(String, unique=True, nullable=False, index=True)
+    event_type = Column(String, nullable=False, index=True)  # "customer.subscription.created", etc.
+    processed = Column(Boolean, default=False, nullable=False)
+    payload = Column(JSON, nullable=True)
+    error_message = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 

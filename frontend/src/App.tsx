@@ -44,6 +44,7 @@ import { AuthProvider, useAuth, getAccessToken } from './AuthContext';
 import LoginPage from './LoginPage';
 import LandingPage from './LandingPage';
 import ActivatePage from './ActivatePage';
+import PricingPage from './PricingPage';
 import FeedbackModal from './FeedbackModal';
 import { notificationService } from './NotificationService';
 import { Bell, BellOff, Volume2, VolumeX } from 'lucide-react';
@@ -912,6 +913,10 @@ function App() {
   // Routing for unauthenticated visitors or public overview
   if (currentPath === '/activate' || currentPath.startsWith('/activate')) {
     return <ActivatePage />;
+  }
+
+  if (currentPath === '/pricing' || currentPath.startsWith('/subscription')) {
+    return <PricingPage />;
   }
 
   if (currentPath === '/login') {

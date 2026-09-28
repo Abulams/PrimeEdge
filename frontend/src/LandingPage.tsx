@@ -22,7 +22,10 @@ import {
   Award,
   Terminal,
   Server,
-  FileCheck
+  FileCheck,
+  Star as StarIcon,
+  Shield,
+  Crown
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -32,6 +35,15 @@ interface LandingPageProps {
 }
 
 export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticated }: LandingPageProps) {
+  const [tiers, setTiers] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/api/v1/subscription/tiers')
+      .then(res => res.json())
+      .then(data => setTiers(data))
+      .catch(err => console.error('Failed to fetch tiers:', err));
+  }, []);
+
   // Navigation helper
   const handleAppClick = () => {
     if (onEnterApp) {
@@ -48,21 +60,6 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
       window.location.href = '/waitlist';
     }
   };
-
-  // Waitlist live spots state
-  const [remainingSpots, setRemainingSpots] = useState<number>(6);
-  useEffect(() => {
-    fetch('/api/v1/waitlist/stats')
-      .then(res => res.json())
-      .then(data => {
-        if (data && typeof data.remaining_spots === 'number') {
-          setRemainingSpots(data.remaining_spots);
-        }
-      })
-      .catch(() => {
-        // fallback default 6
-      });
-  }, []);
 
   // Section 3: Interactive Tab state for FIND -> PLAN -> WHY -> EXECUTE -> LEARN
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<'find' | 'plan' | 'why' | 'execute' | 'learn'>('find');
@@ -158,8 +155,8 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
             <a href="#product" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '13px', fontWeight: 500, transition: 'color 0.2s' }}>
               Live System
             </a>
-            <a href="#pricing" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '13px', fontWeight: 500, transition: 'color 0.2s' }}>
-              Founder Alpha
+            <a href="/pricing" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '13px', fontWeight: 500, transition: 'color 0.2s' }}>
+              Pricing
             </a>
           </nav>
 
@@ -191,7 +188,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
             </button>
 
             <button
-              onClick={handleWaitlistClick}
+              onClick={() => window.location.href = '/pricing'}
               style={{
                 background: 'linear-gradient(135deg, #00f2fe, #38bdf8)',
                 border: 'none',
@@ -216,7 +213,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                 e.currentTarget.style.boxShadow = '0 2px 12px rgba(0, 242, 254, 0.3)';
               }}
             >
-              Request Alpha Access
+              View Pricing
               <ArrowRight size={14} />
             </button>
           </div>
@@ -235,28 +232,28 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
           margin: '0 auto',
           textAlign: 'center'
         }}>
-          {/* Top Cohort Badge */}
+          {/* Top Badge */}
           <div style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '8px',
             padding: '6px 14px',
             borderRadius: '999px',
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            border: '1px solid rgba(16, 185, 129, 0.3)',
+            backgroundColor: 'rgba(0, 242, 254, 0.1)',
+            border: '1px solid rgba(0, 242, 254, 0.3)',
             fontSize: '12px',
             fontWeight: 700,
-            color: '#10b981',
+            color: '#00f2fe',
             marginBottom: '24px'
           }}>
             <span style={{
               width: '8px',
               height: '8px',
               borderRadius: '50%',
-              backgroundColor: '#10b981',
-              boxShadow: '0 0 8px #10b981'
+              backgroundColor: '#00f2fe',
+              boxShadow: '0 0 8px #00f2fe'
             }} />
-            <span>FOUNDER ALPHA COHORT — {remainingSpots} OF 20 SEATS AVAILABLE</span>
+            <span>INSTANT ACCESS — THREE TIER OPTIONS</span>
           </div>
 
           {/* Main Headline */}
@@ -300,7 +297,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
             marginBottom: '48px'
           }}>
             <button
-              onClick={handleWaitlistClick}
+              onClick={() => window.location.href = '/pricing'}
               style={{
                 background: 'linear-gradient(135deg, #00f2fe, #38bdf8)',
                 border: 'none',
@@ -325,7 +322,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                 e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 242, 254, 0.4)';
               }}
             >
-              Apply for Founder Alpha Access
+              Get Started
               <ArrowRight size={18} />
             </button>
 
@@ -1114,7 +1111,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
         </section>
 
         {/* ========================================================================= */}
-        {/* SECTION 11: ACCESS & PRICING (Founder Alpha Cohort) */}
+        {/* SECTION 11: PRICING & TIERS */}
         {/* ========================================================================= */}
         <section id="pricing" style={{ padding: '80px 24px', maxWidth: '1000px', margin: '0 auto', textAlign: 'center' }}>
           <div style={{
@@ -1126,96 +1123,79 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
             position: 'relative',
             overflow: 'hidden'
           }}>
-            {/* Top Badge */}
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '4px 12px',
-              borderRadius: '999px',
-              backgroundColor: 'rgba(0, 242, 254, 0.1)',
-              border: '1px solid rgba(0, 242, 254, 0.3)',
-              fontSize: '11px',
-              fontWeight: 800,
-              color: '#00f2fe',
-              marginBottom: '16px'
-            }}>
-              PRIVATE ALPHA ACCESS PROGRAM
-            </div>
-
             <h2 style={{ fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 800, color: '#fff', marginBottom: '12px' }}>
-              Join the Founder Alpha Cohort
+              Choose Your Trading Intelligence Tier
             </h2>
             <p style={{ fontSize: '15px', color: '#94a3b8', maxWidth: '620px', margin: '0 auto 28px' }}>
-              We are opening 20 dedicated sandbox slots for serious systematic traders. Full platform access with zero subscription fees during the private alpha evaluation period.
+              Institutional-grade market intelligence and execution capabilities for every trader level. From manual analysis to fully automated execution.
             </p>
 
-            {/* Pricing Box */}
-            <div style={{
-              display: 'inline-block',
-              background: 'rgba(0, 0, 0, 0.4)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '14px',
-              padding: '24px 40px',
-              marginBottom: '32px'
-            }}>
-              <div style={{ fontSize: '13px', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' }}>
-                Founder Alpha Access
-              </div>
-              <div style={{ fontSize: '48px', fontWeight: 900, color: '#fff', margin: '6px 0' }}>
-                $0 <span style={{ fontSize: '16px', color: '#64748b', fontWeight: 500 }}>/ month during alpha</span>
-              </div>
-              <div style={{ fontSize: '12px', color: '#10b981', fontWeight: 700 }}>
-                Includes Dedicated Sandboxed Cloud Worker Node
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '32px', flexWrap: 'wrap', marginBottom: '36px', textAlign: 'left', maxWidth: '540px', margin: '0 auto 36px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#cbd5e1' }}>
-                <CheckCircle size={16} color="#10b981" /> Full Opportunity Radar & MSS Engine
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#cbd5e1' }}>
-                <CheckCircle size={16} color="#10b981" /> Empirical Trade Planner & Invalidation Stops
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#cbd5e1' }}>
-                <CheckCircle size={16} color="#10b981" /> Auto-Journal & Deterministic Replay
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#cbd5e1' }}>
-                <CheckCircle size={16} color="#10b981" /> Direct access to engineering team
-              </div>
-            </div>
-
             <button
-              onClick={handleWaitlistClick}
+              onClick={() => window.location.href = '/pricing'}
               style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
                 background: 'linear-gradient(135deg, #00f2fe, #38bdf8)',
-                border: 'none',
                 color: '#08090d',
-                padding: '16px 36px',
+                padding: '14px 32px',
                 borderRadius: '10px',
                 fontSize: '16px',
                 fontWeight: 800,
+                textDecoration: 'none',
                 cursor: 'pointer',
-                boxShadow: '0 6px 24px rgba(0, 242, 254, 0.4)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '10px',
-                transition: 'all 0.2s'
+                transition: 'all 0.3s',
+                boxShadow: '0 4px 20px rgba(0, 242, 254, 0.35)'
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 8px 30px rgba(0, 242, 254, 0.55)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'none';
-                e.currentTarget.style.boxShadow = '0 6px 24px rgba(0, 242, 254, 0.4)';
-              }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
             >
-              Apply to Claim 1 of {remainingSpots} Remaining Alpha Seats
-              <ArrowRight size={18} />
+              View Pricing Plans
+              <ChevronRight className="w-5 h-5" />
             </button>
-            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '12px' }}>
-              No credit card required • Evaluation spots reviewed within 24–48 hours
+
+            <div style={{ marginTop: '32px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', maxWidth: '900px', margin: '32px auto 0' }}>
+              {tiers.map((tier) => {
+                const isPremium = tier.name === 'premium';
+                const isPro = tier.name === 'pro';
+                const Icon = tier.name === 'starter' ? StarIcon : tier.name === 'pro' ? Shield : Crown;
+
+                return (
+                  <div key={tier.tier_id} style={{
+                    background: isPremium ? 'linear-gradient(135deg, rgba(0, 242, 254, 0.1), rgba(56, 189, 248, 0.05))' : isPro ? 'rgba(0, 242, 254, 0.05)' : 'rgba(0, 0, 0, 0.3)',
+                    border: isPremium ? '1px solid rgba(0, 242, 254, 0.5)' : isPro ? '1px solid rgba(0, 242, 254, 0.3)' : '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    textAlign: 'left',
+                    position: 'relative',
+                    boxShadow: isPremium ? '0 0 30px rgba(0, 242, 254, 0.15)' : 'none'
+                  }}>
+                    {isPro && (
+                      <div style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', background: '#00f2fe', color: '#08090d', padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Most Popular</div>
+                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                      <Icon className="w-6 h-6" style={{ color: isPremium || isPro ? '#00f2fe' : '#9ca3af' }} />
+                      <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#fff', margin: 0 }}>{tier.display_name}</h3>
+                    </div>
+                    <div style={{ fontSize: '36px', fontWeight: 900, color: '#fff', marginBottom: '4px' }}>${tier.price_monthly}<span style={{ fontSize: '16px', color: '#64748b', fontWeight: 500 }}>/mo</span></div>
+                    <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '16px' }}>{tier.description}</p>
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, color: '#cbd5e1', fontSize: '13px', lineHeight: '1.8' }}>
+                      {tier.features.map((feature: string, idx: number) => (
+                        <li key={idx} style={{ marginBottom: '8px', display: 'flex', alignItems: 'center' }}>
+                          <CheckCircle size={16} color="#10b981" style={{ marginRight: '8px' }} />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                    {tier.auto_execution_enabled && (
+                      <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '6px', color: '#00f2fe', fontSize: '12px', fontWeight: 600 }}>
+                        <Zap className="w-4 h-4" />
+                        Auto-Execution Enabled
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
@@ -1258,8 +1238,8 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                   a: "The MSS is a 0 to 100 composite probability metric. It decomposes session liquidity sweeps, Dollar Index (DXY) alignment, Treasury yield trends, and multi-timeframe structural momentum. An MSS above 70 indicates high statistical convergence."
                 },
                 {
-                  q: "What happens after the Founder Alpha period?",
-                  a: "Founder Alpha members who actively test and provide feedback will receive guaranteed perpetual grandfathered pricing on all future PrimeEdge tier releases."
+                  q: "Can I change my plan later?",
+                  a: "Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately for upgrades and at the next billing cycle for downgrades."
                 }
               ].map((faq, index) => {
                 const isOpen = openFaq === index;
