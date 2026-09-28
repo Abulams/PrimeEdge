@@ -117,8 +117,8 @@ class NotificationService {
         
         const notif = new Notification(title, {
           body,
-          icon: '/favicon.ico',
-          badge: '/favicon.ico',
+          icon: '/favicon.png',
+          badge: '/favicon.png',
           tag: `ready-${instrument}`,
           requireInteraction: true,
         });
@@ -140,7 +140,7 @@ class NotificationService {
       if (Notification.permission === 'granted') {
         const notif = new Notification('🔔 Market OS Alert Test', {
           body: 'Audio chime and desktop push notifications are active and ready!',
-          icon: '/favicon.ico',
+          icon: '/favicon.png',
           tag: 'test-alert'
         });
         notif.onclick = () => {
