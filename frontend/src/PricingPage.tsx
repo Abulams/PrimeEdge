@@ -10,8 +10,11 @@ import {
   Loader2,
   ArrowLeft,
   CheckCircle,
-  HelpCircle
+  HelpCircle,
+  LogIn,
+  Sparkles
 } from 'lucide-react';
+import { useAuth, apiFetch } from './AuthContext';
 
 interface Tier {
   id: number;
@@ -35,17 +38,26 @@ interface UserSubscription {
 }
 
 export default function PricingPage() {
+  const { user, isAuthenticated } = useAuth();
   const [tiers, setTiers] = useState<Tier[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<UserSubscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
   const [processingTier, setProcessingTier] = useState<string | null>(null);
-  const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '';
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const [activationNotice, setActivationNotice] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTiers();
     fetchCurrentSubscription();
-  }, []);
+
+    // Check for success URL parameters
+    const params = new URLSearchParams(window.location.search);
+    const activated = params.get('activated');
+    if (activated) {
+      setActivationNotice(`🎉 Subscription Active! Welcome to PrimeEdge ${activated.toUpperCase()}.`);
+    }
+  }, [isAuthenticated]);
 
   const fetchTiers = async () => {
     try {
@@ -63,9 +75,7 @@ export default function PricingPage() {
 
   const fetchCurrentSubscription = async () => {
     try {
-      const response = await fetch('/api/v1/subscription/current', {
-        credentials: 'include'
-      });
+      const response = await apiFetch('/api/v1/subscription/current');
       if (response.ok) {
         const data = await response.json();
         setCurrentSubscription(data);
@@ -76,17 +86,19 @@ export default function PricingPage() {
   };
 
   const handleSubscribe = async (tierName: string) => {
-    if (!stripePublishableKey) {
-      alert('Stripe payment system is not configured. Please contact support.');
+    // 1. If not authenticated, prompt user to sign in or create account first
+    if (!isAuthenticated) {
+      setAuthNotice(`Please sign in or create an account to activate your ${tierName.toUpperCase()} plan.`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
     setProcessingTier(tierName);
+    setAuthNotice(null);
+
     try {
-      const response = await fetch('/api/v1/subscription/checkout', {
+      const response = await apiFetch('/api/v1/subscription/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           tier_name: tierName,
           billing_interval: billingInterval
@@ -95,14 +107,24 @@ export default function PricingPage() {
 
       if (response.ok) {
         const data = await response.json();
-        window.location.href = data.checkout_url;
+        if (data.checkout_url) {
+          // Check if checkout URL is internal activation callback
+          if (data.checkout_url.includes('activated=')) {
+            await fetchCurrentSubscription();
+            setActivationNotice(`🎉 Subscription Active! Your ${tierName.toUpperCase()} plan has been activated.`);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            // External Stripe checkout session
+            window.location.href = data.checkout_url;
+          }
+        }
       } else {
-        const error = await response.json();
-        alert('Failed to create checkout session: ' + (error.detail || 'Unknown error'));
+        const error = await response.json().catch(() => ({}));
+        alert('Could not start checkout: ' + (error.detail || 'Please try again.'));
       }
     } catch (error) {
       console.error('Checkout error:', error);
-      alert('Failed to create checkout session');
+      alert('Network error while creating checkout session. Please try again.');
     } finally {
       setProcessingTier(null);
     }
@@ -114,9 +136,8 @@ export default function PricingPage() {
     }
 
     try {
-      const response = await fetch('/api/v1/subscription/cancel', {
-        method: 'POST',
-        credentials: 'include'
+      const response = await apiFetch('/api/v1/subscription/cancel', {
+        method: 'POST'
       });
 
       if (response.ok) {
@@ -251,25 +272,43 @@ export default function PricingPage() {
               Back to Home
             </button>
 
-            <button
-              onClick={() => window.location.href = '/login'}
-              style={{
-                background: 'linear-gradient(135deg, #00f2fe, #38bdf8)',
-                border: 'none',
-                color: '#08090d',
-                padding: '8px 18px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 800,
-                cursor: 'pointer',
-                boxShadow: '0 2px 12px rgba(0, 242, 254, 0.3)',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-            >
-              Open Terminal
-            </button>
+            {isAuthenticated ? (
+              <button
+                onClick={() => window.location.href = '/'}
+                style={{
+                  background: 'linear-gradient(135deg, #00f2fe, #38bdf8)',
+                  border: 'none',
+                  color: '#08090d',
+                  padding: '8px 18px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 12px rgba(0, 242, 254, 0.3)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Open Terminal
+              </button>
+            ) : (
+              <button
+                onClick={() => window.location.href = '/login'}
+                style={{
+                  background: 'linear-gradient(135deg, #00f2fe, #38bdf8)',
+                  border: 'none',
+                  color: '#08090d',
+                  padding: '8px 18px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 12px rgba(0, 242, 254, 0.3)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Sign In
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -277,7 +316,95 @@ export default function PricingPage() {
       {/* ========================================================================= */}
       {/* HERO SECTION */}
       {/* ========================================================================= */}
-      <main style={{ flex: 1, padding: '60px 24px 80px', maxWidth: '1200px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+      <main style={{ flex: 1, padding: '40px 24px 80px', maxWidth: '1200px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+        
+        {/* Activation Success Banner */}
+        {activationNotice && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(0, 242, 254, 0.15), rgba(16, 185, 129, 0.15))',
+            border: '1.5px solid #00f2fe',
+            borderRadius: '14px',
+            padding: '20px 24px',
+            marginBottom: '32px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '16px',
+            boxShadow: '0 4px 24px rgba(0, 242, 254, 0.25)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <Sparkles size={24} color="#00f2fe" />
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: '#fff' }}>
+                  {activationNotice}
+                </div>
+                <div style={{ fontSize: '13px', color: '#94a3b8', marginTop: '2px' }}>
+                  Your account privileges have been updated. You now have full access to this tier's features.
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => window.location.href = '/'}
+              style={{
+                background: 'linear-gradient(135deg, #00f2fe, #38bdf8)',
+                color: '#08090d',
+                border: 'none',
+                padding: '10px 22px',
+                borderRadius: '8px',
+                fontWeight: 800,
+                fontSize: '13px',
+                cursor: 'pointer'
+              }}
+            >
+              Launch Trading Cockpit →
+            </button>
+          </div>
+        )}
+
+        {/* Auth Required Notice */}
+        {authNotice && (
+          <div style={{
+            background: 'rgba(245, 158, 11, 0.12)',
+            border: '1px solid rgba(245, 158, 11, 0.4)',
+            borderRadius: '14px',
+            padding: '20px 24px',
+            marginBottom: '32px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '16px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <LogIn size={24} color="#f59e0b" />
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: '#fff' }}>
+                  Sign In Required to Select Plan
+                </div>
+                <div style={{ fontSize: '13px', color: '#cbd5e1', marginTop: '2px' }}>
+                  {authNotice}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => window.location.href = '/login?redirect=/pricing'}
+              style={{
+                background: '#f59e0b',
+                color: '#08090d',
+                border: 'none',
+                padding: '10px 22px',
+                borderRadius: '8px',
+                fontWeight: 800,
+                fontSize: '13px',
+                cursor: 'pointer'
+              }}
+            >
+              Sign In to Continue →
+            </button>
+          </div>
+        )}
+
         <div style={{ textAlign: 'center', marginBottom: '48px' }}>
           <div style={{
             display: 'inline-flex',
@@ -438,7 +565,7 @@ export default function PricingPage() {
           alignItems: 'stretch'
         }}>
           {tiers.map((tier) => {
-            const isCurrentPlan = currentSubscription?.tier?.id === tier.id;
+            const isCurrentPlan = currentSubscription?.tier?.name?.toLowerCase() === tier.name.toLowerCase();
             const savings = getAnnualSavings(tier);
             const price = billingInterval === 'month' ? tier.price_monthly : (tier.price_yearly || tier.price_monthly * 12);
             const isPremium = tier.name === 'premium';
@@ -649,13 +776,13 @@ export default function PricingPage() {
                   {processingTier === tier.name ? (
                     <>
                       <Loader2 size={16} className="animate-spin" />
-                      Initializing Checkout...
+                      Activating Plan...
                     </>
                   ) : isCurrentPlan ? (
                     'Current Active Plan'
                   ) : (
                     <>
-                      Get Started with {tier.display_name}
+                      Select {tier.display_name}
                       <ChevronRight size={16} />
                     </>
                   )}

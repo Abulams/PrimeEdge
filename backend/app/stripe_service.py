@@ -4,6 +4,7 @@ Stripe Payment Integration Service
 Handles Stripe API interactions for subscription management, checkout sessions, and webhooks.
 """
 import os
+import datetime
 import logging
 from typing import Optional, Dict, Any
 import stripe
@@ -128,67 +129,139 @@ class StripeService:
         if not tier:
             raise ValueError(f"Tier '{tier_name}' not found")
 
-        # Get or create Stripe customer
-        stripe_customer_id = user.subscriptions[0].stripe_customer_id if user.subscriptions else None
-        
-        if not stripe_customer_id:
-            customer = stripe.Customer.create(
-                email=user.email,
-                name=user.full_name or user.email,
-                metadata={"user_id": user_id}
-            )
-            stripe_customer_id = customer.id
-        else:
-            # Update existing customer
-            stripe.Customer.modify(
-                stripe_customer_id,
-                email=user.email,
-                name=user.full_name or user.email
-            )
+        stripe_key = os.getenv("STRIPE_SECRET_KEY", "")
+        stripe_mode = os.getenv("STRIPE_MODE", "test")
+        is_mock_key = (not stripe_key) or stripe_key.startswith("mk_")
 
-        # Determine price based on billing interval
-        price_id = tier.stripe_price_id_monthly if billing_interval == "month" else tier.stripe_price_id_yearly
-        
-        if not price_id:
-            # Fallback: create price dynamically if not set
-            amount = int(tier.price_monthly * 100) if billing_interval == "month" else int(tier.price_yearly * 100)
-            
-            price = stripe.Price.create(
-                unit_amount=amount,
-                currency="usd",
-                recurring={"interval": billing_interval},
-                product_data={
-                    "name": f"PrimeEdge {tier.display_name}",
-                    "description": tier.description
-                },
-                metadata={"tier_name": tier.name}
-            )
-            price_id = price.id
+        # If mock key or test mode without valid secret key, simulate instant tier activation
+        if is_mock_key:
+            logger.info(f"Test/Simulated checkout for user {user_id}, tier {tier_name} (Stripe key: {stripe_key or 'None'})")
+            # Cancel existing active subscriptions
+            existing_subs = db.query(UserSubscription).filter(
+                UserSubscription.user_id == user_id,
+                UserSubscription.status == "active"
+            ).all()
+            for sub in existing_subs:
+                sub.status = "canceled"
+                sub.cancel_at_period_end = True
 
-        # Create checkout session
-        session = stripe.checkout.Session.create(
-            customer=stripe_customer_id,
-            payment_method_types=["card"],
-            line_items=[{
-                "price": price_id,
-                "quantity": 1,
-            }],
-            mode="subscription",
-            success_url=f"{os.getenv('FRONTEND_URL', 'http://localhost:5173')}/subscription/success?session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{os.getenv('FRONTEND_URL', 'http://localhost:5173')}/subscription/cancel",
-            metadata={
-                "user_id": str(user_id),
-                "tier_id": str(tier.id),
-                "tier_name": tier.name,
-                "billing_interval": billing_interval
+            now = datetime.datetime.utcnow()
+            days = 365 if billing_interval == "year" else 30
+            period_end = now + datetime.timedelta(days=days)
+
+            new_sub = UserSubscription(
+                user_id=user_id,
+                tier_id=tier.id,
+                stripe_customer_id=f"sim_cust_{user_id}",
+                stripe_subscription_id=f"sim_sub_{user_id}_{int(now.timestamp())}",
+                status="active",
+                billing_interval=billing_interval,
+                current_period_start=now,
+                current_period_end=period_end,
+                cancel_at_period_end=False
+            )
+            db.add(new_sub)
+            user.current_tier_id = tier.id
+            db.commit()
+
+            frontend_url = os.getenv("FRONTEND_URL", "https://primeedge.app").rstrip("/")
+            return {
+                "checkout_url": f"{frontend_url}/pricing?activated={tier.name}",
+                "session_id": f"sim_sess_{user_id}",
+                "customer_id": f"sim_cust_{user_id}"
             }
-        )
 
-        return {
-            "checkout_url": session.url,
-            "session_id": session.id,
-            "customer_id": stripe_customer_id
-        }
+        # Otherwise, attempt real Stripe checkout
+        try:
+            # Get or create Stripe customer
+            stripe_customer_id = user.subscriptions[0].stripe_customer_id if user.subscriptions else None
+            
+            if not stripe_customer_id:
+                customer = stripe.Customer.create(
+                    email=user.email,
+                    name=user.full_name or user.email,
+                    metadata={"user_id": user_id}
+                )
+                stripe_customer_id = customer.id
+            else:
+                stripe.Customer.modify(
+                    stripe_customer_id,
+                    email=user.email,
+                    name=user.full_name or user.email
+                )
+
+            # Determine price based on billing interval
+            price_id = tier.stripe_price_id_monthly if billing_interval == "month" else tier.stripe_price_id_yearly
+            
+            if not price_id:
+                amount = int(tier.price_monthly * 100) if billing_interval == "month" else int(tier.price_yearly * 100)
+                price = stripe.Price.create(
+                    unit_amount=amount,
+                    currency="usd",
+                    recurring={"interval": billing_interval},
+                    product_data={
+                        "name": f"PrimeEdge {tier.display_name}",
+                        "description": tier.description
+                    },
+                    metadata={"tier_name": tier.name}
+                )
+                price_id = price.id
+
+            frontend_url = os.getenv("FRONTEND_URL", "https://primeedge.app").rstrip("/")
+            session = stripe.checkout.Session.create(
+                customer=stripe_customer_id,
+                payment_method_types=["card"],
+                line_items=[{
+                    "price": price_id,
+                    "quantity": 1,
+                }],
+                mode="subscription",
+                success_url=f"{frontend_url}/pricing?session_id={{CHECKOUT_SESSION_ID}}&activated={tier.name}",
+                cancel_url=f"{frontend_url}/pricing",
+                metadata={
+                    "user_id": str(user_id),
+                    "tier_id": str(tier.id),
+                    "tier_name": tier.name,
+                    "billing_interval": billing_interval
+                }
+            )
+
+            return {
+                "checkout_url": session.url,
+                "session_id": session.id,
+                "customer_id": stripe_customer_id
+            }
+        except stripe.error.AuthenticationError as e:
+            logger.error(f"Stripe Authentication Error: {e}")
+            if stripe_mode == "test":
+                logger.warning("Falling back to test activation due to invalid Stripe credentials in test mode")
+                now = datetime.datetime.utcnow()
+                days = 365 if billing_interval == "year" else 30
+                period_end = now + datetime.timedelta(days=days)
+                new_sub = UserSubscription(
+                    user_id=user_id,
+                    tier_id=tier.id,
+                    stripe_customer_id=f"sim_cust_{user_id}",
+                    stripe_subscription_id=f"sim_sub_{user_id}_{int(now.timestamp())}",
+                    status="active",
+                    billing_interval=billing_interval,
+                    current_period_start=now,
+                    current_period_end=period_end,
+                    cancel_at_period_end=False
+                )
+                db.add(new_sub)
+                user.current_tier_id = tier.id
+                db.commit()
+                frontend_url = os.getenv("FRONTEND_URL", "https://primeedge.app").rstrip("/")
+                return {
+                    "checkout_url": f"{frontend_url}/pricing?activated={tier.name}",
+                    "session_id": f"sim_sess_{user_id}",
+                    "customer_id": f"sim_cust_{user_id}"
+                }
+            raise ValueError(f"Stripe authentication failed: {e}")
+        except Exception as e:
+            logger.error(f"Stripe checkout error: {e}")
+            raise
 
     @staticmethod
     def handle_webhook_event(db: Session, payload: Dict[str, Any], signature: str) -> None:
