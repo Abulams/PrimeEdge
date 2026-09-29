@@ -3,13 +3,14 @@ import {
   Check,
   X,
   ChevronRight,
-  CreditCard,
   Zap,
   Shield,
-  TrendingUp,
   Star,
   Crown,
-  Loader2
+  Loader2,
+  ArrowLeft,
+  CheckCircle,
+  HelpCircle
 } from 'lucide-react';
 
 interface Tier {
@@ -94,7 +95,6 @@ export default function PricingPage() {
 
       if (response.ok) {
         const data = await response.json();
-        // Redirect to Stripe checkout
         window.location.href = data.checkout_url;
       } else {
         const error = await response.json();
@@ -139,250 +139,737 @@ export default function PricingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#08090d] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#00f2fe]" />
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: '#08090d',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '16px',
+        color: '#94a3b8'
+      }}>
+        <Loader2 className="animate-spin" size={36} color="#00f2fe" />
+        <span style={{ fontSize: '14px', letterSpacing: '0.5px' }}>Loading PrimeEdge Pricing...</span>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#08090d] py-20 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-white mb-4">
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: '#08090d',
+      color: '#f1f5f9',
+      fontFamily: "var(--font-sans, 'Outfit', sans-serif)",
+      backgroundImage: 'radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.04) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(0, 242, 254, 0.04) 0px, transparent 50%)',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      {/* ========================================================================= */}
+      {/* TOP HEADER / NAVBAR */}
+      {/* ========================================================================= */}
+      <header style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        backgroundColor: 'rgba(8, 9, 13, 0.85)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+      }}>
+        <div style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          padding: '16px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          {/* Logo */}
+          <div
+            onClick={() => window.location.href = '/'}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              cursor: 'pointer'
+            }}
+          >
+            <div style={{
+              width: '36px',
+              height: '36px',
+              background: 'linear-gradient(135deg, #00f2fe, #38bdf8)',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 900,
+              fontSize: '18px',
+              color: '#08090d',
+              boxShadow: '0 0 16px rgba(0, 242, 254, 0.35)'
+            }}>
+              P
+            </div>
+            <div>
+              <div style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.3px', color: '#fff' }}>
+                PrimeEdge
+              </div>
+              <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 600 }}>
+                Decision Intelligence
+              </div>
+            </div>
+          </div>
+
+          {/* Nav links */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button
+              onClick={() => window.location.href = '/'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'transparent',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                color: '#94a3b8',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(0, 242, 254, 0.4)';
+                e.currentTarget.style.color = '#fff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                e.currentTarget.style.color = '#94a3b8';
+              }}
+            >
+              <ArrowLeft size={15} />
+              Back to Home
+            </button>
+
+            <button
+              onClick={() => window.location.href = '/login'}
+              style={{
+                background: 'linear-gradient(135deg, #00f2fe, #38bdf8)',
+                border: 'none',
+                color: '#08090d',
+                padding: '8px 18px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 800,
+                cursor: 'pointer',
+                boxShadow: '0 2px 12px rgba(0, 242, 254, 0.3)',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              Open Terminal
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* ========================================================================= */}
+      {/* HERO SECTION */}
+      {/* ========================================================================= */}
+      <main style={{ flex: 1, padding: '60px 24px 80px', maxWidth: '1200px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+        <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 14px',
+            borderRadius: '20px',
+            background: 'rgba(0, 242, 254, 0.08)',
+            border: '1px solid rgba(0, 242, 254, 0.25)',
+            color: '#00f2fe',
+            fontSize: '11px',
+            fontWeight: 800,
+            letterSpacing: '1px',
+            textTransform: 'uppercase',
+            marginBottom: '16px'
+          }}>
+            <Zap size={13} />
+            Institutional Quantitative Intelligence
+          </div>
+
+          <h1 style={{
+            fontSize: 'clamp(28px, 4.5vw, 48px)',
+            fontWeight: 800,
+            color: '#fff',
+            letterSpacing: '-0.5px',
+            margin: '0 0 16px 0',
+            lineHeight: 1.15
+          }}>
             Choose Your Trading Intelligence Tier
           </h1>
-          <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-            Institutional-grade market intelligence and execution capabilities for every trader level
+
+          <p style={{
+            fontSize: '16px',
+            color: '#94a3b8',
+            maxWidth: '620px',
+            margin: '0 auto 32px',
+            lineHeight: 1.6
+          }}>
+            Institutional-grade market intelligence, automated trade planning, and ultra-low latency execution capabilities for systematic traders.
           </p>
 
-          {/* Billing Toggle */}
-          <div className="flex items-center justify-center mt-8 space-x-4">
+          {/* Billing Toggle Switch */}
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            background: 'rgba(17, 19, 26, 0.9)',
+            border: '1px solid rgba(36, 41, 54, 0.8)',
+            borderRadius: '12px',
+            padding: '4px',
+            gap: '4px',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
+          }}>
             <button
               onClick={() => setBillingInterval('month')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                billingInterval === 'month'
-                  ? 'bg-[#00f2fe] text-[#08090d]'
-                  : 'bg-[#111318] text-gray-400 hover:text-white'
-              }`}
+              style={{
+                padding: '8px 20px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 700,
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                background: billingInterval === 'month' ? 'linear-gradient(135deg, #00f2fe, #38bdf8)' : 'transparent',
+                color: billingInterval === 'month' ? '#08090d' : '#94a3b8'
+              }}
             >
-              Monthly
+              Monthly Billing
             </button>
             <button
               onClick={() => setBillingInterval('year')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                billingInterval === 'year'
-                  ? 'bg-[#00f2fe] text-[#08090d]'
-                  : 'bg-[#111318] text-gray-400 hover:text-white'
-              }`}
+              style={{
+                padding: '8px 20px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 700,
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: billingInterval === 'year' ? 'linear-gradient(135deg, #00f2fe, #38bdf8)' : 'transparent',
+                color: billingInterval === 'year' ? '#08090d' : '#94a3b8'
+              }}
             >
-              Yearly
-              <span className="ml-2 text-xs bg-[#10b981] text-white px-2 py-0.5 rounded-full">
-                Save ~17%
+              Annual Billing
+              <span style={{
+                background: billingInterval === 'year' ? '#08090d' : '#10b981',
+                color: billingInterval === 'year' ? '#00f2fe' : '#fff',
+                fontSize: '10px',
+                fontWeight: 800,
+                padding: '2px 8px',
+                borderRadius: '12px'
+              }}>
+                SAVE ~17%
               </span>
             </button>
           </div>
         </div>
 
-        {/* Current Subscription Status */}
+        {/* Current Subscription Banner */}
         {currentSubscription && currentSubscription.tier && (
-          <div className="bg-[#111318] border border-[#242936] rounded-xl p-6 mb-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-1">
-                  Current Plan: {currentSubscription.tier.display_name}
-                </h3>
-                <p className="text-gray-400">
-                  Status: {currentSubscription.status}
-                  {currentSubscription.cancel_at_period_end && (
-                    <span className="ml-2 text-orange-400">(Cancels at period end)</span>
-                  )}
-                </p>
+          <div style={{
+            background: 'rgba(0, 242, 254, 0.05)',
+            border: '1px solid rgba(0, 242, 254, 0.25)',
+            borderRadius: '14px',
+            padding: '20px 24px',
+            marginBottom: '36px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '16px'
+          }}>
+            <div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckCircle size={18} color="#00f2fe" />
+                Active Subscription: {currentSubscription.tier.display_name}
               </div>
-              {!currentSubscription.cancel_at_period_end && (
-                <button
-                  onClick={handleCancelSubscription}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-                >
-                  Cancel Subscription
-                </button>
-              )}
+              <div style={{ fontSize: '13px', color: '#94a3b8', marginTop: '4px' }}>
+                Status: <strong style={{ color: '#10b981', textTransform: 'capitalize' }}>{currentSubscription.status}</strong>
+                {currentSubscription.cancel_at_period_end && (
+                  <span style={{ color: '#f59e0b', marginLeft: '8px' }}>(Cancels at period end)</span>
+                )}
+              </div>
             </div>
+
+            {!currentSubscription.cancel_at_period_end && (
+              <button
+                onClick={handleCancelSubscription}
+                style={{
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  color: '#ef4444',
+                  padding: '8px 18px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.25)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'}
+              >
+                Cancel Subscription
+              </button>
+            )}
           </div>
         )}
 
-        {/* Pricing Cards */}
-        <div className="grid md:grid-cols-3 gap-8">
+        {/* ========================================================================= */}
+        {/* PRICING CARDS */}
+        {/* ========================================================================= */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))',
+          gap: '24px',
+          alignItems: 'stretch'
+        }}>
           {tiers.map((tier) => {
             const isCurrentPlan = currentSubscription?.tier?.id === tier.id;
             const savings = getAnnualSavings(tier);
             const price = billingInterval === 'month' ? tier.price_monthly : (tier.price_yearly || tier.price_monthly * 12);
+            const isPremium = tier.name === 'premium';
+            const isPro = tier.name === 'pro';
+            const Icon = tier.name === 'starter' ? Star : isPro ? Shield : Crown;
 
             return (
               <div
                 key={tier.id}
-                className={`relative rounded-2xl p-8 border-2 transition-all ${
-                  tier.name === 'premium'
-                    ? 'bg-gradient-to-b from-[#1a1f35] to-[#0d1220] border-[#00f2fe] shadow-lg shadow-[#00f2fe]/20'
-                    : 'bg-[#111318] border-[#242936] hover:border-[#00f2fe]/50'
-                }`}
+                style={{
+                  position: 'relative',
+                  borderRadius: '16px',
+                  padding: '36px 28px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  backgroundColor: isPremium
+                    ? 'rgba(15, 23, 42, 0.85)'
+                    : isPro
+                    ? 'rgba(17, 24, 39, 0.85)'
+                    : 'rgba(17, 20, 29, 0.7)',
+                  border: isPremium
+                    ? '1.5px solid #00f2fe'
+                    : isPro
+                    ? '1px solid rgba(0, 242, 254, 0.35)'
+                    : '1px solid rgba(255, 255, 255, 0.08)',
+                  boxShadow: isPremium
+                    ? '0 12px 40px rgba(0, 242, 254, 0.15)'
+                    : '0 8px 30px rgba(0, 0, 0, 0.4)',
+                  transition: 'transform 0.2s, box-shadow 0.2s'
+                }}
               >
-                {tier.name === 'premium' && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-[#00f2fe] text-[#08090d] px-4 py-1 rounded-full text-sm font-bold">
-                      MOST POPULAR
-                    </span>
+                {/* Popular Pill */}
+                {isPro && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '-13px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'linear-gradient(135deg, #00f2fe, #38bdf8)',
+                    color: '#08090d',
+                    padding: '4px 14px',
+                    borderRadius: '20px',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    letterSpacing: '0.8px',
+                    textTransform: 'uppercase',
+                    boxShadow: '0 4px 12px rgba(0, 242, 254, 0.35)'
+                  }}>
+                    Most Popular
                   </div>
                 )}
 
-                <div className="flex items-center mb-4">
-                  {tier.name === 'starter' && <Star className="w-6 h-6 text-gray-400 mr-2" />}
-                  {tier.name === 'pro' && <Shield className="w-6 h-6 text-[#00f2fe] mr-2" />}
-                  {tier.name === 'premium' && <Crown className="w-6 h-6 text-[#00f2fe] mr-2" />}
-                  <h3 className="text-2xl font-bold text-white">{tier.display_name}</h3>
+                {isPremium && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '-13px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'linear-gradient(135deg, #f59e0b, #fbbf24)',
+                    color: '#08090d',
+                    padding: '4px 14px',
+                    borderRadius: '20px',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    letterSpacing: '0.8px',
+                    textTransform: 'uppercase',
+                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.35)'
+                  }}>
+                    Full Institutional
+                  </div>
+                )}
+
+                {/* Tier Name & Icon */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    background: isPremium ? 'rgba(245, 158, 11, 0.15)' : isPro ? 'rgba(0, 242, 254, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <Icon size={20} color={isPremium ? '#fbbf24' : isPro ? '#00f2fe' : '#94a3b8'} />
+                  </div>
+                  <h3 style={{ fontSize: '22px', fontWeight: 800, color: '#fff', margin: 0 }}>
+                    {tier.display_name}
+                  </h3>
                 </div>
 
-                <p className="text-gray-400 mb-6 h-12">{tier.description}</p>
+                <p style={{
+                  fontSize: '13px',
+                  color: '#94a3b8',
+                  minHeight: '38px',
+                  margin: '0 0 20px 0',
+                  lineHeight: 1.5
+                }}>
+                  {tier.description}
+                </p>
 
-                <div className="mb-6">
-                  <div className="flex items-baseline">
-                    <span className="text-4xl font-bold text-white">${price}</span>
-                    <span className="text-gray-400 ml-2">/{billingInterval === 'month' ? 'month' : 'year'}</span>
+                {/* Price */}
+                <div style={{
+                  paddingBottom: '20px',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                  marginBottom: '20px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                    <span style={{ fontSize: '42px', fontWeight: 900, color: '#fff', letterSpacing: '-1px' }}>
+                      ${price}
+                    </span>
+                    <span style={{ fontSize: '15px', color: '#64748b', fontWeight: 600, marginLeft: '6px' }}>
+                      /{billingInterval === 'month' ? 'month' : 'year'}
+                    </span>
                   </div>
                   {billingInterval === 'year' && savings > 0 && (
-                    <p className="text-green-400 text-sm mt-1">Save {savings}% vs monthly</p>
+                    <div style={{ fontSize: '12px', color: '#10b981', fontWeight: 700, marginTop: '4px' }}>
+                      Save {savings}% compared to monthly billing
+                    </div>
                   )}
                 </div>
 
-                <ul className="space-y-3 mb-8">
-                  {tier.features.map((feature, index) => (
-                    <li key={index} className="flex items-start">
-                      <Check className="w-5 h-5 text-green-400 mr-2 flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-300">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
+                {/* Feature List */}
+                <div style={{ flex: 1, marginBottom: '28px' }}>
+                  <div style={{
+                    fontSize: '11px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.8px',
+                    color: '#64748b',
+                    fontWeight: 700,
+                    marginBottom: '12px'
+                  }}>
+                    Included Capabilities
+                  </div>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {tier.features.map((feature, idx) => (
+                      <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '13px', color: '#cbd5e1', lineHeight: 1.4 }}>
+                        <Check size={16} color="#10b981" style={{ flexShrink: 0, marginTop: '2px' }} />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
 
+                  {tier.auto_execution_enabled && (
+                    <div style={{
+                      marginTop: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 12px',
+                      background: 'rgba(0, 242, 254, 0.08)',
+                      border: '1px solid rgba(0, 242, 254, 0.25)',
+                      borderRadius: '8px',
+                      color: '#00f2fe',
+                      fontSize: '12px',
+                      fontWeight: 700
+                    }}>
+                      <Zap size={14} />
+                      Autonomous Cloud MT5 Execution
+                    </div>
+                  )}
+                </div>
+
+                {/* Subscribe CTA Button */}
                 <button
                   onClick={() => handleSubscribe(tier.name)}
                   disabled={processingTier === tier.name || isCurrentPlan}
-                  className={`w-full py-3 rounded-lg font-semibold transition-all ${
-                    tier.name === 'premium'
-                      ? 'bg-[#00f2fe] hover:bg-[#38bdf8] text-[#08090d]'
-                      : 'bg-[#242936] hover:bg-[#2d3446] text-white'
-                  } ${isCurrentPlan ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  style={{
+                    width: '100%',
+                    padding: '14px',
+                    borderRadius: '10px',
+                    fontSize: '14px',
+                    fontWeight: 800,
+                    cursor: isCurrentPlan ? 'default' : 'pointer',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    transition: 'all 0.2s',
+                    background: isCurrentPlan
+                      ? 'rgba(255, 255, 255, 0.05)'
+                      : isPremium
+                      ? 'linear-gradient(135deg, #00f2fe, #38bdf8)'
+                      : isPro
+                      ? 'linear-gradient(135deg, #00f2fe, #38bdf8)'
+                      : 'rgba(255, 255, 255, 0.1)',
+                    color: isCurrentPlan
+                      ? '#64748b'
+                      : isPremium || isPro
+                      ? '#08090d'
+                      : '#fff',
+                    boxShadow: (!isCurrentPlan && (isPremium || isPro))
+                      ? '0 4px 20px rgba(0, 242, 254, 0.3)'
+                      : 'none',
+                    opacity: processingTier === tier.name ? 0.7 : 1
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isCurrentPlan) {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isCurrentPlan) {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }
+                  }}
                 >
                   {processingTier === tier.name ? (
-                    <div className="flex items-center justify-center">
-                      <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                      Processing...
-                    </div>
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Initializing Checkout...
+                    </>
                   ) : isCurrentPlan ? (
-                    'Current Plan'
+                    'Current Active Plan'
                   ) : (
-                    <div className="flex items-center justify-center">
-                      Get Started
-                      <ChevronRight className="w-5 h-5 ml-2" />
-                    </div>
+                    <>
+                      Get Started with {tier.display_name}
+                      <ChevronRight size={16} />
+                    </>
                   )}
                 </button>
-
-                {tier.auto_execution_enabled && (
-                  <div className="mt-4 flex items-center justify-center text-[#00f2fe] text-sm">
-                    <Zap className="w-4 h-4 mr-1" />
-                    Includes Auto-Execution
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
 
-        {/* Feature Comparison */}
-        <div className="mt-16 bg-[#111318] border border-[#242936] rounded-xl p-8">
-          <h2 className="text-2xl font-bold text-white mb-6 text-center">Feature Comparison</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full">
+        {/* ========================================================================= */}
+        {/* FEATURE COMPARISON TABLE */}
+        {/* ========================================================================= */}
+        <section style={{
+          marginTop: '72px',
+          backgroundColor: 'rgba(17, 24, 39, 0.75)',
+          border: '1px solid rgba(36, 41, 54, 0.8)',
+          borderRadius: '16px',
+          padding: '36px 28px',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.5)'
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#fff', margin: '0 0 8px 0' }}>
+              Feature Comparison Matrix
+            </h2>
+            <p style={{ fontSize: '14px', color: '#94a3b8', margin: 0 }}>
+              Compare capabilities side-by-side to find the right execution fit
+            </p>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '600px' }}>
               <thead>
-                <tr className="border-b border-[#242936]">
-                  <th className="text-left py-3 px-4 text-gray-400">Feature</th>
-                  {tiers.map(tier => (
-                    <th key={tier.id} className="text-center py-3 px-4 text-white font-semibold">
-                      {tier.display_name}
+                <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <th style={{ padding: '14px 16px', color: '#94a3b8', fontSize: '13px', fontWeight: 600 }}>Capability</th>
+                  {tiers.map((t) => (
+                    <th key={t.id} style={{ padding: '14px 16px', textAlign: 'center', color: '#fff', fontSize: '14px', fontWeight: 800 }}>
+                      {t.display_name}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-b border-[#242936]">
-                  <td className="py-3 px-4 text-gray-300">Real-time Market Signals</td>
-                  {tiers.map(tier => (
-                    <td key={tier.id} className="text-center py-3 px-4">
-                      <Check className="w-5 h-5 text-green-400 mx-auto" />
+                <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                  <td style={{ padding: '14px 16px', fontSize: '13px', color: '#cbd5e1' }}>Real-time Market Signals (MSD Corridors)</td>
+                  {tiers.map((t) => (
+                    <td key={t.id} style={{ padding: '14px 16px', textAlign: 'center' }}>
+                      <CheckCircle size={18} color="#10b981" style={{ display: 'inline-block' }} />
                     </td>
                   ))}
                 </tr>
-                <tr className="border-b border-[#242936]">
-                  <td className="py-3 px-4 text-gray-300">Auto-Execution</td>
-                  {tiers.map(tier => (
-                    <td key={tier.id} className="text-center py-3 px-4">
-                      {tier.auto_execution_enabled ? (
-                        <Check className="w-5 h-5 text-green-400 mx-auto" />
+                <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                  <td style={{ padding: '14px 16px', fontSize: '13px', color: '#cbd5e1' }}>Opportunity Radar & Scorecard</td>
+                  {tiers.map((t) => (
+                    <td key={t.id} style={{ padding: '14px 16px', textAlign: 'center' }}>
+                      <CheckCircle size={18} color="#10b981" style={{ display: 'inline-block' }} />
+                    </td>
+                  ))}
+                </tr>
+                <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                  <td style={{ padding: '14px 16px', fontSize: '13px', color: '#cbd5e1' }}>Trade Planner Cockpit & P90 Invalidation Boundaries</td>
+                  {tiers.map((t) => (
+                    <td key={t.id} style={{ padding: '14px 16px', textAlign: 'center' }}>
+                      <CheckCircle size={18} color="#10b981" style={{ display: 'inline-block' }} />
+                    </td>
+                  ))}
+                </tr>
+                <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                  <td style={{ padding: '14px 16px', fontSize: '13px', color: '#cbd5e1' }}>Autonomous MT5 Execution (Cloud Worker Node)</td>
+                  {tiers.map((t) => (
+                    <td key={t.id} style={{ padding: '14px 16px', textAlign: 'center' }}>
+                      {t.auto_execution_enabled ? (
+                        <CheckCircle size={18} color="#00f2fe" style={{ display: 'inline-block' }} />
                       ) : (
-                        <X className="w-5 h-5 text-red-400 mx-auto" />
+                        <X size={18} color="#64748b" style={{ display: 'inline-block' }} />
                       )}
                     </td>
                   ))}
                 </tr>
-                <tr className="border-b border-[#242936]">
-                  <td className="py-3 px-4 text-gray-300">API Access</td>
-                  {tiers.map(tier => (
-                    <td key={tier.id} className="text-center py-3 px-4">
-                      {tier.api_access_enabled ? (
-                        <Check className="w-5 h-5 text-green-400 mx-auto" />
+                <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                  <td style={{ padding: '14px 16px', fontSize: '13px', color: '#cbd5e1' }}>API Access & Webhooks</td>
+                  {tiers.map((t) => (
+                    <td key={t.id} style={{ padding: '14px 16px', textAlign: 'center' }}>
+                      {t.api_access_enabled ? (
+                        <CheckCircle size={18} color="#10b981" style={{ display: 'inline-block' }} />
                       ) : (
-                        <X className="w-5 h-5 text-red-400 mx-auto" />
+                        <X size={18} color="#64748b" style={{ display: 'inline-block' }} />
                       )}
                     </td>
                   ))}
                 </tr>
-                <tr className="border-b border-[#242936]">
-                  <td className="py-3 px-4 text-gray-300">Max MT5 Accounts</td>
-                  {tiers.map(tier => (
-                    <td key={tier.id} className="text-center py-3 px-4 text-white">
-                      {tier.max_accounts === 999 ? 'Unlimited' : tier.max_accounts}
+                <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                  <td style={{ padding: '14px 16px', fontSize: '13px', color: '#cbd5e1' }}>Connected MT5 Accounts</td>
+                  {tiers.map((t) => (
+                    <td key={t.id} style={{ padding: '14px 16px', textAlign: 'center', fontSize: '13px', fontWeight: 700, color: '#fff' }}>
+                      {t.max_accounts >= 999 ? 'Unlimited' : `${t.max_accounts} Account${t.max_accounts > 1 ? 's' : ''}`}
                     </td>
                   ))}
                 </tr>
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
 
-        {/* FAQ Section */}
-        <div className="mt-16">
-          <h2 className="text-2xl font-bold text-white mb-8 text-center">Frequently Asked Questions</h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-[#111318] border border-[#242936] rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-white mb-2">Can I change my plan later?</h3>
-              <p className="text-gray-400">Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately for upgrades and at the next billing cycle for downgrades.</p>
+        {/* ========================================================================= */}
+        {/* FAQ SECTION */}
+        {/* ========================================================================= */}
+        <section style={{ marginTop: '72px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '36px' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#fff', margin: '0 0 8px 0' }}>
+              Frequently Asked Questions
+            </h2>
+            <p style={{ fontSize: '14px', color: '#94a3b8', margin: 0 }}>
+              Everything you need to know about PrimeEdge subscriptions
+            </p>
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: '20px'
+          }}>
+            {[
+              {
+                q: 'Can I upgrade or downgrade my tier later?',
+                a: 'Yes. You can upgrade at any time and get instant access to higher-tier features. Billing is prorated automatically through Stripe.'
+              },
+              {
+                q: 'How does Cloud MT5 Execution work in Premium?',
+                a: 'PrimeEdge connects securely to your MetaTrader 5 terminal through dedicated, sandboxed execution workers in London/New York for sub-millisecond execution.'
+              },
+              {
+                q: 'What happens if I cancel my subscription?',
+                a: 'You retain full access to your plan until the end of your prepaid period. Your data and trading history remain safe and preserved.'
+              },
+              {
+                q: 'What payment methods are supported?',
+                a: 'We accept all major credit and debit cards, Apple Pay, and Google Pay through Stripe with 256-bit institutional encryption.'
+              }
+            ].map((faq, idx) => (
+              <div
+                key={idx}
+                style={{
+                  background: 'rgba(17, 24, 39, 0.6)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '12px',
+                  padding: '24px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
+                  <HelpCircle size={18} color="#00f2fe" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#fff', margin: 0 }}>{faq.q}</h3>
+                </div>
+                <p style={{ fontSize: '13px', color: '#94a3b8', lineHeight: 1.6, margin: 0, paddingLeft: '28px' }}>
+                  {faq.a}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
+
+      {/* ========================================================================= */}
+      {/* FOOTER */}
+      {/* ========================================================================= */}
+      <footer style={{
+        borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+        backgroundColor: 'rgba(8, 9, 13, 0.95)',
+        padding: '36px 24px',
+        marginTop: '60px'
+      }}>
+        <div style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '16px',
+          textAlign: 'center'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{
+              width: '24px',
+              height: '24px',
+              background: 'linear-gradient(135deg, #00f2fe, #38bdf8)',
+              borderRadius: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 900,
+              fontSize: '12px',
+              color: '#08090d'
+            }}>
+              P
             </div>
-            <div className="bg-[#111318] border border-[#242936] rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-white mb-2">What happens if I cancel?</h3>
-              <p className="text-gray-400">You retain access to your current plan until the end of your billing period. Your data is preserved and you can resubscribe at any time.</p>
-            </div>
-            <div className="bg-[#111318] border border-[#242936] rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-white mb-2">Is there a free trial?</h3>
-              <p className="text-gray-400">We offer a complimentary trial period for new users. After the trial, you can choose the plan that best fits your trading needs.</p>
-            </div>
-            <div className="bg-[#111318] border border-[#242936] rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-white mb-2">What payment methods do you accept?</h3>
-              <p className="text-gray-400">We accept all major credit cards through Stripe. Your payment information is secure and never stored on our servers.</p>
-            </div>
+            <span style={{ fontSize: '15px', fontWeight: 800, color: '#fff' }}>PrimeEdge</span>
+          </div>
+
+          <div style={{ display: 'flex', gap: '20px', fontSize: '12px' }}>
+            <a href="/terms.html" style={{ color: '#94a3b8', textDecoration: 'none' }}>Terms & Risk Disclosure</a>
+            <span style={{ color: '#334155' }}>|</span>
+            <a href="/privacy.html" style={{ color: '#94a3b8', textDecoration: 'none' }}>Privacy Policy</a>
+            <span style={{ color: '#334155' }}>|</span>
+            <a href="mailto:support@primeedge.app" style={{ color: '#94a3b8', textDecoration: 'none' }}>Contact Support</a>
+          </div>
+
+          <div style={{ fontSize: '11px', color: '#64748b', maxWidth: '720px', lineHeight: 1.5 }}>
+            Trading foreign exchange, commodities, and CFDs carries a high level of risk and may not be suitable for all investors. PrimeEdge provides algorithmic decision support tools and does not guarantee financial returns.
+          </div>
+
+          <div style={{ fontSize: '11px', color: '#475569' }}>
+            &copy; {new Date().getFullYear()} PrimeEdge Technologies. All rights reserved.
           </div>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }
