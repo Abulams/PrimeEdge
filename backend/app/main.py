@@ -24,7 +24,8 @@ from .database import get_db, engine, Base
 from .models import (
     DailyMarketRegime, TradingJournal, InstrumentDailyProfile, TradePlannerLog,
     MarketSignature, PriceCache, SetupSnapshot, TradeRecord,
-    ReplayBatch, ReplaySetupSnapshot, ReplayTradeRecord, User, UserBrokerAccount
+    ReplayBatch, ReplaySetupSnapshot, ReplayTradeRecord, User, UserBrokerAccount,
+    SubscriptionTier, UserSubscription
 )
 from .auth import get_current_user_optional
 from .schemas import (
@@ -46,8 +47,18 @@ from .realtime import realtime_service
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Ensure all tables (including users) are created
+    # Ensure all tables (including users and subscriptions) are created
     Base.metadata.create_all(bind=engine)
+
+    # Initialize subscription tiers if they don't exist
+    try:
+        from .stripe_service import StripeService
+        from .database import SessionLocal
+        db = SessionLocal()
+        StripeService.initialize_default_tiers(db)
+        db.close()
+    except Exception as e:
+        print(f"Warning: Could not initialize subscription tiers: {e}")
     
     # Auto-seed London Cloud Execution Worker Node
     try:
