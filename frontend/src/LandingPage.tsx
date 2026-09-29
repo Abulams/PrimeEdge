@@ -25,7 +25,8 @@ import {
   FileCheck,
   Star as StarIcon,
   Shield,
-  Crown
+  Crown,
+  ChevronRight
 } from 'lucide-react';
 
 interface LandingPageProps {

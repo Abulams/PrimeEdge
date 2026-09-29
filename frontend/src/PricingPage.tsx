@@ -39,6 +39,7 @@ export default function PricingPage() {
   const [loading, setLoading] = useState(true);
   const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
   const [processingTier, setProcessingTier] = useState<string | null>(null);
+  const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '';
 
   useEffect(() => {
     fetchTiers();
@@ -74,6 +75,11 @@ export default function PricingPage() {
   };
 
   const handleSubscribe = async (tierName: string) => {
+    if (!stripePublishableKey) {
+      alert('Stripe payment system is not configured. Please contact support.');
+      return;
+    }
+
     setProcessingTier(tierName);
     try {
       const response = await fetch('/api/v1/subscription/checkout', {
@@ -242,7 +248,7 @@ export default function PricingPage() {
                 <div className="mb-6">
                   <div className="flex items-baseline">
                     <span className="text-4xl font-bold text-white">${price}</span>
-                    <span className="text-gray-400 ml-2">/{billing_interval === 'month' ? 'month' : 'year'}</span>
+                    <span className="text-gray-400 ml-2">/{billingInterval === 'month' ? 'month' : 'year'}</span>
                   </div>
                   {billingInterval === 'year' && savings > 0 && (
                     <p className="text-green-400 text-sm mt-1">Save {savings}% vs monthly</p>
