@@ -1641,12 +1641,12 @@ class DecisionIntelligenceEngine:
         if total_samples < 10:
             status_state = "NO SETUP"
             why_this_now = "Current market conditions do not closely match a sufficiently reliable historical pattern."
-        elif is_gold_short:
-            status_state = "NO SETUP"
-            why_this_now = "Counter-trend short setups on Gold are suppressed due to negative secular walk-forward expectancy."
-        elif is_usdjpy_short:
-            status_state = "NO SETUP"
-            why_this_now = "USDJPY short setups are suppressed due to negative secular walk-forward expectancy."
+        elif is_gold_short and (total_samples < 15 or continuation_prob < 0.40):
+            status_state = "NO EDGE"
+            why_this_now = f"Counter-trend short setups on Gold have insufficient historical payoff or sample edge (N={total_samples}, Win Prob: {continuation_prob*100:.1f}%)."
+        elif is_usdjpy_short and (total_samples < 15 or continuation_prob < 0.40):
+            status_state = "NO EDGE"
+            why_this_now = f"USDJPY short setups have insufficient historical payoff or sample edge (N={total_samples}, Win Prob: {continuation_prob*100:.1f}%)."
         elif trend_mismatch:
             status_state = "NO SETUP"
             why_this_now = f"Dual-horizon trend misalignment (20d {trend} vs 50d {macro_50d_trend}). Gold trend setup suppressed."
@@ -1767,6 +1767,26 @@ class DecisionIntelligenceEngine:
             "historical_failure_conditions": fail_conditions,
             "confidence_score": mss_result["final_score"],
             "supporting_explanation": explanation
+        }
+
+    @classmethod
+    def generate_dual_profiles(
+        cls,
+        db: Session,
+        instrument: str,
+        date,
+        as_of_date: Optional[datetime.date] = None
+    ) -> Dict[str, Optional[Dict[str, Any]]]:
+        """
+        Concurrently evaluates both LONG and SHORT candidate profiles independently.
+        Returns a dictionary containing both candidate evaluations:
+        {"long": long_profile, "short": short_profile}
+        """
+        long_profile = cls.generate_daily_profile_v2(db, instrument, date, trend="BULLISH", as_of_date=as_of_date)
+        short_profile = cls.generate_daily_profile_v2(db, instrument, date, trend="BEARISH", as_of_date=as_of_date)
+        return {
+            "long": long_profile,
+            "short": short_profile
         }
 
 

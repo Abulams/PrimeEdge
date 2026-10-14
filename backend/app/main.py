@@ -285,9 +285,16 @@ def get_watchlist(db: Session = Depends(get_db)):
 
 
     for inst in instruments:
-        trend = DecisionIntelligenceEngine.get_current_trend(db, inst)
-        profile_data = DecisionIntelligenceEngine.generate_daily_profile_v2(db, inst, today, trend)
-        if profile_data:
+        dual_profiles = DecisionIntelligenceEngine.generate_dual_profiles(db, inst, today)
+        candidates = [p for p in [dual_profiles.get("long"), dual_profiles.get("short")] if p is not None]
+        
+        # Rank candidate directions by actionability: READY > WAIT > NO EDGE > NO SETUP, then confidence score
+        cand_order = {"READY": 0, "WAIT": 1, "NO EDGE": 2, "NO SETUP": 3, "INVALID": 4}
+        if candidates:
+            # Sort candidate directions to select the most actionable and highest-confidence setup
+            candidates.sort(key=lambda p: (cand_order.get(p.get("status_state"), 9), -p.get("confidence_score", 0)))
+            profile_data = candidates[0]
+            
             watchlist.append(
                 WatchlistInstrument(
                     instrument=profile_data["instrument"],

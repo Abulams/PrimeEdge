@@ -263,11 +263,12 @@ def get_best_session_for_date(
     session_index: Dict[datetime.date, Dict[str, Dict]],
     current_date: datetime.date,
     instrument: str,
-    prev_close: float
+    prev_close: float,
+    trend: str = "BULLISH"
 ) -> str:
     """
     Determines the actual best session for a given date by checking which
-    session had the highest MFE (most favorable price movement).
+    session had the highest MFE (most favorable price movement) aligned with trend.
     Falls back to the structural session if no intraday data exists.
     """
     from .engine import DecisionIntelligenceEngine
@@ -282,7 +283,7 @@ def get_best_session_for_date(
     best_mfe = -1.0
 
     for sess_name, sess_data in day_sessions.items():
-        _, mfe, _ = compute_session_mae_mfe(sess_data, prev_close, instrument)
+        _, mfe, _ = compute_session_mae_mfe(sess_data, prev_close, instrument, trend=trend)
         if mfe > best_mfe:
             best_mfe = mfe
             best_sess = sess_name
@@ -397,7 +398,7 @@ def build_signatures_for_instrument(
         # Use intraday session data if available for this date
         if current_date in session_index:
             # Determine the best session from intraday data
-            session = get_best_session_for_date(session_index, current_date, instrument, prev_close)
+            session = get_best_session_for_date(session_index, current_date, instrument, prev_close, trend=trend)
             
             # Use session-level MAE/MFE if the best session has data
             day_sessions = session_index[current_date]
