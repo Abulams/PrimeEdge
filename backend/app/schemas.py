@@ -107,6 +107,7 @@ class JournalResponseModel(BaseModel):
 class SetupSnapshotCreate(BaseModel):
     instrument: str
     source: Optional[str] = "MANUAL"
+    direction: Optional[str] = None
 
 class SetupSnapshotResponse(BaseModel):
     id: int

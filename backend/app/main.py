@@ -268,6 +268,34 @@ def sync_live_macro_regime(db: Session) -> DailyMarketRegime:
     return regime
 
 
+def get_active_instrument_direction(
+    db: Session,
+    instrument: str,
+    date: datetime.date,
+    requested_direction: Optional[str] = None
+) -> str:
+    """
+    Returns 'BULLISH' or 'BEARISH' aligned with user request or active watchlist candidate.
+    """
+    if requested_direction:
+        req = requested_direction.upper()
+        if req in ["BUY", "LONG", "BULLISH"]:
+            return "BULLISH"
+        if req in ["SELL", "SHORT", "BEARISH"]:
+            return "BEARISH"
+    
+    # Check dual profiles to match what the Watchlist selected
+    dual = DecisionIntelligenceEngine.generate_dual_profiles(db, instrument, date)
+    candidates = [p for p in [dual.get("long"), dual.get("short")] if p is not None]
+    cand_order = {"READY": 0, "WAIT": 1, "NO EDGE": 2, "NO SETUP": 3, "INVALID": 4}
+    if candidates:
+        candidates.sort(key=lambda p: (cand_order.get(p.get("status_state"), 9), -p.get("confidence_score", 0)))
+        winning_dir = candidates[0].get("direction", "LONG")
+        return "BULLISH" if winning_dir == "LONG" else "BEARISH"
+    
+    return DecisionIntelligenceEngine.get_current_trend(db, instrument)
+
+
 # 1. Macro Regime Endpoint
 @app.get("/api/v1/dashboard/regime", response_model=MacroRegimeResponse)
 def get_macro_regime(db: Session = Depends(get_db)):
@@ -281,8 +309,6 @@ def get_watchlist(db: Session = Depends(get_db)):
     regime = sync_live_macro_regime(db)
     instruments = ["XAUUSD", "US100", "EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "AUDJPY"]
     watchlist = []
-
-
 
     for inst in instruments:
         dual_profiles = DecisionIntelligenceEngine.generate_dual_profiles(db, inst, today)
@@ -333,10 +359,10 @@ def get_watchlist(db: Session = Depends(get_db)):
 
 # 3. Instrument Detail Endpoint
 @app.get("/api/v1/instruments/{symbol}/profile")
-def get_instrument_profile(symbol: str, db: Session = Depends(get_db)):
+def get_instrument_profile(symbol: str, direction: Optional[str] = None, db: Session = Depends(get_db)):
     today = datetime.date.today()
     regime = sync_live_macro_regime(db)
-    trend = DecisionIntelligenceEngine.get_current_trend(db, symbol.upper())
+    trend = get_active_instrument_direction(db, symbol.upper(), today, direction)
     profile_data = DecisionIntelligenceEngine.generate_daily_profile_v2(db, symbol.upper(), today, trend)
     if not profile_data:
         raise HTTPException(status_code=404, detail=f"No profile data found for {symbol}")
@@ -410,7 +436,7 @@ def create_setup_snapshot(
     """Captures an immutable T₀ snapshot of the setup for an instrument."""
     try:
         uid = current_user.id if current_user else None
-        return JournalService.create_setup_snapshot(db, req.instrument, source=req.source or "MANUAL", user_id=uid)
+        return JournalService.create_setup_snapshot(db, req.instrument, source=req.source or "MANUAL", user_id=uid, direction=req.direction)
     except ValueError as ve:
         raise HTTPException(status_code=404, detail=str(ve))
 
@@ -720,7 +746,7 @@ def reset_replay_data(db: Session = Depends(get_db)):
 
 # 6. Similar Days Explorer
 @app.get("/api/v1/instruments/{symbol}/similar-days")
-def get_similar_days(symbol: str, db: Session = Depends(get_db)):
+def get_similar_days(symbol: str, direction: Optional[str] = None, db: Session = Depends(get_db)):
     today = datetime.date.today()
     regime = db.query(DailyMarketRegime).filter(DailyMarketRegime.date == today).first()
     if not regime:
@@ -729,7 +755,7 @@ def get_similar_days(symbol: str, db: Session = Depends(get_db)):
     dxy_reg = regime.dxy_regime if regime else "BULLISH"
     risk_sent = regime.risk_sentiment if regime else "RISK_ON"
     
-    trend = DecisionIntelligenceEngine.get_current_trend(db, symbol.upper())
+    trend = get_active_instrument_direction(db, symbol.upper(), today, direction)
     
     matching_sigs = DecisionIntelligenceEngine.find_similar_signatures(
         db, symbol.upper(), trend, dxy_reg, risk_sent
@@ -1018,7 +1044,7 @@ def get_currency_strength(mode: str = "intraday", db: Session = Depends(get_db))
 
 # 12. Chart Overlay Engine Endpoint
 @app.get("/api/v1/chart/{symbol}/overlays")
-def get_chart_overlays(symbol: str, timeframe: str = "1d", db: Session = Depends(get_db)):
+def get_chart_overlays(symbol: str, timeframe: str = "1d", direction: Optional[str] = None, db: Session = Depends(get_db)):
     """
     Returns data for the interactive MSD chart overlays across multi-timeframes (5m, 15m, 1h, 4h, 1d):
     - candles: OHLC price series dynamically fetched per timeframe resolution
@@ -1036,8 +1062,6 @@ def get_chart_overlays(symbol: str, timeframe: str = "1d", db: Session = Depends
         import yfinance as yf
         import pandas as pd
         symbol_yf = TICKER_MAP.get(inst, f"{inst}=X")
-
-
 
         
         if tf_clean == "5m":
@@ -1106,7 +1130,8 @@ def get_chart_overlays(symbol: str, timeframe: str = "1d", db: Session = Depends
     regime = db.query(DailyMarketRegime).order_by(DailyMarketRegime.date.desc()).first()
     dxy_state = regime.dxy_regime if regime else "BULLISH"
     risk_sent = regime.risk_sentiment if regime else "RISK_ON"
-    trend = DecisionIntelligenceEngine.get_current_trend(db, inst)
+    today = datetime.date.today()
+    trend = get_active_instrument_direction(db, inst, today, direction)
 
     # Grounded signature matching matching Watchlist profile engine
     matching_sigs = DecisionIntelligenceEngine.find_similar_signatures(

@@ -27,14 +27,27 @@ logger = logging.getLogger(__name__)
 class JournalService:
 
     @staticmethod
-    def create_setup_snapshot(db: Session, instrument: str, source: str = "MANUAL", user_id: Optional[int] = None) -> SetupSnapshot:
+    def create_setup_snapshot(db: Session, instrument: str, source: str = "MANUAL", user_id: Optional[int] = None, direction: Optional[str] = None) -> SetupSnapshot:
         """
         Captures an immutable setup snapshot grounded at T₀ (Daily Open).
         Preserves all V4 corridor levels, percentiles, regime data, and setup thesis.
         """
         inst_upper = instrument.upper()
         today = datetime.date.today()
-        trend = DecisionIntelligenceEngine.get_current_trend(db, inst_upper)
+        if direction:
+            req = direction.upper()
+            trend = "BULLISH" if req in ["BUY", "LONG", "BULLISH"] else "BEARISH"
+        else:
+            dual = DecisionIntelligenceEngine.generate_dual_profiles(db, inst_upper, today)
+            candidates = [p for p in [dual.get("long"), dual.get("short")] if p is not None]
+            cand_order = {"READY": 0, "WAIT": 1, "NO EDGE": 2, "NO SETUP": 3, "INVALID": 4}
+            if candidates:
+                candidates.sort(key=lambda p: (cand_order.get(p.get("status_state"), 9), -p.get("confidence_score", 0)))
+                winning_dir = candidates[0].get("direction", "LONG")
+                trend = "BULLISH" if winning_dir == "LONG" else "BEARISH"
+            else:
+                trend = DecisionIntelligenceEngine.get_current_trend(db, inst_upper)
+
         profile = DecisionIntelligenceEngine.generate_daily_profile_v2(db, inst_upper, today, trend)
 
         if not profile:
