@@ -177,6 +177,7 @@ from .routers.execution_cloud_router import router as execution_cloud_router
 from .routers.feedback_router import router as feedback_router
 from .routers.ea_bridge_router import router as ea_bridge_router
 from .routers.subscription_router import router as subscription_router
+from .routers.ctrader_auth_router import router as ctrader_auth_router
 from .auth import get_current_user
 from .models import User as UserModel
 
@@ -185,6 +186,7 @@ app.include_router(execution_cloud_router)
 app.include_router(feedback_router)
 app.include_router(ea_bridge_router)
 app.include_router(subscription_router)
+app.include_router(ctrader_auth_router)
 
 
 # Root endpoint — serve React app if built, otherwise API health message
