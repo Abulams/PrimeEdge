@@ -19,7 +19,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from sqlalchemy.orm import Session
 
@@ -38,7 +38,7 @@ router = APIRouter(prefix="/api/v1/ctrader", tags=["cTrader OAuth"])
 CTRADER_CLIENT_ID = os.getenv("CTRADER_CLIENT_ID", "43796_NUbyz1CxFRhD01Tm0Jqc1hMVHd4ubgk5lZQcwtftpuH5zJozj1")
 CTRADER_CLIENT_SECRET = os.getenv("CTRADER_CLIENT_SECRET", "j9WYsJ4mG80iyHKbale8Fuxx75fO9eaMuUoOhrZWSlCS653C9C")
 CTRADER_REDIRECT_URI = os.getenv(
-    "CTRADER_REDIRECT_URI", "https://www.primeedge.app/api/v1/ctrader/callback"
+    "CTRADER_REDIRECT_URI", "https://primeedge.app/api/v1/ctrader/callback"
 )
 CTRADER_AUTH_URL = "https://connect.spotware.com/apps/auth"
 CTRADER_TOKEN_URL = "https://connect.spotware.com/apps/token"
@@ -56,14 +56,15 @@ def _get_gateway() -> CTraderGateway:
     )
 
 
-async def _exchange_code_for_tokens(code: str) -> dict:
+async def _exchange_code_for_tokens(code: str, redirect_uri: Optional[str] = None) -> dict:
+    r_uri = redirect_uri or CTRADER_REDIRECT_URI
     async with httpx.AsyncClient(timeout=15) as client:
         response = await client.post(
             CTRADER_TOKEN_URL,
             data={
                 "grant_type": "authorization_code",
                 "code": code,
-                "redirect_uri": CTRADER_REDIRECT_URI,
+                "redirect_uri": r_uri,
                 "client_id": CTRADER_CLIENT_ID,
                 "client_secret": CTRADER_CLIENT_SECRET,
             },
@@ -111,6 +112,7 @@ async def _refresh_access_token(refresh_token: str) -> dict:
 @router.get("/auth")
 async def ctrader_auth_redirect(
     user_id: int = Query(1, description="PrimeEdge user ID to associate the account with"),
+    redirect_uri: Optional[str] = Query(None, description="Optional custom redirect URI"),
 ) -> RedirectResponse:
     """
     Step 1 – Redirect user browser to cTrader OAuth consent screen.
@@ -122,10 +124,12 @@ async def ctrader_auth_redirect(
             detail="CTRADER_CLIENT_ID is not configured on the server.",
         )
 
+    r_uri = redirect_uri or CTRADER_REDIRECT_URI
+
     auth_url = (
         f"{CTRADER_AUTH_URL}"
         f"?client_id={CTRADER_CLIENT_ID}"
-        f"&redirect_uri={CTRADER_REDIRECT_URI}"
+        f"&redirect_uri={r_uri}"
         f"&scope=trading"
         f"&state={user_id}"
     )
@@ -136,6 +140,7 @@ async def ctrader_auth_redirect(
 
 @router.get("/callback")
 async def ctrader_callback(
+    request: Request,
     code: str = Query(..., description="Authorisation code from cTrader"),
     state: int = Query(1, description="user_id passed as OAuth state"),
     db: Session = Depends(get_db),
@@ -163,8 +168,9 @@ async def ctrader_callback(
         db.add(user)
         db.commit()
 
-    # Exchange code for tokens
-    tokens = await _exchange_code_for_tokens(code)
+    # Determine the actual callback URI requested
+    actual_redirect_uri = str(request.url).split('?')[0]
+    tokens = await _exchange_code_for_tokens(code, redirect_uri=actual_redirect_uri)
     access_token: str = tokens.get("accessToken") or tokens.get("access_token", "")
     refresh_token: str = tokens.get("refreshToken") or tokens.get("refresh_token", "")
     expires_in: int = int(tokens.get("expiresIn") or tokens.get("expires_in", 3600))

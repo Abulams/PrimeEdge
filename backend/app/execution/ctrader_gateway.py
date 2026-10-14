@@ -262,7 +262,7 @@ class CTraderGateway:
 
         try:
             self._client = Client(host, port, TcpProtocol)
-            self._client.setMessageCallback(self._on_message)
+            self._client.setMessageReceivedCallback(self._on_message)
             self._client.setDisconnectedCallback(self._on_error)
             self._client.setConnectedCallback(_connected_cb)
 
