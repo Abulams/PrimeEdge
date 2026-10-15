@@ -13,10 +13,23 @@ Connection:
 
 import asyncio
 import logging
+import threading
 import time
 from typing import Callable, Optional, Dict, List, Any
 
+from twisted.internet import reactor
 from ctrader_open_api import Client, Protobuf, TcpProtocol, EndPoints
+
+def _ensure_reactor():
+    if not reactor.running:
+        t = threading.Thread(
+            target=reactor.run,
+            kwargs={"installSignalHandlers": False},
+            name="TwistedReactorThread",
+            daemon=True,
+        )
+        t.start()
+        time.sleep(0.1)
 from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoMessage
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
     ProtoOAPayloadType,
@@ -153,26 +166,25 @@ class CTraderGateway:
         logger.debug("Received payloadType=%s clientMsgId=%r", payload_type, msg_id)
 
         try:
+            extracted = Protobuf.extract(message)
+
             if payload_type == ProtoOAPayloadType.Value("PROTO_OA_APPLICATION_AUTH_RES"):
                 self._loop.call_soon_threadsafe(
-                    self._resolve_future, msg_id,
-                    Protobuf.extract(message, ProtoOAApplicationAuthRes),
+                    self._resolve_future, msg_id, extracted
                 )
 
             elif payload_type == ProtoOAPayloadType.Value("PROTO_OA_ACCOUNT_AUTH_RES"):
                 self._loop.call_soon_threadsafe(
-                    self._resolve_future, msg_id,
-                    Protobuf.extract(message, ProtoOAAccountAuthRes),
+                    self._resolve_future, msg_id, extracted
                 )
 
             elif payload_type == ProtoOAPayloadType.Value("PROTO_OA_TRADER_RES"):
                 self._loop.call_soon_threadsafe(
-                    self._resolve_future, msg_id,
-                    Protobuf.extract(message, ProtoOATraderRes),
+                    self._resolve_future, msg_id, extracted
                 )
 
             elif payload_type == ProtoOAPayloadType.Value("PROTO_OA_EXECUTION_EVENT"):
-                exec_event = Protobuf.extract(message, ProtoOAExecutionEvent)
+                exec_event = extracted
                 account_id = exec_event.ctidTraderAccountId
 
                 # Resolve order-placement future first
@@ -190,24 +202,21 @@ class CTraderGateway:
 
             elif payload_type == ProtoOAPayloadType.Value("PROTO_OA_SYMBOLS_LIST_RES"):
                 self._loop.call_soon_threadsafe(
-                    self._resolve_future, msg_id,
-                    Protobuf.extract(message, ProtoOASymbolsListRes),
+                    self._resolve_future, msg_id, extracted
                 )
 
             elif payload_type == ProtoOAPayloadType.Value("PROTO_OA_RECONCILE_RES"):
                 self._loop.call_soon_threadsafe(
-                    self._resolve_future, msg_id,
-                    Protobuf.extract(message, ProtoOAReconcileRes),
+                    self._resolve_future, msg_id, extracted
                 )
 
             elif payload_type == ProtoOAPayloadType.Value("PROTO_OA_GET_ACCOUNTS_BY_ACCESS_TOKEN_RES"):
                 self._loop.call_soon_threadsafe(
-                    self._resolve_future, msg_id,
-                    Protobuf.extract(message, ProtoOAGetAccountListByAccessTokenRes),
+                    self._resolve_future, msg_id, extracted
                 )
 
             elif payload_type == ProtoOAPayloadType.Value("PROTO_OA_ERROR_RES"):
-                err = Protobuf.extract(message, ProtoOAErrorRes)
+                err = extracted
                 exc = CTraderOrderError(
                     f"cTrader error {err.errorCode}: {err.description}"
                 )
@@ -235,6 +244,11 @@ class CTraderGateway:
         self._pending.clear()
         self._connected = False
 
+    def _send(self, req, clientMsgId=None):
+        """Thread-safely dispatch request on Twisted reactor thread."""
+        if self._client:
+            reactor.callFromThread(self._client.send, req, clientMsgId=clientMsgId)
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -244,10 +258,11 @@ class CTraderGateway:
         Establish TCP+TLS connection and authenticate the application
         with ProtoOAApplicationAuthReq.
         """
+        _ensure_reactor()
         self._loop = asyncio.get_running_loop()
 
         host = EndPoints.PROTOBUF_DEMO_HOST if self._is_demo else EndPoints.PROTOBUF_LIVE_HOST
-        port = 5036 if self._is_demo else 5035
+        port = EndPoints.PROTOBUF_PORT
 
         logger.info(
             "Connecting to cTrader OpenAPI %s:%s (demo=%s)", host, port, self._is_demo
@@ -266,9 +281,7 @@ class CTraderGateway:
             self._client.setDisconnectedCallback(self._on_error)
             self._client.setConnectedCallback(_connected_cb)
 
-            # startService() initiates the underlying reactor; run in executor
-            # so it doesn't block the asyncio event loop.
-            await self._loop.run_in_executor(None, self._client.startService)
+            reactor.callFromThread(self._client.startService)
 
             await asyncio.wait_for(connect_event.wait(), timeout=15)
         except asyncio.TimeoutError:
@@ -287,7 +300,7 @@ class CTraderGateway:
         req.clientSecret = self._client_secret
 
         fut = self._register_future(msg_id)
-        self._client.send(req, clientMsgId=msg_id)
+        self._send(req, clientMsgId=msg_id)
 
         try:
             await asyncio.wait_for(fut, timeout=10)
@@ -312,7 +325,7 @@ class CTraderGateway:
         req.accessToken = access_token
 
         fut = self._register_future(msg_id)
-        self._client.send(req, clientMsgId=msg_id)
+        self._send(req, clientMsgId=msg_id)
 
         try:
             await asyncio.wait_for(fut, timeout=10)
@@ -333,7 +346,7 @@ class CTraderGateway:
         req.ctidTraderAccountId = account_id
 
         fut = self._register_future(msg_id)
-        self._client.send(req, clientMsgId=msg_id)
+        self._send(req, clientMsgId=msg_id)
 
         try:
             res: ProtoOATraderRes = await asyncio.wait_for(fut, timeout=10)
@@ -399,7 +412,7 @@ class CTraderGateway:
         )
 
         fut = self._register_future(msg_id)
-        self._client.send(req, clientMsgId=msg_id)
+        self._send(req, clientMsgId=msg_id)
 
         try:
             exec_event: ProtoOAExecutionEvent = await asyncio.wait_for(fut, timeout=15)
@@ -454,7 +467,7 @@ class CTraderGateway:
         )
 
         fut = self._register_future(msg_id)
-        self._client.send(req, clientMsgId=msg_id)
+        self._send(req, clientMsgId=msg_id)
 
         try:
             exec_event: ProtoOAExecutionEvent = await asyncio.wait_for(fut, timeout=15)
@@ -483,7 +496,7 @@ class CTraderGateway:
         req.includeArchivedSymbols = False
 
         fut = self._register_future(msg_id)
-        self._client.send(req, clientMsgId=msg_id)
+        self._send(req, clientMsgId=msg_id)
 
         try:
             res: ProtoOASymbolsListRes = await asyncio.wait_for(fut, timeout=15)
@@ -515,7 +528,7 @@ class CTraderGateway:
         req.ctidTraderAccountId = account_id
 
         fut = self._register_future(msg_id)
-        self._client.send(req, clientMsgId=msg_id)
+        self._send(req, clientMsgId=msg_id)
 
         try:
             res: ProtoOAReconcileRes = await asyncio.wait_for(fut, timeout=15)
@@ -563,7 +576,7 @@ class CTraderGateway:
         req.accessToken = access_token
 
         fut = self._register_future(msg_id)
-        self._client.send(req, clientMsgId=msg_id)
+        self._send(req, clientMsgId=msg_id)
 
         try:
             res: ProtoOAGetAccountListByAccessTokenRes = await asyncio.wait_for(
@@ -598,9 +611,11 @@ class CTraderGateway:
         """Gracefully stop the cTrader client."""
         if self._client:
             try:
-                self._client.stopService()
+                reactor.callFromThread(self._client.stopService)
             except Exception as exc:
                 logger.warning("Error during disconnect: %s", exc)
+        self._connected = False
+        self._app_authed = False
         self._connected = False
         self._app_authed = False
         logger.info("Disconnected from cTrader OpenAPI")
