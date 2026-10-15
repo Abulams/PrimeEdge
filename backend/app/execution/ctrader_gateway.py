@@ -362,8 +362,8 @@ class CTraderGateway:
             "equity": trader.equity / 100,
             "currency": trader.depositAsset.name if trader.HasField("depositAsset") else "USD",
             "leverage": trader.leverageInCents / 100 if trader.leverageInCents else None,
-            "broker_name": trader.brokerName,
-            "account_type": trader.accountType,
+            "broker_name": getattr(trader, "brokerName", None) or getattr(trader, "brokerTitle", None) or "cTrader",
+            "account_type": getattr(trader, "accountType", None),
         }
 
     async def execute_market_order(
@@ -587,10 +587,10 @@ class CTraderGateway:
 
         return [
             {
-                "ctid_trader_account_id": acc.ctidTraderAccountId,
-                "is_live": acc.isLive,
-                "trader_login": acc.traderLogin,
-                "broker_name": acc.brokerName,
+                "ctid_trader_account_id": getattr(acc, "ctidTraderAccountId", None),
+                "is_live": getattr(acc, "isLive", False),
+                "trader_login": getattr(acc, "traderLogin", None),
+                "broker_name": getattr(acc, "brokerName", None) or getattr(acc, "brokerTitle", None) or "cTrader",
             }
             for acc in res.ctidTraderAccount
         ]
