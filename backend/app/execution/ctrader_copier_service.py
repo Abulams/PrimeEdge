@@ -235,10 +235,13 @@ class CTraderCopierService:
     # ------------------------------------------------------------------
 
     def _get_active_copier_accounts(self, db) -> List[UserBrokerAccount]:
-        return db.query(UserBrokerAccount).filter(
+        query = db.query(UserBrokerAccount).filter(
             UserBrokerAccount.is_copier_active == True,
             UserBrokerAccount.platform == "ctrader",
-        ).all()
+        )
+        if self._master_account_id:
+            query = query.filter(UserBrokerAccount.ctrader_account_id != str(self._master_account_id))
+        return query.all()
 
     # ------------------------------------------------------------------
     # Copy execution with guardrails
@@ -252,7 +255,7 @@ class CTraderCopierService:
         master_volume: int,
         direction: str,
     ) -> None:
-        account_id = client_account.ctrader_account_id
+        account_id = int(client_account.ctrader_account_id)
         access_token = client_account.ctrader_access_token
 
         logger.info("Evaluating copy for client account %s", account_id)
