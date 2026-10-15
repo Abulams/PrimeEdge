@@ -187,11 +187,21 @@ class CTraderGateway:
                 exec_event = extracted
                 account_id = exec_event.ctidTraderAccountId
 
-                # Resolve order-placement future first
+                # Resolve order-placement future: try by msg_id first, then any pending future
+                resolved = False
                 if msg_id and msg_id in self._pending:
                     self._loop.call_soon_threadsafe(
                         self._resolve_future, msg_id, exec_event
                     )
+                    resolved = True
+                elif self._pending:
+                    # cTrader doesn't always echo clientMsgId on execution events.
+                    # Resolve the oldest outstanding future (FIFO assumption).
+                    oldest_id = next(iter(self._pending))
+                    self._loop.call_soon_threadsafe(
+                        self._resolve_future, oldest_id, exec_event
+                    )
+                    resolved = True
 
                 # Fan-out to per-account subscription callback
                 if account_id in self._exec_callbacks:
@@ -218,14 +228,30 @@ class CTraderGateway:
             elif payload_type == ProtoOAPayloadType.Value("PROTO_OA_ERROR_RES"):
                 err = extracted
                 exc = CTraderOrderError(
-                    f"cTrader error {err.errorCode}: {err.description}"
+                    f"cTrader error {getattr(err, 'errorCode', '?')}: {getattr(err, 'description', str(err))}"
                 )
                 if msg_id and msg_id in self._pending:
                     self._loop.call_soon_threadsafe(self._reject_future, msg_id, exc)
+                elif self._pending:
+                    # Reject oldest pending future if no msg_id match
+                    oldest_id = next(iter(self._pending))
+                    self._loop.call_soon_threadsafe(self._reject_future, oldest_id, exc)
                 else:
                     logger.error(
-                        "Unmatched cTrader error: %s – %s", err.errorCode, err.description
+                        "Unmatched cTrader error: %s – %s",
+                        getattr(err, "errorCode", "?"), getattr(err, "description", str(err)),
                     )
+
+            elif payload_type == ProtoOAPayloadType.Value("PROTO_OA_ORDER_ERROR_EVENT"):
+                # Order-level rejection (e.g. outside market hours, insufficient margin)
+                err = extracted
+                exc = CTraderOrderError(
+                    f"Order error {getattr(err, 'errorCode', '?')}: {getattr(err, 'description', str(err))}"
+                )
+                if self._pending:
+                    oldest_id = next(iter(self._pending))
+                    self._loop.call_soon_threadsafe(self._reject_future, oldest_id, exc)
+                logger.error("cTrader order error: %s", exc)
 
             else:
                 logger.debug("Unhandled payloadType %s", payload_type)
