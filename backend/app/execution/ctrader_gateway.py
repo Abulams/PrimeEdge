@@ -507,11 +507,11 @@ class CTraderGateway:
 
         return [
             {
-                "id": sym.symbolId,
-                "name": sym.symbolName,
-                "description": sym.description,
-                "digits": sym.digits,
-                "category": sym.tradingMode,
+                "id": getattr(sym, "symbolId", None),
+                "name": getattr(sym, "symbolName", None) or getattr(sym, "name", None) or "",
+                "description": getattr(sym, "description", ""),
+                "digits": getattr(sym, "digits", None),
+                "category": getattr(sym, "tradingMode", None),
             }
             for sym in res.symbol
         ]

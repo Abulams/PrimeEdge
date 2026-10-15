@@ -57,6 +57,139 @@ def get_master_credentials():
     return None, None
 
 
+# ---------------------------------------------------------------------------
+# PrimeEdge Signal Queue Poller
+# ---------------------------------------------------------------------------
+
+async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, master_token: str):
+    """
+    Polls ExecutionOrderQueue for QUEUED PrimeEdge signals and auto-executes
+    them directly on the master cTrader account via the OpenAPI gateway.
+
+    This is the bridge between PrimeEdge signal generation and cTrader execution.
+    """
+    import datetime
+    from app.models import ExecutionOrderQueue
+
+    # Symbol name -> cTrader symbol_id cache
+    symbol_cache: dict = {}
+
+    async def resolve_symbol_id(instrument: str):
+        cache_key = instrument.upper()
+        if cache_key in symbol_cache:
+            return symbol_cache[cache_key]
+        try:
+            symbols = await gateway.get_symbols(master_account_id)
+            for sym in symbols:
+                symbol_cache[sym["name"].upper()] = sym["id"]
+            return symbol_cache.get(cache_key)
+        except Exception as exc:
+            logger.error("Failed to resolve symbol %s: %s", instrument, exc)
+            return None
+
+    logger.info("Signal queue poller started - polling every 5s for PrimeEdge auto-execution orders.")
+
+    while True:
+        await asyncio.sleep(5)
+        try:
+            with SessionLocal() as db:
+                pending = (
+                    db.query(ExecutionOrderQueue)
+                    .filter(
+                        ExecutionOrderQueue.status == "QUEUED",
+                        ExecutionOrderQueue.action_type == "OPEN",
+                    )
+                    .order_by(ExecutionOrderQueue.created_at.asc())
+                    .all()
+                )
+
+                if not pending:
+                    continue
+
+                for order in pending:
+                    # Mark dispatched immediately to prevent double-execution
+                    order.status = "DISPATCHED"
+                    order.dispatched_at = datetime.datetime.utcnow()
+                    db.commit()
+
+                    logger.info(
+                        "Auto-executing signal %s: %s %s %.2f lots on account %s",
+                        order.signal_id, order.instrument, order.direction,
+                        order.position_size_lots, master_account_id,
+                    )
+
+                    try:
+                        symbol_id = await resolve_symbol_id(order.instrument)
+                        if symbol_id is None:
+                            logger.error(
+                                "Cannot resolve symbol %s - skipping signal %s",
+                                order.instrument, order.signal_id,
+                            )
+                            with SessionLocal() as db2:
+                                db2.query(ExecutionOrderQueue).filter(
+                                    ExecutionOrderQueue.id == order.id
+                                ).update({
+                                    "status": "REJECTED",
+                                    "error_comment": "Symbol not found in cTrader",
+                                    "completed_at": datetime.datetime.utcnow(),
+                                })
+                                db2.commit()
+                            continue
+
+                        # cTrader direction: LONG -> BUY, SHORT -> SELL
+                        ct_direction = "BUY" if order.direction.upper() == "LONG" else "SELL"
+
+                        # Calculate SL/TP as pips from entry price
+                        sl_pips = None
+                        tp_pips = None
+                        if order.stop_loss and order.entry_reference_price:
+                            sl_pips = abs(order.entry_reference_price - order.stop_loss) * 10000
+                        if order.take_profit and order.entry_reference_price:
+                            tp_pips = abs(order.take_profit - order.entry_reference_price) * 10000
+
+                        result = await gateway.execute_market_order(
+                            account_id=master_account_id,
+                            symbol_id=symbol_id,
+                            volume_lots=order.position_size_lots,
+                            direction=ct_direction,
+                            stop_loss_pips=sl_pips,
+                            take_profit_pips=tp_pips,
+                        )
+
+                        with SessionLocal() as db2:
+                            db2.query(ExecutionOrderQueue).filter(
+                                ExecutionOrderQueue.id == order.id
+                            ).update({
+                                "status": "FILLED",
+                                "ticket_id": str(
+                                    result.get("position_id") or result.get("order_id") or ""
+                                ),
+                                "completed_at": datetime.datetime.utcnow(),
+                            })
+                            db2.commit()
+
+                        logger.info(
+                            "Signal %s FILLED: position_id=%s instrument=%s dir=%s",
+                            order.signal_id, result.get("position_id"),
+                            order.instrument, ct_direction,
+                        )
+
+                    except Exception as exc:
+                        logger.error("Failed to execute signal %s: %s", order.signal_id, exc)
+                        with SessionLocal() as db2:
+                            db2.query(ExecutionOrderQueue).filter(
+                                ExecutionOrderQueue.id == order.id
+                            ).update({
+                                "status": "REJECTED",
+                                "error_comment": str(exc)[:500],
+                                "completed_at": datetime.datetime.utcnow(),
+                            })
+                            db2.commit()
+
+        except Exception as exc:
+            logger.error("Signal queue poller error: %s", exc)
+
+
 async def main():
     logger.info("Initializing PrimeEdge cTrader Copier Service...")
     logger.info("Client ID: %s... Demo Mode: %s", CTRADER_CLIENT_ID[:12], CTRADER_IS_DEMO)
@@ -97,9 +230,17 @@ async def main():
             pass
 
     logger.info("PrimeEdge cTrader Copier is actively running.")
+    logger.info("Signal auto-execution ENABLED - PrimeEdge setups will fire on account %s", master_account_id)
+
+    # Run signal queue poller concurrently with the copier service
+    poller_task = asyncio.create_task(
+        poll_signal_queue(gateway, master_account_id, master_token)
+    )
+
     await stop_event.wait()
 
     logger.info("Shutting down copier service...")
+    poller_task.cancel()
     await service.stop()
     logger.info("Shutdown complete.")
 
