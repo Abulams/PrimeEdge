@@ -106,6 +106,20 @@ def authenticate_worker(
 # 1. SUBSCRIBER ZERO-INSTALL CLOUD ENDPOINTS
 # ---------------------------------------------------------------------------
 
+def get_primary_user_account(db: Session, user_id: int) -> Optional[UserBrokerAccount]:
+    """Retrieve the primary broker account for a user, prioritizing cTrader and active accounts."""
+    return (
+        db.query(UserBrokerAccount)
+        .filter(UserBrokerAccount.user_id == user_id)
+        .order_by(
+            (UserBrokerAccount.platform == "ctrader").desc(),
+            UserBrokerAccount.is_active.desc(),
+            UserBrokerAccount.id.desc(),
+        )
+        .first()
+    )
+
+
 @router.post("/cloud/connect")
 def connect_cloud_account(
     req: ConnectCloudMT5Request,
@@ -174,7 +188,7 @@ def get_cloud_account_status(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    account = db.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == current_user.id).first()
+    account = get_primary_user_account(db, current_user.id)
     if not account or not account.is_active:
         return {
             "connected": False,
@@ -197,6 +211,7 @@ def get_cloud_account_status(
         "account_info": {
             "login": account.login,
             "server": account.broker_server,
+            "platform": account.platform or "ctrader",
             "balance": account.balance,
             "equity": account.equity,
             "currency": account.currency,
@@ -221,7 +236,7 @@ def toggle_cloud_auto_execution(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    account = db.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == current_user.id).first()
+    account = get_primary_user_account(db, current_user.id)
     if not account:
         raise HTTPException(status_code=404, detail="No connected broker account found")
 
@@ -235,7 +250,7 @@ def disconnect_cloud_account(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    account = db.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == current_user.id).first()
+    account = get_primary_user_account(db, current_user.id)
     if account:
         account.is_active = False
         account.auto_execution_enabled = False
@@ -257,7 +272,7 @@ def get_user_execution_preferences(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    account = db.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == current_user.id).first()
+    account = get_primary_user_account(db, current_user.id)
     if not account:
         return {
             "risk_mode": "FIXED_LOT",
@@ -284,7 +299,7 @@ def update_user_execution_preferences(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    account = db.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == current_user.id).first()
+    account = get_primary_user_account(db, current_user.id)
     if not account:
         raise HTTPException(status_code=404, detail="No active broker account found to configure preferences")
 
@@ -335,7 +350,7 @@ def force_test_trade(
     """
     import time
     try:
-        account = db.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == current_user.id).first()
+        account = get_primary_user_account(db, current_user.id)
         if not account:
             account = db.query(UserBrokerAccount).first()
         account_id = account.id if account else 1
@@ -373,7 +388,7 @@ def get_cloud_positions(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    account = db.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == current_user.id).first()
+    account = get_primary_user_account(db, current_user.id)
     if not account:
         return []
     return cloud_router.get_positions_for_account(account.id)
