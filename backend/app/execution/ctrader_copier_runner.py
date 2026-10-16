@@ -139,21 +139,14 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
                         # cTrader direction: LONG -> BUY, SHORT -> SELL
                         ct_direction = "BUY" if order.direction.upper() == "LONG" else "SELL"
 
-                        # Calculate SL/TP as pips from entry price
-                        sl_pips = None
-                        tp_pips = None
-                        if order.stop_loss and order.entry_reference_price:
-                            sl_pips = abs(order.entry_reference_price - order.stop_loss) * 10000
-                        if order.take_profit and order.entry_reference_price:
-                            tp_pips = abs(order.take_profit - order.entry_reference_price) * 10000
-
                         result = await gateway.execute_market_order(
                             account_id=master_account_id,
                             symbol_id=symbol_id,
                             volume_lots=order.position_size_lots,
                             direction=ct_direction,
-                            stop_loss_pips=sl_pips,
-                            take_profit_pips=tp_pips,
+                            entry_price=order.entry_reference_price,
+                            stop_loss_price=order.stop_loss,
+                            take_profit_price=order.take_profit,
                         )
 
                         with SessionLocal() as db2:

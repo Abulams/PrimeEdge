@@ -48,6 +48,8 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOAClosePositionReq,
     ProtoOASymbolsListReq,
     ProtoOASymbolsListRes,
+    ProtoOASymbolByIdReq,
+    ProtoOASymbolByIdRes,
     ProtoOAReconcileReq,
     ProtoOAReconcileRes,
     ProtoOAGetAccountListByAccessTokenReq,
@@ -210,7 +212,10 @@ class CTraderGateway:
                         lambda e=exec_event, c=cb: asyncio.ensure_future(c(e), loop=self._loop)
                     )
 
-            elif payload_type == ProtoOAPayloadType.Value("PROTO_OA_SYMBOLS_LIST_RES"):
+            elif payload_type in (
+                ProtoOAPayloadType.Value("PROTO_OA_SYMBOLS_LIST_RES"),
+                ProtoOAPayloadType.Value("PROTO_OA_SYMBOL_BY_ID_RES"),
+            ):
                 self._loop.call_soon_threadsafe(
                     self._resolve_future, msg_id, extracted
                 )
@@ -382,15 +387,62 @@ class CTraderGateway:
             )
 
         trader = res.trader
+        balance = getattr(trader, "balance", 0) / 100
+        equity = getattr(trader, "equity", None)
+        equity_val = (equity / 100) if equity is not None else balance
         return {
             "account_id": account_id,
-            "balance": trader.balance / 100,       # cTrader stores cents
-            "equity": trader.equity / 100,
+            "balance": balance,
+            "equity": equity_val,
             "currency": trader.depositAsset.name if trader.HasField("depositAsset") else "USD",
-            "leverage": trader.leverageInCents / 100 if trader.leverageInCents else None,
+            "leverage": trader.leverageInCents / 100 if getattr(trader, "leverageInCents", None) else None,
             "broker_name": getattr(trader, "brokerName", None) or getattr(trader, "brokerTitle", None) or "cTrader",
             "account_type": getattr(trader, "accountType", None),
         }
+
+    async def get_symbol_details(self, account_id: int, symbol_id: int) -> Dict[str, Any]:
+        """
+        Retrieve detailed symbol metadata (digits, pipPosition, minVolume, stepVolume, lotSize).
+        Results are cached per symbol_id.
+        """
+        if not hasattr(self, "_symbol_details_cache"):
+            self._symbol_details_cache = {}
+
+        cache_key = f"{account_id}:{symbol_id}"
+        if cache_key in self._symbol_details_cache:
+            return self._symbol_details_cache[cache_key]
+
+        try:
+            msg_id = self._next_msg_id()
+            req = ProtoOASymbolByIdReq()
+            req.ctidTraderAccountId = account_id
+            req.symbolId.append(symbol_id)
+
+            fut = self._register_future(msg_id)
+            self._send(req, clientMsgId=msg_id)
+            res = await asyncio.wait_for(fut, timeout=10)
+
+            for s in res.symbol:
+                info = {
+                    "id": s.symbolId,
+                    "digits": getattr(s, "digits", 5),
+                    "pip_position": getattr(s, "pipPosition", 4),
+                    "min_volume": getattr(s, "minVolume", 100000),
+                    "step_volume": getattr(s, "stepVolume", 100000),
+                    "lot_size": getattr(s, "lotSize", 10000000) or 10000000,
+                }
+                self._symbol_details_cache[f"{account_id}:{s.symbolId}"] = info
+        except Exception as exc:
+            logger.warning("Failed to fetch detailed symbol metadata for %s: %s", symbol_id, exc)
+
+        return self._symbol_details_cache.get(cache_key, {
+            "id": symbol_id,
+            "digits": 2 if symbol_id == 41 else (3 if symbol_id == 4 else 5),
+            "pip_position": 2 if symbol_id in (41, 4) else 4,
+            "min_volume": 100 if symbol_id == 41 else 100000,
+            "step_volume": 100 if symbol_id == 41 else 100000,
+            "lot_size": 10000 if symbol_id == 41 else 10000000,
+        })
 
     async def execute_market_order(
         self,
@@ -400,41 +452,74 @@ class CTraderGateway:
         direction: str,
         stop_loss_pips: Optional[float] = None,
         take_profit_pips: Optional[float] = None,
+        entry_price: Optional[float] = None,
+        stop_loss_price: Optional[float] = None,
+        take_profit_price: Optional[float] = None,
     ) -> dict:
         """
-        Place a market order via ProtoOANewOrderReq.
-
-        Args:
-            account_id:       cTrader account ID.
-            symbol_id:        cTrader symbol ID (from get_symbols()).
-            volume_lots:      Trade size in standard lots (e.g. 0.10).
-            direction:        'BUY' or 'SELL'.
-            stop_loss_pips:   Optional SL distance in pips.
-            take_profit_pips: Optional TP distance in pips.
-
-        Volume conversion: lots * 100 = cTrader volume units
-            0.01 lots → 1 unit
-            1.00 lots → 100 units
-
-        Returns:
-            dict with execution details (position_id, order_id, etc.)
+        Place a market order via ProtoOANewOrderReq with precise broker-level
+        volume scaling and tick-aligned relative Stop Loss / Take Profit.
         """
+        details = await self.get_symbol_details(account_id, symbol_id)
+        digits = details.get("digits", 5)
+        lot_size = details.get("lot_size", 10000000)
+        min_vol = details.get("min_volume", 100000)
+        step_vol = details.get("step_volume", 100000)
+
         msg_id = self._next_msg_id()
         req = ProtoOANewOrderReq()
         req.ctidTraderAccountId = account_id
         req.symbolId = symbol_id
         req.orderType = ProtoOAOrderType.Value("MARKET")
         req.tradeSide = _direction_to_side(direction)
-        req.volume = _lots_to_volume(volume_lots)  # 1 lot → 100
 
-        if stop_loss_pips is not None:
-            req.relativeStopLoss = int(stop_loss_pips * 10)   # pips → points (×10)
-        if take_profit_pips is not None:
-            req.relativeTakeProfit = int(take_profit_pips * 10)
+        # Precise volume calculation
+        vol = int(round(volume_lots * lot_size))
+        if vol < min_vol:
+            vol = min_vol
+        if step_vol > 0:
+            vol = (vol // step_vol) * step_vol
+        req.volume = vol
+
+        # Step size in 1/100,000 units according to symbol digits
+        tick_step = 100000 // (10 ** digits) if digits <= 5 else 1
+
+        # Relative Stop Loss
+        if stop_loss_price is not None and entry_price is not None:
+            diff = round(abs(entry_price - stop_loss_price), digits)
+            rel_sl = int(round(diff * 100000))
+            if tick_step > 0:
+                rel_sl = (rel_sl // tick_step) * tick_step
+            if rel_sl > 0:
+                req.relativeStopLoss = rel_sl
+        elif stop_loss_pips is not None:
+            pips_unit = 10 if digits == 5 else (100 if digits == 3 else 1000)
+            rel_sl = int(round(stop_loss_pips * pips_unit))
+            if tick_step > 0:
+                rel_sl = (rel_sl // tick_step) * tick_step
+            if rel_sl > 0:
+                req.relativeStopLoss = rel_sl
+
+        # Relative Take Profit
+        if take_profit_price is not None and entry_price is not None:
+            diff = round(abs(take_profit_price - entry_price), digits)
+            rel_tp = int(round(diff * 100000))
+            if tick_step > 0:
+                rel_tp = (rel_tp // tick_step) * tick_step
+            if rel_tp > 0:
+                req.relativeTakeProfit = rel_tp
+        elif take_profit_pips is not None:
+            pips_unit = 10 if digits == 5 else (100 if digits == 3 else 1000)
+            rel_tp = int(round(take_profit_pips * pips_unit))
+            if tick_step > 0:
+                rel_tp = (rel_tp // tick_step) * tick_step
+            if rel_tp > 0:
+                req.relativeTakeProfit = rel_tp
 
         logger.info(
-            "Placing %s MARKET order: account=%s symbol=%s volume=%s (lots=%.2f)",
+            "Placing %s MARKET order: account=%s symbol=%s volume=%s (lots=%.2f) relSL=%s relTP=%s",
             direction, account_id, symbol_id, req.volume, volume_lots,
+            getattr(req, "relativeStopLoss", None), getattr(req, "relativeTakeProfit", None),
         )
 
         fut = self._register_future(msg_id)
