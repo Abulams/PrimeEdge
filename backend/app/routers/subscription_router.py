@@ -174,16 +174,16 @@ async def handle_stripe_webhook(request: Request, db: Session = Depends(get_db))
     Handle Stripe webhook events.
     This endpoint should be configured in Stripe Dashboard as the webhook URL.
     """
-    import json
-    
-    # Get the raw body
+    # Get raw body bytes for HMAC signature verification
     body = await request.body()
     
     # Get Stripe signature
     sig_header = request.headers.get("stripe-signature")
+    if not sig_header:
+        raise HTTPException(status_code=400, detail="Missing stripe-signature header")
     
     try:
-        StripeService.handle_webhook_event(db, json.loads(body), sig_header)
+        StripeService.handle_webhook_event(db, body, sig_header)
         return {"status": "success"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -54,6 +54,7 @@ class UserProfileResponse(BaseModel):
     is_admin: bool
     is_active: bool
     email_verified: bool
+    current_tier_id: Optional[int] = None
     created_at: datetime.datetime
     last_login: Optional[datetime.datetime]
 

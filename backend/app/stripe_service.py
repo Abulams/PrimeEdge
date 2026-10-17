@@ -270,18 +270,22 @@ class StripeService:
         
         Args:
             db: Database session
-            payload: Webhook payload
+            payload: Webhook payload (raw bytes, str, or dict)
             signature: Stripe signature for verification
         """
+        import json
         webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
         if not webhook_secret:
             logger.error("STRIPE_WEBHOOK_SECRET not configured")
             raise ValueError("Webhook secret not configured")
 
         try:
-            event = stripe.Webhook.construct_event(
-                payload, signature, webhook_secret
-            )
+            if isinstance(payload, dict):
+                event = payload
+            else:
+                event = stripe.Webhook.construct_event(
+                    payload, signature, webhook_secret
+                )
         except ValueError as e:
             logger.error(f"Invalid webhook payload: {e}")
             raise
@@ -302,11 +306,24 @@ class StripeService:
             logger.info(f"Event {stripe_event_id} already processed, skipping")
             return
 
+        # Prepare JSON-serializable payload for DB logging
+        if isinstance(event, dict):
+            payload_data = event
+        elif hasattr(event, "to_dict_recursive"):
+            payload_data = event.to_dict_recursive()
+        elif hasattr(event, "to_dict"):
+            payload_data = event.to_dict()
+        else:
+            try:
+                payload_data = json.loads(payload.decode("utf-8") if isinstance(payload, bytes) else str(payload))
+            except Exception:
+                payload_data = {"raw": str(payload)}
+
         # Create webhook event log
         webhook_log = StripeWebhookEvent(
             stripe_event_id=stripe_event_id,
             event_type=event_type,
-            payload=payload,
+            payload=payload_data,
             processed=False
         )
         db.add(webhook_log)
