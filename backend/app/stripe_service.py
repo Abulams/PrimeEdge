@@ -174,21 +174,31 @@ class StripeService:
         # Otherwise, attempt real Stripe checkout
         try:
             # Get or create Stripe customer
-            stripe_customer_id = user.subscriptions[0].stripe_customer_id if user.subscriptions else None
+            stripe_customer_id = None
+            for sub in (user.subscriptions or []):
+                if sub.stripe_customer_id and not sub.stripe_customer_id.startswith("sim_"):
+                    stripe_customer_id = sub.stripe_customer_id
+                    break
             
+            # Verify existing customer exists in Stripe, or create a new one
+            if stripe_customer_id:
+                try:
+                    stripe.Customer.retrieve(stripe_customer_id)
+                    stripe.Customer.modify(
+                        stripe_customer_id,
+                        email=user.email,
+                        name=user.full_name or user.email
+                    )
+                except Exception:
+                    stripe_customer_id = None
+
             if not stripe_customer_id:
                 customer = stripe.Customer.create(
                     email=user.email,
                     name=user.full_name or user.email,
-                    metadata={"user_id": user_id}
+                    metadata={"user_id": str(user_id)}
                 )
                 stripe_customer_id = customer.id
-            else:
-                stripe.Customer.modify(
-                    stripe_customer_id,
-                    email=user.email,
-                    name=user.full_name or user.email
-                )
 
             # Determine price based on billing interval
             price_id = tier.stripe_price_id_monthly if billing_interval == "month" else tier.stripe_price_id_yearly
@@ -210,7 +220,6 @@ class StripeService:
             frontend_url = os.getenv("FRONTEND_URL", "https://primeedge.app").rstrip("/")
             session = stripe.checkout.Session.create(
                 customer=stripe_customer_id,
-                payment_method_types=["card"],
                 line_items=[{
                     "price": price_id,
                     "quantity": 1,
