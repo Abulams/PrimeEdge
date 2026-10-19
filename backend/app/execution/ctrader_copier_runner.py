@@ -149,16 +149,25 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
                             take_profit_price=order.take_profit,
                         )
 
+                        ticket_str = str(
+                            result.get("position_id") or result.get("order_id") or ""
+                        )
                         with SessionLocal() as db2:
                             db2.query(ExecutionOrderQueue).filter(
                                 ExecutionOrderQueue.id == order.id
                             ).update({
                                 "status": "FILLED",
-                                "ticket_id": str(
-                                    result.get("position_id") or result.get("order_id") or ""
-                                ),
+                                "ticket_id": ticket_str,
                                 "completed_at": datetime.datetime.utcnow(),
                             })
+                            if order.trade_id:
+                                from ..models import TradeRecord
+                                db2.query(TradeRecord).filter(
+                                    TradeRecord.id == order.trade_id
+                                ).update({
+                                    "execution_status": "FILLED",
+                                    "broker_ticket": ticket_str,
+                                })
                             db2.commit()
 
                         logger.info(
@@ -177,6 +186,17 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
                                 "error_comment": str(exc)[:500],
                                 "completed_at": datetime.datetime.utcnow(),
                             })
+                            if order.trade_id:
+                                from ..models import TradeRecord
+                                db2.query(TradeRecord).filter(
+                                    TradeRecord.id == order.trade_id
+                                ).update({
+                                    "execution_status": "REJECTED",
+                                    "lifecycle_state": "CLOSED",
+                                    "outcome": "REJECTED",
+                                    "exit_reason": str(exc)[:200],
+                                    "exit_timestamp": datetime.datetime.utcnow(),
+                                })
                             db2.commit()
 
         except Exception as exc:

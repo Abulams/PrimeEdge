@@ -391,7 +391,110 @@ def get_cloud_positions(
     account = get_primary_user_account(db, current_user.id)
     if not account:
         return []
-    return cloud_router.get_positions_for_account(account.id)
+
+    from ..models import TradeRecord, SetupSnapshot
+    from ..realtime import realtime_service
+
+    # Query active trades for this account
+    active_trades = (
+        db.query(TradeRecord)
+        .join(SetupSnapshot, TradeRecord.setup_snapshot_id == SetupSnapshot.id)
+        .filter(
+            TradeRecord.account_id == account.id,
+            TradeRecord.lifecycle_state == "ACTIVE"
+        )
+        .order_by(TradeRecord.created_at.desc())
+        .all()
+    )
+
+    positions = []
+    quotes = getattr(realtime_service, "current_quotes", {}) or {}
+
+    for t in active_trades:
+        inst = t.setup.instrument if t.setup else "XAUUSD"
+        direction = t.setup.direction if t.setup else "LONG"
+        pip_mult = 100.0 if "JPY" in inst else (10.0 if "XAU" in inst else 10000.0)
+
+        # Get current price
+        curr_price = quotes.get(inst, {}).get("price") or t.actual_entry or 1.0
+
+        # Calculate live pnl pips
+        if direction == "LONG":
+            pnl_pips = round((curr_price - (t.actual_entry or curr_price)) * pip_mult, 1)
+        else:
+            pnl_pips = round(((t.actual_entry or curr_price) - curr_price) * pip_mult, 1)
+
+        positions.append({
+            "ticket_id": t.broker_ticket or f"TR-{t.id}",
+            "trade_id": t.id,
+            "instrument": inst,
+            "direction": direction,
+            "position_size_lots": t.position_size_lots or 0.01,
+            "open_price": round(t.actual_entry or 0.0, 5),
+            "current_price": round(curr_price, 5),
+            "stop_loss": round(t.actual_sl or 0.0, 5),
+            "take_profit": round(t.actual_tp or 0.0, 5),
+            "current_pnl_pips": pnl_pips,
+            "max_mae_pips": round(t.max_mae_pips or 0.0, 1),
+            "max_mfe_pips": round(t.max_mfe_pips or 0.0, 1),
+            "early_inval_armed": True if (t.max_mfe_pips or 0.0) < 15.0 else False,
+            "entry_time": t.entry_timestamp.isoformat() if t.entry_timestamp else t.created_at.isoformat()
+        })
+
+    # Fallback to router positions if no DB trades
+    if not positions:
+        router_pos = cloud_router.get_positions_for_account(account.id)
+        if router_pos:
+            return router_pos
+
+    return positions
+
+
+@router.get("/cloud/history")
+def get_cloud_execution_history(
+    limit: int = 30,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    account = get_primary_user_account(db, current_user.id)
+    if not account:
+        return []
+
+    from ..models import TradeRecord, SetupSnapshot
+
+    closed_trades = (
+        db.query(TradeRecord)
+        .join(SetupSnapshot, TradeRecord.setup_snapshot_id == SetupSnapshot.id)
+        .filter(
+            TradeRecord.account_id == account.id,
+            TradeRecord.lifecycle_state == "CLOSED"
+        )
+        .order_by(TradeRecord.updated_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    history = []
+    for t in closed_trades:
+        inst = t.setup.instrument if t.setup else "XAUUSD"
+        direction = t.setup.direction if t.setup else "LONG"
+        history.append({
+            "id": t.id,
+            "ticket_id": t.broker_ticket or f"TR-{t.id}",
+            "instrument": inst,
+            "direction": direction,
+            "position_size_lots": t.position_size_lots or 0.01,
+            "entry_price": round(t.actual_entry or 0.0, 5),
+            "exit_price": round(t.exit_price or 0.0, 5) if t.exit_price else None,
+            "exit_reason": t.exit_reason or "CLOSED",
+            "outcome": t.outcome or ("WIN" if (t.pnl_pips or 0) > 0 else "LOSS" if (t.pnl_pips or 0) < 0 else "BE"),
+            "pnl_pips": round(t.pnl_pips or 0.0, 1) if t.pnl_pips is not None else 0.0,
+            "pnl_r": round(t.pnl_r or 0.0, 2) if t.pnl_r is not None else 0.0,
+            "entry_time": t.entry_timestamp.isoformat() if t.entry_timestamp else t.created_at.isoformat(),
+            "exit_time": t.exit_timestamp.isoformat() if t.exit_timestamp else t.updated_at.isoformat(),
+        })
+
+    return history
 
 
 # ---------------------------------------------------------------------------

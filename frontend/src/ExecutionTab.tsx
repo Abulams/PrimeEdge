@@ -99,6 +99,22 @@ interface AdminOpsData {
   }>;
 }
 
+interface ClosedTrade {
+  id: number;
+  ticket_id: string;
+  instrument: string;
+  direction: string;
+  position_size_lots: number;
+  entry_price: number;
+  exit_price?: number;
+  exit_reason: string;
+  outcome: string;
+  pnl_pips: number;
+  pnl_r: number;
+  entry_time: string;
+  exit_time: string;
+}
+
 export const ExecutionTab: React.FC = () => {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'subscriber' | 'admin'>('subscriber');
@@ -106,6 +122,7 @@ export const ExecutionTab: React.FC = () => {
   // Subscriber State
   const [cloudStatus, setCloudStatus] = useState<CloudAccountStatus | null>(null);
   const [positions, setPositions] = useState<Position[]>([]);
+  const [closedHistory, setClosedHistory] = useState<ClosedTrade[]>([]);
   const [loading, setLoading] = useState(false);
   const [connectSuccess, setConnectSuccess] = useState<string | null>(null);
   const [showConfig, setShowConfig] = useState(false);
@@ -150,9 +167,10 @@ export const ExecutionTab: React.FC = () => {
 
   const fetchSubscriberData = async () => {
     try {
-      const [resStatus, resPos] = await Promise.all([
+      const [resStatus, resPos, resHist] = await Promise.all([
         apiFetch('/api/v1/execution/cloud/status'),
-        apiFetch('/api/v1/execution/cloud/positions')
+        apiFetch('/api/v1/execution/cloud/positions'),
+        apiFetch('/api/v1/execution/cloud/history')
       ]);
       if (resStatus.ok) {
         const data = await resStatus.json();
@@ -161,6 +179,10 @@ export const ExecutionTab: React.FC = () => {
       if (resPos.ok) {
         const posData = await resPos.json();
         setPositions(posData);
+      }
+      if (resHist.ok) {
+        const histData = await resHist.json();
+        setClosedHistory(histData);
       }
     } catch (e) {
       console.error('Error fetching subscriber execution data:', e);
@@ -326,10 +348,10 @@ export const ExecutionTab: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h2 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 4px 0', letterSpacing: '-0.5px' }}>
-            EXECUTION — Cloud MT5 Gateway
+            EXECUTION — Cloud cTrader Gateway
           </h2>
           <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>
-            Zero-install cloud execution with sub-second -0.35R local MAE early invalidation guardrails.
+            Zero-install institutional trade copying via Spotware OpenAPI with sub-second early invalidation guardrails.
           </p>
         </div>
 
@@ -476,7 +498,7 @@ export const ExecutionTab: React.FC = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Server size={18} color="var(--accent-teal)" />
-                  <span style={{ fontSize: '14px', fontWeight: 700 }}>Cloud MT5 Terminal</span>
+                  <span style={{ fontSize: '14px', fontWeight: 700 }}>Cloud cTrader Account</span>
                 </div>
                 <div style={{
                   padding: '4px 10px',
@@ -495,9 +517,9 @@ export const ExecutionTab: React.FC = () => {
               {isConnected ? (
                 <div className="why-grid-2col" style={{ gap: '10px' }}>
                   <div style={{ background: 'var(--bg-primary)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Login Account</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>cTrader Account</div>
                     <div style={{ fontSize: '15px', fontWeight: 700, marginTop: '2px' }}>#{acc.login || '—'}</div>
-                    <div style={{ fontSize: '10px', color: 'var(--accent-teal)', marginTop: '2px' }}>{acc.server || 'MarketOS-Cloud'}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--accent-teal)', marginTop: '2px' }}>{acc.server || 'cTrader-Cloud'}</div>
                   </div>
 
                   <div style={{ background: 'var(--bg-primary)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
@@ -520,30 +542,34 @@ export const ExecutionTab: React.FC = () => {
                   color: 'var(--text-secondary)',
                   fontSize: '13px'
                 }}>
-                  No MetaTrader 5 account connected yet.
+                  No cTrader account connected yet. Click below to link via 1-click OAuth.
                 </div>
               )}
 
               <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
                 <button
-                  onClick={() => setShowConfig(!showConfig)}
+                  onClick={() => {
+                    const userId = user?.id || 1;
+                    window.location.href = `/api/v1/ctrader/auth?user_id=${userId}`;
+                  }}
                   style={{
                     flex: 1,
                     padding: '10px',
                     borderRadius: '8px',
-                    border: '1px solid var(--border-color)',
-                    background: 'var(--bg-secondary)',
-                    color: 'var(--text-primary)',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, var(--accent-teal), var(--accent-blue))',
+                    color: '#08090d',
                     cursor: 'pointer',
                     fontSize: '12px',
-                    fontWeight: 700,
+                    fontWeight: 800,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '6px'
+                    gap: '6px',
+                    boxShadow: '0 2px 10px rgba(0, 242, 254, 0.25)'
                   }}
                 >
-                  <Settings size={14} /> {isConnected ? 'Change MT5 Account' : 'Connect MT5 Account'}
+                  <Zap size={14} /> {isConnected ? 'Re-authorize cTrader' : 'Connect with cTrader (OAuth)'}
                 </button>
               </div>
             </div>
@@ -955,65 +981,16 @@ export const ExecutionTab: React.FC = () => {
             <div className="glass-panel" style={{ padding: '24px', border: '1px solid var(--accent-teal)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Lock size={18} color="var(--accent-teal)" /> Connect Your MetaTrader 5 Broker Account (Zero Install)
+                  <Lock size={18} color="var(--accent-teal)" /> Connect Your cTrader Broker Account (Zero Install)
                 </h3>
                 <X size={18} style={{ cursor: 'pointer' }} onClick={() => setShowConfig(false)} />
               </div>
 
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px 0' }}>
-                Your broker credentials are encrypted at rest with AES-256 encryption. Market OS manages an isolated, dedicated MT5 session for your account on our low-latency Windows execution bridge.
+                PrimeEdge connects directly to your broker via the official Spotware cTrader OpenAPI. You never share your password — simply click below to grant secure, encrypted trade copying authorization.
               </p>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px', textTransform: 'uppercase' }}>
-                    Broker Server Name
-                  </label>
-                  <input
-                    type="text"
-                    value={brokerServer}
-                    onChange={e => setBrokerServer(e.target.value)}
-                    placeholder="e.g. ICMarketsSC-Demo, FTMO-Demo"
-                    style={inputStyle}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px', textTransform: 'uppercase' }}>
-                    MT5 Account Number / Login
-                  </label>
-                  <input
-                    type="number"
-                    value={loginAccount}
-                    onChange={e => setLoginAccount(e.target.value)}
-                    placeholder="e.g. 8809124"
-                    style={inputStyle}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px', textTransform: 'uppercase' }}>
-                    MT5 Master / Investor Password
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={loginPassword}
-                      onChange={e => setLoginPassword(e.target.value)}
-                      placeholder="Password"
-                      style={{ ...inputStyle, paddingRight: '36px' }}
-                    />
-                    <div
-                      onClick={() => setShowPassword(!showPassword)}
-                      style={{ position: 'absolute', right: '10px', top: '10px', cursor: 'pointer', color: 'var(--text-secondary)' }}
-                    >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '16px' }}>
                 <button
                   onClick={() => setShowConfig(false)}
                   style={{
@@ -1027,23 +1004,25 @@ export const ExecutionTab: React.FC = () => {
                     fontWeight: 600
                   }}
                 >
-                  Cancel
+                  Close
                 </button>
                 <button
-                  onClick={handleConnectCloud}
-                  disabled={loading}
+                  onClick={() => {
+                    const userId = user?.id || 1;
+                    window.location.href = `/api/v1/ctrader/auth?user_id=${userId}`;
+                  }}
                   style={{
                     padding: '10px 24px',
                     borderRadius: '8px',
                     border: 'none',
                     background: 'linear-gradient(135deg, var(--accent-teal), var(--accent-blue))',
-                    color: '#fff',
-                    cursor: loading ? 'not-allowed' : 'pointer',
+                    color: '#08090d',
+                    cursor: 'pointer',
                     fontSize: '13px',
-                    fontWeight: 700
+                    fontWeight: 800
                   }}
                 >
-                  {loading ? 'Initializing Cloud Session...' : 'Save & Connect Cloud MT5'}
+                  Authorize with cTrader (OAuth)
                 </button>
               </div>
             </div>
@@ -1132,6 +1111,96 @@ export const ExecutionTab: React.FC = () => {
                             }}>
                               {pos.early_inval_armed ? 'ARMED (-0.35R)' : 'DISARMED (RUNNER)'}
                             </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Closed Auto-Execution History Table */}
+          <div className="glass-panel" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckCircle size={18} color="var(--accent-teal)" />
+                <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0 }}>Closed Auto-Execution History</h3>
+              </div>
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                {closedHistory.length} Closed Trade{closedHistory.length === 1 ? '' : 's'}
+              </span>
+            </div>
+
+            {closedHistory.length === 0 ? (
+              <div style={{
+                padding: '24px',
+                textAlign: 'center',
+                color: 'var(--text-secondary)',
+                fontSize: '13px',
+                background: 'var(--bg-primary)',
+                borderRadius: '8px',
+                border: '1px dashed var(--border-color)'
+              }}>
+                No closed auto-executed trades recorded yet. Completed trades with exit prices and realized PnL will appear here.
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', color: 'var(--text-secondary)' }}>
+                      <th style={{ padding: '10px' }}>Ticket</th>
+                      <th style={{ padding: '10px' }}>Asset</th>
+                      <th style={{ padding: '10px' }}>Dir</th>
+                      <th style={{ padding: '10px' }}>Entry</th>
+                      <th style={{ padding: '10px' }}>Exit</th>
+                      <th style={{ padding: '10px' }}>Outcome</th>
+                      <th style={{ padding: '10px' }}>Net PnL</th>
+                      <th style={{ padding: '10px' }}>Exit Reason</th>
+                      <th style={{ padding: '10px' }}>Closed At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {closedHistory.map((item) => {
+                      const isLong = item.direction === 'LONG';
+                      const isWin = item.outcome === 'WIN' || item.pnl_pips > 0;
+                      return (
+                        <tr key={item.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '10px', fontFamily: 'monospace', fontWeight: 700 }}>{item.ticket_id}</td>
+                          <td style={{ padding: '10px', fontWeight: 800 }}>{item.instrument}</td>
+                          <td style={{ padding: '10px' }}>
+                            <span style={{
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              fontWeight: 800,
+                              background: isLong ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                              color: isLong ? 'var(--accent-green)' : 'var(--accent-red)'
+                            }}>
+                              {item.direction} ({item.position_size_lots}L)
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px', fontFamily: 'monospace' }}>{item.entry_price.toFixed(4)}</td>
+                          <td style={{ padding: '10px', fontFamily: 'monospace' }}>{item.exit_price ? item.exit_price.toFixed(4) : '—'}</td>
+                          <td style={{ padding: '10px' }}>
+                            <span style={{
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              fontWeight: 800,
+                              background: isWin ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                              color: isWin ? 'var(--accent-green)' : 'var(--accent-red)'
+                            }}>
+                              {item.outcome}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px', fontWeight: 800, color: item.pnl_pips >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                            {item.pnl_pips >= 0 ? '+' : ''}{item.pnl_pips}p ({item.pnl_r >= 0 ? '+' : ''}{item.pnl_r}R)
+                          </td>
+                          <td style={{ padding: '10px', color: 'var(--text-secondary)' }}>{item.exit_reason}</td>
+                          <td style={{ padding: '10px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                            {item.exit_time ? new Date(item.exit_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
                           </td>
                         </tr>
                       );

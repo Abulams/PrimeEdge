@@ -429,6 +429,14 @@ class UserBrokerAccount(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
+    # cTrader Integration & Multi-broker Copier Fields
+    platform = Column(String, default="ctrader", nullable=True)
+    ctrader_account_id = Column(Integer, nullable=True)
+    ctrader_access_token = Column(String, nullable=True)
+    ctrader_refresh_token = Column(String, nullable=True)
+    ctrader_token_expiry = Column(DateTime, nullable=True)
+    is_copier_active = Column(Boolean, default=False, nullable=True)
+
 
 class WorkerNode(Base):
     """Registered Windows VPS worker executing isolated MT5 terminal sessions."""
