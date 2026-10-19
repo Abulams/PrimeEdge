@@ -203,7 +203,6 @@ class RealtimeService:
                                     continue  # Already executed this signal instance
 
                                 # Determine lot size & risk from user preferences
-                                size_lots = acc.fixed_lot_size or 0.01
                                 risk_percentage = acc.risk_pct or 1.0
                                 acc_balance = acc.balance if (acc.balance and acc.balance > 0) else 10000.0
 
@@ -214,6 +213,33 @@ class RealtimeService:
                                 actual_entry = snap.corridor_p25_price or snap.setup_ref_price or 1.0
                                 actual_sl = snap.p90_invalidation or round(actual_entry - (dir_sign * 25.0 / pip_mult), 5)
                                 actual_tp = round(actual_entry + (dir_sign * mfe_target_pips / pip_mult), 5)
+
+                                # Calculate position size based on user's configured risk mode
+                                risk_mode = getattr(acc, "risk_mode", "FIXED_LOT") or "FIXED_LOT"
+                                if risk_mode == "DYNAMIC_RISK_PCT":
+                                    risk_dist = abs(actual_entry - actual_sl)
+                                    risk_pips = round(risk_dist * pip_mult, 1)
+                                    risk_amount_usd = acc_balance * (risk_percentage / 100.0)
+
+                                    # Standard pip value per 1.0 standard lot
+                                    if "JPY" in inst:
+                                        # 100k JPY per lot. At ~158 USDJPY, 1 pip (0.01) = 1,000 JPY / 158 ≈ $6.33
+                                        pip_val_usd = 6.5
+                                    elif "US100" in inst:
+                                        pip_val_usd = 20.0
+                                    else:
+                                        # Standard Forex (EURUSD, GBPUSD, AUDUSD) and XAUUSD (100 oz * $0.10)
+                                        pip_val_usd = 10.0
+
+                                    if risk_pips > 0 and pip_val_usd > 0:
+                                        calc_lots = round(risk_amount_usd / (risk_pips * pip_val_usd), 2)
+                                        size_lots = max(0.01, min(calc_lots, 50.0))
+                                    else:
+                                        size_lots = 0.01
+                                    logger.info(f"📊 [Auto-Execution Sizing] Account #{acc.login} DYNAMIC_RISK_PCT: balance=${acc_balance:.2f}, risk={risk_percentage}%, risk_amount=${risk_amount_usd:.2f}, risk_pips={risk_pips:.1f} -> lots={size_lots}")
+                                else:
+                                    size_lots = acc.fixed_lot_size or 0.01
+                                    logger.info(f"📊 [Auto-Execution Sizing] Account #{acc.login} FIXED_LOT: lots={size_lots}")
 
                                 # Accept trade tied to user and account
                                 JournalService.accept_setup(
