@@ -18,11 +18,13 @@ import { useAuth, apiFetch } from './AuthContext';
 
 interface Tier {
   id: number;
+  tier_id?: number;
   name: string;
   display_name: string;
   description: string;
   price_monthly: number;
   price_yearly: number | null;
+  price_monthly_ngn?: number;
   features: string[];
   max_accounts: number;
   auto_execution_enabled: boolean;
@@ -43,6 +45,7 @@ export default function PricingPage() {
   const [currentSubscription, setCurrentSubscription] = useState<UserSubscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
+  const [currency, setCurrency] = useState<'NGN' | 'USD'>('NGN');
   const [processingTier, setProcessingTier] = useState<string | null>(null);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const [activationNotice, setActivationNotice] = useState<string | null>(null);
@@ -51,10 +54,27 @@ export default function PricingPage() {
     fetchTiers();
     fetchCurrentSubscription();
 
-    // Check for success URL parameters
+    // Check for success URL parameters or Paystack reference
     const params = new URLSearchParams(window.location.search);
+    const reference = params.get('reference') || params.get('trxref');
     const activated = params.get('activated');
-    if (activated) {
+
+    if (reference) {
+      setActivationNotice('Verifying payment with Paystack...');
+      apiFetch(`/api/v1/subscription/paystack/verify/${reference}`)
+        .then(async (res) => {
+          if (res.ok) {
+            await fetchCurrentSubscription();
+            setActivationNotice(`🎉 Payment Successful! Welcome to PrimeEdge ${activated ? activated.toUpperCase() : 'Premium'}.`);
+          } else {
+            setActivationNotice('Payment received! Updating subscription details...');
+            await fetchCurrentSubscription();
+          }
+        })
+        .catch(async () => {
+          await fetchCurrentSubscription();
+        });
+    } else if (activated) {
       setActivationNotice(`🎉 Subscription Active! Welcome to PrimeEdge ${activated.toUpperCase()}.`);
     }
   }, [isAuthenticated]);
@@ -97,7 +117,11 @@ export default function PricingPage() {
     setAuthNotice(null);
 
     try {
-      const response = await apiFetch('/api/v1/subscription/checkout', {
+      const endpoint = currency === 'NGN'
+        ? '/api/v1/subscription/paystack/checkout'
+        : '/api/v1/subscription/checkout';
+
+      const response = await apiFetch(endpoint, {
         method: 'POST',
         body: JSON.stringify({
           tier_name: tierName,
@@ -108,13 +132,13 @@ export default function PricingPage() {
       if (response.ok) {
         const data = await response.json();
         if (data.checkout_url) {
-          // Check if checkout URL is internal activation callback
-          if (data.checkout_url.includes('activated=')) {
+          // If simulation callback
+          if (data.checkout_url.includes('activated=') && !data.checkout_url.includes('paystack.com') && !data.checkout_url.includes('stripe.com')) {
             await fetchCurrentSubscription();
             setActivationNotice(`🎉 Subscription Active! Your ${tierName.toUpperCase()} plan has been activated.`);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           } else {
-            // External Stripe checkout session
+            // External Paystack or Stripe checkout session
             window.location.href = data.checkout_url;
           }
         }
@@ -446,62 +470,113 @@ export default function PricingPage() {
             Institutional-grade market intelligence, automated trade planning, and ultra-low latency execution capabilities for systematic traders.
           </p>
 
-          {/* Billing Toggle Switch */}
+          {/* Billing Toggle Switch & Currency Selector */}
           <div style={{
-            display: 'inline-flex',
+            display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            background: 'rgba(17, 19, 26, 0.9)',
-            border: '1px solid rgba(36, 41, 54, 0.8)',
-            borderRadius: '12px',
-            padding: '4px',
-            gap: '4px',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
+            gap: '12px'
           }}>
-            <button
-              onClick={() => setBillingInterval('month')}
-              style={{
-                padding: '8px 20px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 700,
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                background: billingInterval === 'month' ? 'linear-gradient(135deg, #00f2fe, #38bdf8)' : 'transparent',
-                color: billingInterval === 'month' ? '#08090d' : '#94a3b8'
-              }}
-            >
-              Monthly Billing
-            </button>
-            <button
-              onClick={() => setBillingInterval('year')}
-              style={{
-                padding: '8px 20px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 700,
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                background: billingInterval === 'year' ? 'linear-gradient(135deg, #00f2fe, #38bdf8)' : 'transparent',
-                color: billingInterval === 'year' ? '#08090d' : '#94a3b8'
-              }}
-            >
-              Annual Billing
-              <span style={{
-                background: billingInterval === 'year' ? '#08090d' : '#10b981',
-                color: billingInterval === 'year' ? '#00f2fe' : '#fff',
-                fontSize: '10px',
-                fontWeight: 800,
-                padding: '2px 8px',
-                borderRadius: '12px'
-              }}>
-                SAVE ~17%
-              </span>
-            </button>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              background: 'rgba(17, 19, 26, 0.9)',
+              border: '1px solid rgba(36, 41, 54, 0.8)',
+              borderRadius: '12px',
+              padding: '4px',
+              gap: '4px',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
+            }}>
+              <button
+                onClick={() => setBillingInterval('month')}
+                style={{
+                  padding: '8px 20px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: billingInterval === 'month' ? 'linear-gradient(135deg, #00f2fe, #38bdf8)' : 'transparent',
+                  color: billingInterval === 'month' ? '#08090d' : '#94a3b8'
+                }}
+              >
+                Monthly Billing
+              </button>
+              <button
+                onClick={() => setBillingInterval('year')}
+                style={{
+                  padding: '8px 20px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: billingInterval === 'year' ? 'linear-gradient(135deg, #00f2fe, #38bdf8)' : 'transparent',
+                  color: billingInterval === 'year' ? '#08090d' : '#94a3b8'
+                }}
+              >
+                Annual Billing
+                <span style={{
+                  background: billingInterval === 'year' ? '#08090d' : '#10b981',
+                  color: billingInterval === 'year' ? '#00f2fe' : '#fff',
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: '12px'
+                }}>
+                  SAVE ~17%
+                </span>
+              </button>
+            </div>
+
+            {/* Currency / Payment Gateway Selector */}
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              background: 'rgba(15, 23, 42, 0.85)',
+              border: '1px solid rgba(0, 242, 254, 0.25)',
+              borderRadius: '10px',
+              padding: '3px',
+              gap: '4px'
+            }}>
+              <button
+                onClick={() => setCurrency('NGN')}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '7px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: currency === 'NGN' ? 'linear-gradient(135deg, #10b981, #059669)' : 'transparent',
+                  color: currency === 'NGN' ? '#fff' : '#94a3b8'
+                }}
+              >
+                🇳🇬 Pay with Naira (₦) — Paystack / Cards / Bank
+              </button>
+              <button
+                onClick={() => setCurrency('USD')}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '7px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: currency === 'USD' ? 'linear-gradient(135deg, #00f2fe, #38bdf8)' : 'transparent',
+                  color: currency === 'USD' ? '#08090d' : '#94a3b8'
+                }}
+              >
+                🌍 Pay in USD ($) — Stripe / Global
+              </button>
+            </div>
           </div>
         </div>
 
@@ -673,8 +748,8 @@ export default function PricingPage() {
                   marginBottom: '20px'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                    <span style={{ fontSize: '42px', fontWeight: 900, color: '#fff', letterSpacing: '-1px' }}>
-                      ${price}
+                    <span style={{ fontSize: '38px', fontWeight: 900, color: '#fff', letterSpacing: '-1px' }}>
+                      {currency === 'NGN' ? `₦${(billingInterval === 'month' ? (tier.price_monthly_ngn || 45000) : (tier.price_monthly_ngn || 45000) * 10).toLocaleString()}` : `$${price}`}
                     </span>
                     <span style={{ fontSize: '15px', color: '#64748b', fontWeight: 600, marginLeft: '6px' }}>
                       /{billingInterval === 'month' ? 'month' : 'year'}
@@ -683,6 +758,11 @@ export default function PricingPage() {
                   {billingInterval === 'year' && savings > 0 && (
                     <div style={{ fontSize: '12px', color: '#10b981', fontWeight: 700, marginTop: '4px' }}>
                       Save {savings}% compared to monthly billing
+                    </div>
+                  )}
+                  {currency === 'NGN' && (
+                    <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                      Instant activation via Cards, USSD, or Bank Transfer
                     </div>
                   )}
                 </div>
@@ -723,7 +803,7 @@ export default function PricingPage() {
                       fontWeight: 700
                     }}>
                       <Zap size={14} />
-                      Autonomous Cloud MT5 Execution
+                      Autonomous Cloud Execution (cTrader)
                     </div>
                   )}
                 </div>
@@ -776,13 +856,13 @@ export default function PricingPage() {
                   {processingTier === tier.name ? (
                     <>
                       <Loader2 size={16} className="animate-spin" />
-                      Activating Plan...
+                      Preparing Checkout...
                     </>
                   ) : isCurrentPlan ? (
                     'Current Active Plan'
                   ) : (
                     <>
-                      Select {tier.display_name}
+                      Subscribe ({currency === 'NGN' ? 'Paystack' : 'Stripe'})
                       <ChevronRight size={16} />
                     </>
                   )}

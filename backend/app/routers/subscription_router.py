@@ -30,6 +30,7 @@ class TierInfo(BaseModel):
     description: str
     price_monthly: float
     price_yearly: Optional[float]
+    price_monthly_ngn: Optional[float] = 0.0
     features: List[str]
     max_accounts: int
     auto_execution_enabled: bool
@@ -70,6 +71,7 @@ def get_available_tiers(db: Session = Depends(get_db)):
             description=tier.description,
             price_monthly=tier.price_monthly,
             price_yearly=tier.price_yearly,
+            price_monthly_ngn=getattr(tier, "price_monthly_ngn", 0.0) or 0.0,
             features=tier.features or [],
             max_accounts=tier.max_accounts,
             auto_execution_enabled=tier.auto_execution_enabled,
@@ -190,3 +192,84 @@ async def handle_stripe_webhook(request: Request, db: Session = Depends(get_db))
     except Exception as e:
         logger.error(f"Webhook error: {e}")
         raise HTTPException(status_code=500, detail="Webhook processing failed")
+
+
+# --- Paystack Routes ---
+
+class PaystackCheckoutResponse(BaseModel):
+    checkout_url: str
+    access_code: Optional[str] = None
+    reference: Optional[str] = None
+
+
+@router.get("/paystack/config")
+def get_paystack_config():
+    """Get Paystack public configuration for frontend checkout."""
+    from ..paystack_service import PaystackService
+    return PaystackService.get_public_config()
+
+
+@router.post("/paystack/checkout", response_model=PaystackCheckoutResponse)
+def create_paystack_checkout(
+    req: CheckoutRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create Paystack checkout session for NGN card or bank payments."""
+    from ..paystack_service import PaystackService
+    try:
+        session = PaystackService.create_checkout_session(
+            db=db,
+            user_id=current_user.id,
+            tier_name=req.tier_name,
+            billing_interval=req.billing_interval
+        )
+        return PaystackCheckoutResponse(
+            checkout_url=session["checkout_url"],
+            access_code=session.get("access_code"),
+            reference=session.get("reference")
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating Paystack checkout: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create checkout session")
+
+
+@router.get("/paystack/verify/{reference}")
+def verify_paystack_payment(
+    reference: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Verify a Paystack transaction and activate subscription immediately."""
+    from ..paystack_service import PaystackService
+    try:
+        result = PaystackService.verify_transaction(db, reference)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error verifying Paystack payment: {e}")
+        raise HTTPException(status_code=500, detail="Failed to verify payment")
+
+
+@router.post("/paystack-webhook")
+async def handle_paystack_webhook(request: Request, db: Session = Depends(get_db)):
+    """
+    Handle incoming Paystack webhook events.
+    Verifies HMAC SHA512 signature in x-paystack-signature.
+    """
+    from ..paystack_service import PaystackService
+    body = await request.body()
+    signature = request.headers.get("x-paystack-signature")
+    if not signature:
+        raise HTTPException(status_code=400, detail="Missing x-paystack-signature header")
+    try:
+        PaystackService.handle_webhook_event(db, body, signature)
+        return {"status": "success"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Paystack webhook error: {e}")
+        raise HTTPException(status_code=500, detail="Webhook processing failed")

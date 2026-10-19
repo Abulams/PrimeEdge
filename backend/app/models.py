@@ -548,8 +548,10 @@ class SubscriptionTier(Base):
     price_yearly = Column(Float, nullable=True)   # Yearly price in USD (optional)
     stripe_price_id_monthly = Column(String, nullable=True)  # Stripe Price ID for monthly
     stripe_price_id_yearly = Column(String, nullable=True)   # Stripe Price ID for yearly
+    price_monthly_ngn = Column(Float, nullable=True, default=0.0)  # Monthly price in NGN
+    paystack_plan_id_monthly = Column(String, nullable=True)  # Paystack Plan Code for monthly
     features = Column(JSON, nullable=True)  # List of features: ["Auto-execution", "Real-time signals", etc.]
-    max_accounts = Column(Integer, default=1)  # Max MT5 accounts allowed
+    max_accounts = Column(Integer, default=1)  # Max accounts allowed
     auto_execution_enabled = Column(Boolean, default=False)  # Whether tier has auto-execution access
     api_access_enabled = Column(Boolean, default=False)  # Whether tier has API access
     active = Column(Boolean, default=True, nullable=False)
@@ -563,8 +565,12 @@ class UserSubscription(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     tier_id = Column(Integer, ForeignKey("subscription_tiers.id"), nullable=False, index=True)
+    payment_provider = Column(String, default="stripe", nullable=True)  # "stripe" or "paystack"
     stripe_customer_id = Column(String, nullable=True, index=True)
     stripe_subscription_id = Column(String, nullable=True, index=True)
+    paystack_customer_code = Column(String, nullable=True, index=True)
+    paystack_subscription_code = Column(String, nullable=True, index=True)
+    paystack_reference = Column(String, nullable=True, index=True)
     status = Column(String, default="active", nullable=False)  # "active", "canceled", "past_due", "trialing"
     billing_interval = Column(String, nullable=True)  # "month" or "year"
     current_period_start = Column(DateTime, nullable=True)
