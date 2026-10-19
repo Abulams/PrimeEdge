@@ -88,16 +88,67 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
             return None
 
     logger.info("Signal queue poller started - polling every 5s for PrimeEdge auto-execution orders.")
+    last_account_sync = 0.0
 
     while True:
         await asyncio.sleep(5)
+        now = time.time()
+
+        # Periodic account balance & equity sync + position reconciliation (every 15s)
+        if now - last_account_sync >= 15:
+            last_account_sync = now
+            try:
+                info = await gateway.get_account_info(master_account_id)
+                positions = await gateway.get_open_positions(master_account_id)
+
+                open_pos_ids = {str(p["position_id"]) for p in positions}
+                pnl_total = sum(p.get("pnl", 0.0) for p in positions)
+                balance = info.get("balance", 0.0)
+                equity = round(balance + pnl_total, 2)
+
+                with SessionLocal() as db_sync:
+                    from app.models import UserBrokerAccount, TradeRecord
+                    acc = db_sync.query(UserBrokerAccount).filter(
+                        UserBrokerAccount.ctrader_account_id == str(master_account_id)
+                    ).first()
+                    if not acc:
+                        acc = db_sync.query(UserBrokerAccount).filter(
+                            UserBrokerAccount.login == master_account_id
+                        ).first()
+                    if acc:
+                        acc.balance = balance
+                        acc.equity = equity
+                        if info.get("currency"):
+                            acc.currency = info["currency"]
+                        if info.get("leverage"):
+                            acc.leverage = int(info["leverage"])
+                        acc.last_heartbeat = datetime.datetime.utcnow()
+                        db_sync.commit()
+                        logger.debug("Synced cTrader Account %s: balance=%.2f equity=%.2f", master_account_id, balance, equity)
+
+                    # Auto-reconcile closed positions:
+                    # If an ACTIVE trade has a broker_ticket that is no longer in cTrader open positions,
+                    # mark it CLOSED as BROKER_CLOSE
+                    active_trades = db_sync.query(TradeRecord).filter(
+                        TradeRecord.lifecycle_state == "ACTIVE",
+                        TradeRecord.broker_ticket != None,
+                    ).all()
+                    for tr in active_trades:
+                        if tr.broker_ticket not in open_pos_ids:
+                            logger.info("Position %s closed on cTrader broker side. Finalizing trade #%s", tr.broker_ticket, tr.id)
+                            from app.journal_service import JournalService
+                            JournalService._finalize_trade(tr, tr.actual_entry, "BROKER_CLOSE")
+                            db_sync.commit()
+
+            except Exception as sync_exc:
+                logger.warning("Periodic account/position sync error: %s", sync_exc)
+
         try:
             with SessionLocal() as db:
                 pending = (
                     db.query(ExecutionOrderQueue)
                     .filter(
                         ExecutionOrderQueue.status == "QUEUED",
-                        ExecutionOrderQueue.action_type == "OPEN",
                     )
                     .order_by(ExecutionOrderQueue.created_at.asc())
                     .all()
@@ -107,6 +158,42 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
                     continue
 
                 for order in pending:
+                    if order.action_type == "CLOSE":
+                        logger.info("Executing CLOSE order for Ticket %s on account %s", order.ticket_id, master_account_id)
+                        order.status = "DISPATCHED"
+                        order.dispatched_at = datetime.datetime.utcnow()
+                        db.commit()
+
+                        try:
+                            pos_id = int(order.ticket_id) if order.ticket_id and str(order.ticket_id).isdigit() else None
+                            if pos_id:
+                                positions = await gateway.get_open_positions(master_account_id)
+                                matching_pos = next((p for p in positions if p["position_id"] == pos_id), None)
+                                volume_units = matching_pos["volume"] if matching_pos else int((order.position_size_lots or 0.01) * 100000)
+                                await gateway.close_position(master_account_id, pos_id, volume_units)
+                                logger.info("cTrader position %s closed successfully", pos_id)
+
+                            with SessionLocal() as db2:
+                                db2.query(ExecutionOrderQueue).filter(
+                                    ExecutionOrderQueue.id == order.id
+                                ).update({
+                                    "status": "FILLED",
+                                    "completed_at": datetime.datetime.utcnow(),
+                                })
+                                db2.commit()
+                        except Exception as exc:
+                            logger.error("Failed to execute close order %s: %s", order.id, exc)
+                            with SessionLocal() as db2:
+                                db2.query(ExecutionOrderQueue).filter(
+                                    ExecutionOrderQueue.id == order.id
+                                ).update({
+                                    "status": "REJECTED",
+                                    "error_comment": str(exc)[:500],
+                                    "completed_at": datetime.datetime.utcnow(),
+                                })
+                                db2.commit()
+                        continue
+
                     # Mark dispatched immediately to prevent double-execution
                     order.status = "DISPATCHED"
                     order.dispatched_at = datetime.datetime.utcnow()

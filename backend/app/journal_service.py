@@ -295,18 +295,16 @@ class JournalService:
                 continue
 
             current_price = float(quote["price"])
-            high_price = float(quote.get("high", current_price))
-            low_price = float(quote.get("low", current_price))
             pip_mult = get_pip_multiplier(symbol)
             entry = trade.actual_entry or setup.setup_ref_price
 
-            # Calculate live excursion from entry
+            # Calculate live excursion strictly from live price during active trade lifetime
             if setup.direction == "LONG":
-                adverse_dist = max(0.0, entry - low_price)
-                favorable_dist = max(0.0, high_price - entry)
+                adverse_dist = max(0.0, entry - current_price)
+                favorable_dist = max(0.0, current_price - entry)
             else:
-                adverse_dist = max(0.0, high_price - entry)
-                favorable_dist = max(0.0, entry - low_price)
+                adverse_dist = max(0.0, current_price - entry)
+                favorable_dist = max(0.0, entry - current_price)
 
             mae_pips = round(adverse_dist * pip_mult, 1)
             mfe_pips = round(favorable_dist * pip_mult, 1)
@@ -358,22 +356,22 @@ class JournalService:
                 exit_price = (entry - early_inval_r * risk_dist) if setup.direction == "LONG" else (entry + early_inval_r * risk_dist)
 
             if not should_close and trade.actual_sl:
-                if setup.direction == "LONG" and low_price <= trade.actual_sl:
+                if setup.direction == "LONG" and current_price <= trade.actual_sl:
                     should_close = True
                     exit_reason = "STOP_LOSS"
                     exit_price = trade.actual_sl
-                elif setup.direction == "SHORT" and high_price >= trade.actual_sl:
+                elif setup.direction == "SHORT" and current_price >= trade.actual_sl:
                     should_close = True
                     exit_reason = "STOP_LOSS"
                     exit_price = trade.actual_sl
 
             # Take Profit: only trigger if actual_tp is positioned in the PROFITABLE direction relative to entry
             if not should_close and trade.actual_tp:
-                if setup.direction == "LONG" and trade.actual_tp > entry and high_price >= trade.actual_tp:
+                if setup.direction == "LONG" and trade.actual_tp > entry and current_price >= trade.actual_tp:
                     should_close = True
                     exit_reason = "TAKE_PROFIT"
                     exit_price = trade.actual_tp
-                elif setup.direction == "SHORT" and trade.actual_tp < entry and low_price <= trade.actual_tp:
+                elif setup.direction == "SHORT" and trade.actual_tp < entry and current_price <= trade.actual_tp:
                     should_close = True
                     exit_reason = "TAKE_PROFIT"
                     exit_price = trade.actual_tp

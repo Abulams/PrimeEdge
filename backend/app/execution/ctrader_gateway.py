@@ -387,14 +387,14 @@ class CTraderGateway:
             )
 
         trader = res.trader
-        balance = getattr(trader, "balance", 0) / 100
+        balance = getattr(trader, "balance", 0) / 100.0
         equity = getattr(trader, "equity", None)
-        equity_val = (equity / 100) if equity is not None else balance
+        equity_val = (equity / 100.0) if equity is not None else balance
         return {
             "account_id": account_id,
             "balance": balance,
             "equity": equity_val,
-            "currency": trader.depositAsset.name if trader.HasField("depositAsset") else "USD",
+            "currency": "USD",
             "leverage": trader.leverageInCents / 100 if getattr(trader, "leverageInCents", None) else None,
             "broker_name": getattr(trader, "brokerName", None) or getattr(trader, "brokerTitle", None) or "cTrader",
             "account_type": getattr(trader, "accountType", None),
@@ -662,11 +662,9 @@ class CTraderGateway:
                     "volume_lots": td.volume / _LOTS_TO_CTRADER_UNITS,
                     "open_price": pos.price,
                     "open_timestamp": td.openTimestamp,
-                    "swap": pos.swap / 100,
-                    "commission": pos.commission / 100,
-                    "pnl": pos.unrealizedGrossPnl / 100
-                    if pos.unrealizedGrossPnl
-                    else 0,
+                    "swap": getattr(pos, "swap", 0) / 100 if getattr(pos, "swap", None) is not None else 0.0,
+                    "commission": getattr(pos, "commission", 0) / 100 if getattr(pos, "commission", None) is not None else 0.0,
+                    "pnl": (getattr(pos, "unrealizedGrossPnl", 0) or 0) / 100.0,
                     "account_id": account_id,
                 }
             )

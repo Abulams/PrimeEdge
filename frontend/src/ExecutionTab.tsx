@@ -403,28 +403,6 @@ export const ExecutionTab: React.FC = () => {
           )}
 
           <button
-            onClick={() => handleForceTestTrade('EURUSD', 'LONG')}
-            disabled={testTradeLoading}
-            style={{
-              padding: '8px 14px',
-              background: 'linear-gradient(135deg, var(--accent-teal), var(--accent-blue))',
-              border: 'none',
-              borderRadius: '8px',
-              color: '#000',
-              cursor: testTradeLoading ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '12px',
-              fontWeight: 800,
-              boxShadow: '0 0 12px rgba(0, 242, 254, 0.35)',
-              opacity: testTradeLoading ? 0.7 : 1
-            }}
-          >
-            <Zap size={14} /> {testTradeLoading ? 'Executing...' : '⚡ Test Cloud Trade'}
-          </button>
-
-          <button
             onClick={() => { viewMode === 'subscriber' ? fetchSubscriberData() : fetchAdminData(); }}
             style={{
               padding: '8px 12px',
