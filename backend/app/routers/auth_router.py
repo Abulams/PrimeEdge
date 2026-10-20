@@ -98,12 +98,13 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
-    # Automatically provision default subscription tier (Free / Tier 1)
+    # Automatically provision the Free tier for new public registrations
     try:
         from ..models import SubscriptionTier, UserSubscription
-        free_tier = db.query(SubscriptionTier).filter(SubscriptionTier.price_monthly == 0).first()
+        # Always use the explicitly named 'free' tier; fall back to price=0 tier
+        free_tier = db.query(SubscriptionTier).filter(SubscriptionTier.name == "free").first()
         if not free_tier:
-            free_tier = db.query(SubscriptionTier).order_by(SubscriptionTier.price_monthly.asc()).first()
+            free_tier = db.query(SubscriptionTier).filter(SubscriptionTier.price_monthly == 0).first()
         if free_tier:
             sub = UserSubscription(
                 user_id=new_user.id,

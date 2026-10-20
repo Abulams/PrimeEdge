@@ -490,12 +490,29 @@ class StripeService:
 
     @staticmethod
     def get_user_tier_info(db: Session, user_id: int) -> Optional[Dict[str, Any]]:
-        """Get current tier information for a user."""
+        """Get current tier information for a user from current_tier_id or active UserSubscription."""
         user = db.query(User).filter(User.id == user_id).first()
-        if not user or not user.current_tier_id:
+        if not user:
             return None
 
-        tier = db.query(SubscriptionTier).filter(SubscriptionTier.id == user.current_tier_id).first()
+        tier = None
+        # First check explicit user.current_tier_id
+        if user.current_tier_id:
+            tier = db.query(SubscriptionTier).filter(SubscriptionTier.id == user.current_tier_id).first()
+
+        # If not set, check active UserSubscription
+        if not tier:
+            active_sub = db.query(UserSubscription).filter(
+                UserSubscription.user_id == user_id,
+                UserSubscription.status == "active"
+            ).order_by(UserSubscription.id.desc()).first()
+            if active_sub and active_sub.tier_id:
+                tier = db.query(SubscriptionTier).filter(SubscriptionTier.id == active_sub.tier_id).first()
+
+        # If still none, default to free tier
+        if not tier:
+            tier = db.query(SubscriptionTier).filter(SubscriptionTier.name == "free").first()
+
         if not tier:
             return None
 

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, 
-  Compass, 
+  Compass,
+  Lock, 
   Sliders, 
   BookOpen, 
   MessageSquare, 
@@ -48,6 +49,8 @@ import PricingPage from './PricingPage';
 import FeedbackModal from './FeedbackModal';
 import { notificationService } from './NotificationService';
 import { Bell, BellOff, Volume2, VolumeX } from 'lucide-react';
+import { useTierAccess } from './useTierAccess';
+import { LockedFeature } from './LockedFeature';
 
 
 const API_BASE = (import.meta.env.VITE_API_URL ?? "") + "/api/v1";
@@ -428,6 +431,7 @@ function HorizonBadge({ type }: { type: 'intraday' | 'macro' }) {
 
 function App() {
   const { isAuthenticated, isLoading, user, logout } = useAuth();
+  const tierAccess = useTierAccess(isAuthenticated);
   const [currentPath, setCurrentPath] = useState<string>(() => window.location.pathname);
 
   useEffect(() => {
@@ -1095,31 +1099,6 @@ function App() {
           </li>
           <li>
             <div 
-              className={`nav-item ${activeTab === 'plan' ? 'active' : ''}`}
-              onClick={() => { setActiveTab('plan'); setMobileMenuOpen(false); }}
-            >
-              <Sliders /> PLAN (Cockpit)
-            </div>
-          </li>
-          <li>
-            <div 
-              className={`nav-item ${activeTab === 'execution' ? 'active' : ''}`}
-              onClick={() => { setActiveTab('execution'); setMobileMenuOpen(false); }}
-              style={{ color: activeTab === 'execution' ? 'var(--accent-green)' : undefined }}
-            >
-              <Zap /> EXECUTION (Bridge)
-            </div>
-          </li>
-          <li>
-            <div 
-              className={`nav-item ${activeTab === 'journal' ? 'active' : ''}`}
-              onClick={() => { setActiveTab('journal'); setMobileMenuOpen(false); }}
-            >
-              <BookOpen /> Auto-Journal
-            </div>
-          </li>
-          <li>
-            <div 
               className={`nav-item ${activeTab === 'why' ? 'active' : ''}`}
               onClick={() => { setActiveTab('why'); setMobileMenuOpen(false); }}
             >
@@ -1128,18 +1107,62 @@ function App() {
           </li>
           <li>
             <div 
-              className={`nav-item ${activeTab === 'replay' ? 'active' : ''}`}
-              onClick={() => { setActiveTab('replay'); setMobileMenuOpen(false); }}
+              className={`nav-item ${activeTab === 'plan' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('plan'); setMobileMenuOpen(false); }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
             >
-              <Play /> REPLAY (Simulation)
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sliders /> PLAN (Cockpit)
+              </div>
+              {!tierAccess.canUsePlan && <Lock size={12} style={{ color: 'var(--text-muted)', opacity: 0.7 }} />}
+            </div>
+          </li>
+          <li>
+            <div 
+              className={`nav-item ${activeTab === 'journal' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('journal'); setMobileMenuOpen(false); }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <BookOpen /> Auto-Journal
+              </div>
+              {!tierAccess.canUseJournal && <Lock size={12} style={{ color: 'var(--text-muted)', opacity: 0.7 }} />}
             </div>
           </li>
           <li>
             <div 
               className={`nav-item ${activeTab === 'chat' ? 'active' : ''}`}
               onClick={() => { setActiveTab('chat'); setMobileMenuOpen(false); }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
             >
-              <MessageSquare /> AI Analyst
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <MessageSquare /> AI Analyst
+              </div>
+              {!tierAccess.canUseChat && <Lock size={12} style={{ color: 'var(--text-muted)', opacity: 0.7 }} />}
+            </div>
+          </li>
+          <li>
+            <div 
+              className={`nav-item ${activeTab === 'replay' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('replay'); setMobileMenuOpen(false); }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Play /> REPLAY (Simulation)
+              </div>
+              {!tierAccess.canUseReplay && <Lock size={12} style={{ color: 'var(--text-muted)', opacity: 0.7 }} />}
+            </div>
+          </li>
+          <li>
+            <div 
+              className={`nav-item ${activeTab === 'execution' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('execution'); setMobileMenuOpen(false); }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: activeTab === 'execution' ? 'var(--accent-green)' : undefined }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Zap /> EXECUTION (Bridge)
+              </div>
+              {!tierAccess.canUseExecution && <Lock size={12} style={{ color: 'var(--text-muted)', opacity: 0.7 }} />}
             </div>
           </li>
           {user?.is_admin && (
@@ -1630,7 +1653,15 @@ function App() {
         )}
 
         {/* --- SCREEN 2: PLAN (Execution Cockpit) --- */}
-        {activeTab === 'plan' && (
+        {activeTab === 'plan' && !tierAccess.canUsePlan && (
+          <LockedFeature
+            featureName="PLAN — Trade Cockpit"
+            requiredTier="starter"
+            currentTier={tierAccess.tier}
+            description="Build precise trade plans with AI-powered entry zones, risk sizing, and session probability scoring. Available on Starter and above."
+          />
+        )}
+        {activeTab === 'plan' && tierAccess.canUsePlan && (
           <div className="animate-fade-in">
             <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
@@ -1775,14 +1806,30 @@ function App() {
 
 
         {/* --- 4. TRADING JOURNAL (Auto Journal) --- */}
-        {activeTab === 'journal' && (
+        {activeTab === 'journal' && !tierAccess.canUseJournal && (
+          <LockedFeature
+            featureName="Auto-Journal"
+            requiredTier="starter"
+            currentTier={tierAccess.tier}
+            description="Automatically track every executed setup with entry excursion, MFE, MAE, and performance analytics. Available on Starter and above."
+          />
+        )}
+        {activeTab === 'journal' && tierAccess.canUseJournal && (
           <div className="animate-fade-in">
             <AutoJournalTab />
           </div>
         )}
 
         {/* --- 5. AI CHAT ASSISTANT --- */}
-        {activeTab === 'chat' && (
+        {activeTab === 'chat' && !tierAccess.canUseChat && (
+          <LockedFeature
+            featureName="AI Analyst"
+            requiredTier="starter"
+            currentTier={tierAccess.tier}
+            description="Ask the quantitative AI analyst anything about market regimes, MSD signatures, and trade setups. Available on Starter and above."
+          />
+        )}
+        {activeTab === 'chat' && tierAccess.canUseChat && (
           <div className="animate-fade-in">
             <header className="dashboard-header">
               <h2 className="dashboard-title">Conversational Research Assistant</h2>
@@ -1903,14 +1950,30 @@ function App() {
         )}
 
         {/* --- 6. HISTORICAL REPLAY / SIMULATION --- */}
-        {activeTab === 'replay' && (
+        {activeTab === 'replay' && !tierAccess.canUseReplay && (
+          <LockedFeature
+            featureName="REPLAY — Simulation Engine"
+            requiredTier="pro"
+            currentTier={tierAccess.tier}
+            description="Replay historical market setups frame-by-frame to train your pattern recognition and validate your thesis before going live. Available on Pro and above."
+          />
+        )}
+        {activeTab === 'replay' && tierAccess.canUseReplay && (
           <div className="animate-fade-in">
             <ReplayTab />
           </div>
         )}
 
         {/* --- 7. LIVE EXECUTION GATEWAY & BRIDGE --- */}
-        {activeTab === 'execution' && (
+        {activeTab === 'execution' && !tierAccess.canUseExecution && (
+          <LockedFeature
+            featureName="EXECUTION — cTrader Bridge"
+            requiredTier="premium"
+            currentTier={tierAccess.tier}
+            description="Connect your cTrader accounts and let PrimeEdge auto-execute setups the instant they hit READY status, with dynamic risk sizing. Available on Premium only."
+          />
+        )}
+        {activeTab === 'execution' && tierAccess.canUseExecution && (
           <div className="animate-fade-in">
             <ExecutionTab />
           </div>

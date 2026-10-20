@@ -645,7 +645,8 @@ export default function PricingPage() {
             const price = billingInterval === 'month' ? tier.price_monthly : (tier.price_yearly || tier.price_monthly * 12);
             const isPremium = tier.name === 'premium';
             const isPro = tier.name === 'pro';
-            const Icon = tier.name === 'starter' ? Star : isPro ? Shield : Crown;
+            const isFree = tier.name === 'free';
+            const Icon = isFree ? Zap : tier.name === 'starter' ? Star : isPro ? Shield : Crown;
 
             return (
               <div
@@ -719,12 +720,12 @@ export default function PricingPage() {
                     width: '36px',
                     height: '36px',
                     borderRadius: '8px',
-                    background: isPremium ? 'rgba(245, 158, 11, 0.15)' : isPro ? 'rgba(0, 242, 254, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                    background: isPremium ? 'rgba(245, 158, 11, 0.15)' : isPro ? 'rgba(0, 242, 254, 0.15)' : isFree ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255, 255, 255, 0.05)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}>
-                    <Icon size={20} color={isPremium ? '#fbbf24' : isPro ? '#00f2fe' : '#94a3b8'} />
+                    <Icon size={20} color={isPremium ? '#fbbf24' : isPro ? '#00f2fe' : isFree ? '#10b981' : '#94a3b8'} />
                   </div>
                   <h3 style={{ fontSize: '22px', fontWeight: 800, color: '#fff', margin: 0 }}>
                     {tier.display_name}
@@ -749,7 +750,7 @@ export default function PricingPage() {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'baseline' }}>
                     <span style={{ fontSize: '38px', fontWeight: 900, color: '#fff', letterSpacing: '-1px' }}>
-                      {currency === 'NGN' ? `₦${(billingInterval === 'month' ? (tier.price_monthly_ngn || 45000) : (tier.price_monthly_ngn || 45000) * 10).toLocaleString()}` : `$${price}`}
+                      {tier.price_monthly === 0 ? '$0' : currency === 'NGN' ? `₦${(billingInterval === 'month' ? (tier.price_monthly_ngn || 45000) : (tier.price_monthly_ngn || 45000) * 10).toLocaleString()}` : `$${price}`}
                     </span>
                     <span style={{ fontSize: '15px', color: '#64748b', fontWeight: 600, marginLeft: '6px' }}>
                       /{billingInterval === 'month' ? 'month' : 'year'}
@@ -860,9 +861,14 @@ export default function PricingPage() {
                     </>
                   ) : isCurrentPlan ? (
                     'Current Active Plan'
+                  ) : tier.price_monthly === 0 ? (
+                    <>
+                      Included with Account
+                      <ChevronRight size={16} />
+                    </>
                   ) : (
                     <>
-                      Subscribe ({currency === 'NGN' ? 'Paystack' : 'Stripe'})
+                      Upgrade to {tier.display_name} ({currency === 'NGN' ? 'Paystack' : 'Stripe'})
                       <ChevronRight size={16} />
                     </>
                   )}
