@@ -50,7 +50,8 @@ class PaystackService:
         if not tier:
             raise ValueError(f"Tier '{tier_name}' not found")
 
-        amount_ngn = tier.price_monthly_ngn or (tier.price_monthly * 1500.0)
+        base_monthly = tier.price_monthly_ngn or (tier.price_monthly * 1500.0)
+        amount_ngn = (base_monthly * 10.0) if billing_interval == "year" else base_monthly
         amount_kobo = int(round(amount_ngn * 100))
 
         frontend_url = os.getenv("FRONTEND_URL", "https://primeedge.app").rstrip("/")
@@ -59,7 +60,9 @@ class PaystackService:
         payload: Dict[str, Any] = {
             "email": user.email,
             "amount": amount_kobo,
+            "currency": "NGN",
             "callback_url": callback_url,
+            "channels": ["card", "bank", "bank_transfer", "ussd", "qr"],
             "metadata": {
                 "user_id": str(user.id),
                 "tier_id": str(tier.id),
@@ -79,10 +82,6 @@ class PaystackService:
                 ]
             }
         }
-
-        # If a monthly recurring plan code exists, attach it
-        if billing_interval == "month" and tier.paystack_plan_id_monthly:
-            payload["plan"] = tier.paystack_plan_id_monthly
 
         headers = {
             "Authorization": f"Bearer {secret_key}",
@@ -192,7 +191,9 @@ class PaystackService:
             s.cancel_at_period_end = True
 
         now = datetime.datetime.utcnow()
-        period_end = now + datetime.timedelta(days=30)
+        interval = metadata.get("billing_interval", "month")
+        days = 365 if interval == "year" else 30
+        period_end = now + datetime.timedelta(days=days)
 
         customer_code = tx_data.get("customer", {}).get("customer_code")
         plan_code = tx_data.get("plan")
