@@ -159,109 +159,100 @@ class RealtimeService:
                     UserBrokerAccount.auto_execution_enabled == True
                 ).all()
 
-                if auto_accounts:
-                    # DB-FIRST SCANNER: Execute all today's READY snaps that have no trade yet.
-                    # The engine's live re-evaluation fluctuates with price — a snap already stored
-                    # as READY should always be acted on, regardless of the engine's current output.
-                    ready_snaps = db.query(SetupSnapshot).filter(
-                        SetupSnapshot.date == today,
-                        SetupSnapshot.status_at_snapshot == "READY",
-                        SetupSnapshot.snapshot_source == "AUTONOMOUS_CLOUD_ENGINE"
-                    ).all()
-
-                    logger.info(f"[Auto-Execution Scanner] Found {len(ready_snaps)} READY snap(s) for {today}")
-
-                    for snap in ready_snaps:
-                        inst = snap.instrument
-                        direction = snap.direction or "LONG"
-
-                        for acc in auto_accounts:
-                            try:
-                                # Guard A: Check Allowed Instruments Whitelist
-                                allowed = acc.allowed_instruments or []
-                                if allowed and inst not in allowed:
-                                    logger.debug(f"[Auto-Execution] Instrument {inst} not in allowed list for Account #{acc.login}")
-                                    continue
-
-                                # Guard B: Check Max Concurrent Open Trades
-                                open_count = db.query(TradeRecord).filter(
-                                    TradeRecord.account_id == acc.id,
-                                    TradeRecord.lifecycle_state == "ACTIVE"
-                                ).count()
-                                max_open = acc.max_concurrent_trades or 3
-                                if open_count >= max_open:
-                                    logger.debug(f"[Auto-Execution] Account #{acc.login} at max trades ({open_count}/{max_open})")
-                                    continue
-
-                                # Guard C: STRICT 1-TRADE PER DISTINCT READY SIGNAL INSTANCE PER ACCOUNT
-                                already_executed_signal = db.query(TradeRecord).filter(
-                                    TradeRecord.account_id == acc.id,
-                                    TradeRecord.setup_snapshot_id == snap.id
-                                ).first()
-
-                                if already_executed_signal:
-                                    continue  # Already executed this signal instance
-
-                                # Determine lot size & risk from user preferences
-                                risk_percentage = acc.risk_pct or 1.0
-                                acc_balance = acc.balance if (acc.balance and acc.balance > 0) else 10000.0
-
-                                pip_mult = 100.0 if "JPY" in inst else (10.0 if "XAU" in inst else 10000.0)
-                                dir_sign = 1.0 if direction == "LONG" else -1.0
-                                mfe_target_pips = snap.mfe_p75_pips or snap.mfe_p50_pips or 30.0
-
-                                actual_entry = snap.corridor_p25_price or snap.setup_ref_price or 1.0
-                                actual_sl = snap.p90_invalidation or round(actual_entry - (dir_sign * 25.0 / pip_mult), 5)
-                                actual_tp = round(actual_entry + (dir_sign * mfe_target_pips / pip_mult), 5)
-
-                                # Calculate position size based on user's configured risk mode
-                                risk_mode = getattr(acc, "risk_mode", "FIXED_LOT") or "FIXED_LOT"
-                                if risk_mode == "DYNAMIC_RISK_PCT":
-                                    risk_dist = abs(actual_entry - actual_sl)
-                                    risk_pips = round(risk_dist * pip_mult, 1)
-                                    risk_amount_usd = acc_balance * (risk_percentage / 100.0)
-
-                                    # Standard pip value per 1.0 standard lot
-                                    if "JPY" in inst:
-                                        # 100k JPY per lot. At ~158 USDJPY, 1 pip (0.01) = 1,000 JPY / 158 ≈ $6.33
-                                        pip_val_usd = 6.5
-                                    elif "US100" in inst:
-                                        pip_val_usd = 20.0
-                                    else:
-                                        # Standard Forex (EURUSD, GBPUSD, AUDUSD) and XAUUSD (100 oz * $0.10)
-                                        pip_val_usd = 10.0
-
-                                    if risk_pips > 0 and pip_val_usd > 0:
-                                        calc_lots = round(risk_amount_usd / (risk_pips * pip_val_usd), 2)
-                                        size_lots = max(0.01, min(calc_lots, 50.0))
-                                    else:
-                                        size_lots = 0.01
-                                    logger.info(f"📊 [Auto-Execution Sizing] Account #{acc.login} DYNAMIC_RISK_PCT: balance=${acc_balance:.2f}, risk={risk_percentage}%, risk_amount=${risk_amount_usd:.2f}, risk_pips={risk_pips:.1f} -> lots={size_lots}")
-                                else:
-                                    size_lots = acc.fixed_lot_size or 0.01
-                                    logger.info(f"📊 [Auto-Execution Sizing] Account #{acc.login} FIXED_LOT: lots={size_lots}")
-
-                                # Accept trade tied to user and account
-                                JournalService.accept_setup(
-                                    db=db,
-                                    snapshot_id=snap.id,
-                                    actual_entry=actual_entry,
-                                    actual_sl=actual_sl,
-                                    actual_tp=actual_tp,
-                                    position_size_lots=size_lots,
-                                    risk_pct=risk_percentage,
-                                    account_balance=acc_balance,
-                                    notes=f"Market OS Autonomous Execution Engine (Signal #{snap.id})",
-                                    account_id=acc.id,
-                                    user_id=acc.user_id
-                                )
-                                logger.info(f"🤖 [Auto-Execution] Queued READY signal #{snap.id} ({inst} {direction}) for Account #{acc.login} (Acc ID {acc.id})")
-                            except Exception as acc_exec_err:
-                                logger.error(f"❌ [Auto-Execution] Error executing signal #{snap.id} for Account #{acc.id}: {acc_exec_err}", exc_info=True)
-                                db.rollback()
+                def _dispatch_snap_to_auto_accounts(snap):
+                    inst = snap.instrument
+                    direction = snap.direction or "LONG"
+                    for acc in auto_accounts:
+                        try:
+                            # Guard A: Check Allowed Instruments Whitelist
+                            allowed = acc.allowed_instruments or []
+                            if isinstance(allowed, str):
+                                import json
+                                try:
+                                    allowed = json.loads(allowed)
+                                except Exception:
+                                    allowed = []
+                            if allowed and inst not in allowed and "ALL" not in allowed:
+                                logger.debug(f"[Auto-Execution] Instrument {inst} not in allowed list for Account #{acc.login}")
                                 continue
 
-                    # Also run engine to catch any NEW READY setups not yet snapshotted
+                            # Guard B: Check Max Concurrent Open Trades
+                            open_count = db.query(TradeRecord).filter(
+                                TradeRecord.account_id == acc.id,
+                                TradeRecord.lifecycle_state == "ACTIVE"
+                            ).count()
+                            max_open = acc.max_concurrent_trades or 5
+                            if open_count >= max_open:
+                                logger.debug(f"[Auto-Execution] Account #{acc.login} at max trades ({open_count}/{max_open})")
+                                continue
+
+                            # Guard C: STRICT 1-TRADE PER DISTINCT READY SIGNAL INSTANCE PER ACCOUNT
+                            already_executed_signal = db.query(TradeRecord).filter(
+                                TradeRecord.account_id == acc.id,
+                                TradeRecord.setup_snapshot_id == snap.id
+                            ).first()
+
+                            if already_executed_signal:
+                                continue  # Already executed this signal instance
+
+                            # Determine lot size & risk from user preferences
+                            risk_percentage = acc.risk_pct or 1.0
+                            acc_balance = acc.balance if (acc.balance and acc.balance > 0) else 10000.0
+
+                            pip_mult = 100.0 if "JPY" in inst else (10.0 if "XAU" in inst else 10000.0)
+                            dir_sign = 1.0 if direction == "LONG" else -1.0
+                            mfe_target_pips = snap.mfe_p75_pips or snap.mfe_p50_pips or 30.0
+
+                            actual_entry = snap.corridor_p25_price or snap.setup_ref_price or 1.0
+                            actual_sl = snap.p90_invalidation or round(actual_entry - (dir_sign * 25.0 / pip_mult), 5)
+                            actual_tp = round(actual_entry + (dir_sign * mfe_target_pips / pip_mult), 5)
+
+                            # Calculate position size based on user's configured risk mode
+                            risk_mode = getattr(acc, "risk_mode", "FIXED_LOT") or "FIXED_LOT"
+                            if risk_mode == "DYNAMIC_RISK_PCT":
+                                risk_dist = abs(actual_entry - actual_sl)
+                                risk_pips = round(risk_dist * pip_mult, 1)
+                                risk_amount_usd = acc_balance * (risk_percentage / 100.0)
+
+                                if "JPY" in inst:
+                                    pip_val_usd = 6.5
+                                elif "US100" in inst:
+                                    pip_val_usd = 20.0
+                                else:
+                                    pip_val_usd = 10.0
+
+                                if risk_pips > 0 and pip_val_usd > 0:
+                                    calc_lots = round(risk_amount_usd / (risk_pips * pip_val_usd), 2)
+                                    size_lots = max(0.01, min(calc_lots, 50.0))
+                                else:
+                                    size_lots = 0.01
+                                logger.info(f"📊 [Auto-Execution Sizing] Account #{acc.login} DYNAMIC_RISK_PCT: balance=${acc_balance:.2f}, risk={risk_percentage}%, risk_amount=${risk_amount_usd:.2f}, risk_pips={risk_pips:.1f} -> lots={size_lots}")
+                            else:
+                                size_lots = acc.fixed_lot_size or 0.01
+                                logger.info(f"📊 [Auto-Execution Sizing] Account #{acc.login} FIXED_LOT: lots={size_lots}")
+
+                            # Accept trade tied to user and account
+                            JournalService.accept_setup(
+                                db=db,
+                                snapshot_id=snap.id,
+                                actual_entry=actual_entry,
+                                actual_sl=actual_sl,
+                                actual_tp=actual_tp,
+                                position_size_lots=size_lots,
+                                risk_pct=risk_percentage,
+                                account_balance=acc_balance,
+                                notes=f"Market OS Autonomous Execution Engine (Signal #{snap.id})",
+                                account_id=acc.id,
+                                user_id=acc.user_id
+                            )
+                            logger.info(f"🤖 [Auto-Execution] Queued READY signal #{snap.id} ({inst} {direction}) for Account #{acc.login} (Acc ID {acc.id})")
+                        except Exception as acc_exec_err:
+                            logger.error(f"❌ [Auto-Execution] Error executing signal #{snap.id} for Account #{acc.id}: {acc_exec_err}", exc_info=True)
+                            db.rollback()
+                            continue
+
+                if auto_accounts:
+                    # 1. Run engine scan to catch ANY NEW READY setups and create/dispatch them IMMEDIATELY
                     instruments_to_scan = ["XAUUSD", "US100", "EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "AUDJPY"]
                     for inst in instruments_to_scan:
                         try:
@@ -273,7 +264,6 @@ class RealtimeService:
                                 ref_price = prof_data.get("setup_ref_price", 0.0)
                                 session_name = prof_data.get("best_session", "ANY")
 
-                                # Only create a new snap if one doesn't exist yet for this signal
                                 existing_snap = db.query(SetupSnapshot).filter(
                                     SetupSnapshot.instrument == inst,
                                     SetupSnapshot.date == today,
@@ -285,10 +275,21 @@ class RealtimeService:
                                 ).first()
 
                                 if not existing_snap:
-                                    logger.info(f"[Auto-Execution] New READY signal detected for {inst} — creating snapshot")
-                                    JournalService.create_setup_snapshot(db, inst, source="AUTONOMOUS_CLOUD_ENGINE")
+                                    logger.info(f"[Auto-Execution] New READY signal detected for {inst} ({direction}) — creating snapshot and dispatching immediately")
+                                    new_snap = JournalService.create_setup_snapshot(db, inst, source="AUTONOMOUS_CLOUD_ENGINE", direction=direction)
+                                    _dispatch_snap_to_auto_accounts(new_snap)
                         except Exception as eng_err:
                             logger.error(f"[Auto-Execution] Engine scan error for {inst}: {eng_err}")
+
+                    # 2. Also sweep any existing READY snaps for today that have not yet been executed
+                    ready_snaps = db.query(SetupSnapshot).filter(
+                        SetupSnapshot.date == today,
+                        SetupSnapshot.status_at_snapshot == "READY",
+                        SetupSnapshot.snapshot_source == "AUTONOMOUS_CLOUD_ENGINE"
+                    ).all()
+
+                    for snap in ready_snaps:
+                        _dispatch_snap_to_auto_accounts(snap)
             except Exception as auto_err:
                 logger.error(f"Error in autonomous execution scanner: {auto_err}", exc_info=True)
 

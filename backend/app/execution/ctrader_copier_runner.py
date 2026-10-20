@@ -89,12 +89,12 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
             logger.error("Failed to resolve symbol %s: %s", instrument, exc)
             return None
 
-    logger.info("Signal queue poller started - polling every 5s for PrimeEdge auto-execution orders.")
+    logger.info("Signal queue poller started - polling every 1s for PrimeEdge auto-execution orders.")
     last_account_sync = 0.0
 
     while True:
         try:
-            await asyncio.sleep(5)
+            await asyncio.sleep(1)
             now = time.time()
 
             # Periodic account balance & equity sync + position reconciliation (every 15s)
@@ -342,18 +342,18 @@ async def main():
     logger.info("PrimeEdge cTrader Copier is actively running.")
     logger.info("Signal auto-execution ENABLED - PrimeEdge setups will fire on account %s", master_account_id)
 
-    # Run signal queue poller concurrently with the copier service
-    poller_task = asyncio.create_task(
-        poll_signal_queue(gateway, master_account_id, master_token)
-    )
+    # Run supervised signal queue poller concurrently with the copier service
+    async def supervised_poller():
+        while not stop_event.is_set():
+            try:
+                await poll_signal_queue(gateway, master_account_id, master_token)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.critical("Signal poller crashed: %s. Auto-restarting in 2s...", e, exc_info=True)
+                await asyncio.sleep(2)
 
-    def on_poller_done(t):
-        if not t.cancelled():
-            exc = t.exception()
-            if exc:
-                logger.critical("Poller task unexpectedly crashed: %s", exc, exc_info=exc)
-
-    poller_task.add_done_callback(on_poller_done)
+    poller_task = asyncio.create_task(supervised_poller())
 
     await stop_event.wait()
 
