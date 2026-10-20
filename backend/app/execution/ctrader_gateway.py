@@ -189,16 +189,21 @@ class CTraderGateway:
                 exec_event = extracted
                 account_id = exec_event.ctidTraderAccountId
 
-                # Resolve order-placement future: try by msg_id first, then any pending future
+                # Only resolve order-placement futures on terminal events (FILLED, REJECTED, CANCELLED)
+                # ProtoOAExecutionType: 2 = ORDER_ACCEPTED, 3 = ORDER_FILLED, 4 = ORDER_CANCELLED, 5 = ORDER_EXPIRED, 6 = ORDER_REJECTED
+                exec_type = getattr(exec_event, "executionType", 0)
+                is_terminal = exec_type in (3, 4, 5, 6)
+
+                # Resolve order-placement future: try by msg_id first, then oldest pending on terminal event
                 resolved = False
                 if msg_id and msg_id in self._pending:
                     self._loop.call_soon_threadsafe(
                         self._resolve_future, msg_id, exec_event
                     )
                     resolved = True
-                elif self._pending:
+                elif is_terminal and self._pending:
                     # cTrader doesn't always echo clientMsgId on execution events.
-                    # Resolve the oldest outstanding future (FIFO assumption).
+                    # Resolve the oldest outstanding future (FIFO assumption) when filled.
                     oldest_id = next(iter(self._pending))
                     self._loop.call_soon_threadsafe(
                         self._resolve_future, oldest_id, exec_event
@@ -535,17 +540,33 @@ class CTraderGateway:
         position = exec_event.position if exec_event.HasField("position") else None
         order = exec_event.order if exec_event.HasField("order") else None
 
+        pos_id = position.positionId if position else None
+        fill_price = position.price if position else None
+
+        if not pos_id:
+            try:
+                open_positions = await self.get_open_positions(account_id)
+                matching = [p for p in open_positions if p["symbol_id"] == symbol_id]
+                if matching:
+                    newest = max(matching, key=lambda p: p.get("open_timestamp", 0))
+                    pos_id = newest["position_id"]
+                    fill_price = newest["open_price"]
+            except Exception as e:
+                logger.warning("Could not reconcile open position after market order: %s", e)
+
         logger.info(
-            "Order executed: position_id=%s order_id=%s account=%s",
-            position.positionId if position else None,
+            "Order executed: position_id=%s order_id=%s fill_price=%s account=%s",
+            pos_id,
             order.orderId if order else None,
+            fill_price,
             account_id,
         )
 
         return {
             "execution_type": exec_event.executionType,
-            "position_id": position.positionId if position else None,
+            "position_id": pos_id,
             "order_id": order.orderId if order else None,
+            "fill_price": fill_price,
             "volume": position.tradeData.volume if position else req.volume,
             "direction": direction,
             "symbol_id": symbol_id,

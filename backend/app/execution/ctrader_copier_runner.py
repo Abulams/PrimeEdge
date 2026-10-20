@@ -10,10 +10,12 @@ Or via systemd:
 """
 
 import asyncio
+import datetime
 import logging
 import os
 import signal
 import sys
+import time
 
 from app.database import SessionLocal
 from app.execution.ctrader_gateway import CTraderGateway
@@ -91,59 +93,59 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
     last_account_sync = 0.0
 
     while True:
-        await asyncio.sleep(5)
-        now = time.time()
-
-        # Periodic account balance & equity sync + position reconciliation (every 15s)
-        if now - last_account_sync >= 15:
-            last_account_sync = now
-            try:
-                info = await gateway.get_account_info(master_account_id)
-                positions = await gateway.get_open_positions(master_account_id)
-
-                open_pos_ids = {str(p["position_id"]) for p in positions}
-                pnl_total = sum(p.get("pnl", 0.0) for p in positions)
-                balance = info.get("balance", 0.0)
-                equity = round(balance + pnl_total, 2)
-
-                with SessionLocal() as db_sync:
-                    from app.models import UserBrokerAccount, TradeRecord
-                    acc = db_sync.query(UserBrokerAccount).filter(
-                        UserBrokerAccount.ctrader_account_id == str(master_account_id)
-                    ).first()
-                    if not acc:
-                        acc = db_sync.query(UserBrokerAccount).filter(
-                            UserBrokerAccount.login == master_account_id
-                        ).first()
-                    if acc:
-                        acc.balance = balance
-                        acc.equity = equity
-                        if info.get("currency"):
-                            acc.currency = info["currency"]
-                        if info.get("leverage"):
-                            acc.leverage = int(info["leverage"])
-                        acc.last_heartbeat = datetime.datetime.utcnow()
-                        db_sync.commit()
-                        logger.debug("Synced cTrader Account %s: balance=%.2f equity=%.2f", master_account_id, balance, equity)
-
-                    # Auto-reconcile closed positions:
-                    # If an ACTIVE trade has a broker_ticket that is no longer in cTrader open positions,
-                    # mark it CLOSED as BROKER_CLOSE
-                    active_trades = db_sync.query(TradeRecord).filter(
-                        TradeRecord.lifecycle_state == "ACTIVE",
-                        TradeRecord.broker_ticket != None,
-                    ).all()
-                    for tr in active_trades:
-                        if tr.broker_ticket not in open_pos_ids:
-                            logger.info("Position %s closed on cTrader broker side. Finalizing trade #%s", tr.broker_ticket, tr.id)
-                            from app.journal_service import JournalService
-                            JournalService._finalize_trade(tr, tr.actual_entry, "BROKER_CLOSE")
-                            db_sync.commit()
-
-            except Exception as sync_exc:
-                logger.warning("Periodic account/position sync error: %s", sync_exc)
-
         try:
+            await asyncio.sleep(5)
+            now = time.time()
+
+            # Periodic account balance & equity sync + position reconciliation (every 15s)
+            if now - last_account_sync >= 15:
+                last_account_sync = now
+                try:
+                    info = await gateway.get_account_info(master_account_id)
+                    positions = await gateway.get_open_positions(master_account_id)
+
+                    open_pos_ids = {str(p["position_id"]) for p in positions}
+                    pnl_total = sum(p.get("pnl", 0.0) for p in positions)
+                    balance = info.get("balance", 0.0)
+                    equity = round(balance + pnl_total, 2)
+
+                    with SessionLocal() as db_sync:
+                        from app.models import UserBrokerAccount, TradeRecord
+                        acc = db_sync.query(UserBrokerAccount).filter(
+                            UserBrokerAccount.ctrader_account_id == str(master_account_id)
+                        ).first()
+                        if not acc:
+                            acc = db_sync.query(UserBrokerAccount).filter(
+                                UserBrokerAccount.login == master_account_id
+                            ).first()
+                        if acc:
+                            acc.balance = balance
+                            acc.equity = equity
+                            if info.get("currency"):
+                                acc.currency = info["currency"]
+                            if info.get("leverage"):
+                                acc.leverage = int(info["leverage"])
+                            acc.last_heartbeat = datetime.datetime.utcnow()
+                            db_sync.commit()
+                            logger.debug("Synced cTrader Account %s: balance=%.2f equity=%.2f", master_account_id, balance, equity)
+
+                        # Auto-reconcile closed positions:
+                        # If an ACTIVE trade has a broker_ticket that is no longer in cTrader open positions,
+                        # mark it CLOSED as BROKER_CLOSE
+                        active_trades = db_sync.query(TradeRecord).filter(
+                            TradeRecord.lifecycle_state == "ACTIVE",
+                            TradeRecord.broker_ticket != None,
+                        ).all()
+                        for tr in active_trades:
+                            if tr.broker_ticket not in open_pos_ids:
+                                logger.info("Position %s closed on cTrader broker side. Finalizing trade #%s", tr.broker_ticket, tr.id)
+                                from app.journal_service import JournalService
+                                JournalService._finalize_trade(tr, tr.actual_entry, "BROKER_CLOSE")
+                                db_sync.commit()
+
+                except Exception as sync_exc:
+                    logger.warning("Periodic account/position sync error: %s", sync_exc)
+
             with SessionLocal() as db:
                 pending = (
                     db.query(ExecutionOrderQueue)
@@ -169,9 +171,12 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
                             if pos_id:
                                 positions = await gateway.get_open_positions(master_account_id)
                                 matching_pos = next((p for p in positions if p["position_id"] == pos_id), None)
-                                volume_units = matching_pos["volume"] if matching_pos else int((order.position_size_lots or 0.01) * 100000)
-                                await gateway.close_position(master_account_id, pos_id, volume_units)
-                                logger.info("cTrader position %s closed successfully", pos_id)
+                                if matching_pos:
+                                    volume_units = matching_pos["volume"]
+                                    await gateway.close_position(master_account_id, pos_id, volume_units)
+                                    logger.info("cTrader position %s closed successfully", pos_id)
+                                else:
+                                    logger.info("cTrader position %s is already closed on broker", pos_id)
 
                             with SessionLocal() as db2:
                                 db2.query(ExecutionOrderQueue).filter(
@@ -249,12 +254,16 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
                             })
                             if order.trade_id:
                                 from ..models import TradeRecord
-                                db2.query(TradeRecord).filter(
-                                    TradeRecord.id == order.trade_id
-                                ).update({
+                                update_dict = {
                                     "execution_status": "FILLED",
                                     "broker_ticket": ticket_str,
-                                })
+                                    "entry_timestamp": datetime.datetime.utcnow(),
+                                }
+                                if result.get("fill_price"):
+                                    update_dict["actual_entry"] = result["fill_price"]
+                                db2.query(TradeRecord).filter(
+                                    TradeRecord.id == order.trade_id
+                                ).update(update_dict)
                             db2.commit()
 
                         logger.info(
@@ -286,8 +295,9 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
                                 })
                             db2.commit()
 
-        except Exception as exc:
-            logger.error("Signal queue poller error: %s", exc)
+        except Exception as loop_exc:
+            logger.error("Error in signal queue poller loop: %s", loop_exc, exc_info=True)
+            await asyncio.sleep(5)
 
 
 async def main():
@@ -336,6 +346,14 @@ async def main():
     poller_task = asyncio.create_task(
         poll_signal_queue(gateway, master_account_id, master_token)
     )
+
+    def on_poller_done(t):
+        if not t.cancelled():
+            exc = t.exception()
+            if exc:
+                logger.critical("Poller task unexpectedly crashed: %s", exc, exc_info=exc)
+
+    poller_task.add_done_callback(on_poller_done)
 
     await stop_event.wait()
 
