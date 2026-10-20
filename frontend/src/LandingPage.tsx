@@ -58,7 +58,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
     if (onOpenWaitlist) {
       onOpenWaitlist();
     } else {
-      window.location.href = '/waitlist';
+      window.location.href = '/register';
     }
   };
 
@@ -1336,8 +1336,8 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                 <a href="/privacy.html" style={{ color: '#94a3b8', textDecoration: 'none' }}>
                   Privacy & Data Policy
                 </a>
-                <a href="/waitlist" style={{ color: '#00f2fe', textDecoration: 'none', fontWeight: 600 }}>
-                  Apply for Access
+                <a href="/register" style={{ color: '#00f2fe', textDecoration: 'none', fontWeight: 600 }}>
+                  Create Free Account
                 </a>
               </div>
             </div>

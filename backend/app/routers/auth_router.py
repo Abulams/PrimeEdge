@@ -75,10 +75,49 @@ class AdminUpdateUserRequest(BaseModel):
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
-    """Register a new user account (BLOCKED - invite only)."""
-    raise HTTPException(
-        status_code=403, 
-        detail="Registration is currently disabled. Market-OS is private access only."
+    """Register a new user account openly for the broader world."""
+    email_clean = req.email.strip().lower()
+    existing = db.query(User).filter(User.email == email_clean).first()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="An account with this email already exists. Please sign in."
+        )
+
+    new_user = User(
+        email=email_clean,
+        hashed_password=hash_password(req.password),
+        full_name=req.full_name.strip() if req.full_name else None,
+        role="trader",
+        is_active=True,
+        is_admin=False,
+        email_verified=True,
+        last_login=datetime.datetime.utcnow(),
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    # Automatically provision default subscription tier (Free / Tier 1)
+    try:
+        from ..models import SubscriptionTier, UserSubscription
+        free_tier = db.query(SubscriptionTier).filter(SubscriptionTier.price_monthly == 0).first()
+        if not free_tier:
+            free_tier = db.query(SubscriptionTier).order_by(SubscriptionTier.price_monthly.asc()).first()
+        if free_tier:
+            sub = UserSubscription(
+                user_id=new_user.id,
+                tier_id=free_tier.id,
+                status="active"
+            )
+            db.add(sub)
+            db.commit()
+    except Exception:
+        pass
+
+    return TokenResponse(
+        access_token=create_access_token(new_user.email),
+        refresh_token=create_refresh_token(new_user.email),
     )
 
 

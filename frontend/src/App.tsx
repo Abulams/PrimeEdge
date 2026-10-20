@@ -923,8 +923,21 @@ function App() {
     if (isAuthenticated) {
       navigateTo('/');
     } else {
-      return <LoginPage />;
+      return <LoginPage initialMode="login" />;
     }
+  }
+
+  if (currentPath === '/register') {
+    if (isAuthenticated) {
+      navigateTo('/');
+    } else {
+      return <LoginPage initialMode="register" />;
+    }
+  }
+
+  if (currentPath === '/waitlist') {
+    navigateTo('/register');
+    return null;
   }
 
   if (!isAuthenticated) {
@@ -932,7 +945,7 @@ function App() {
       <LandingPage
         isAuthenticated={false}
         onEnterApp={() => navigateTo('/login')}
-        onOpenWaitlist={() => { window.location.href = '/waitlist'; }}
+        onOpenWaitlist={() => navigateTo('/register')}
       />
     );
   }
@@ -942,7 +955,7 @@ function App() {
       <LandingPage
         isAuthenticated={true}
         onEnterApp={() => navigateTo('/')}
-        onOpenWaitlist={() => { window.location.href = '/waitlist'; }}
+        onOpenWaitlist={() => navigateTo('/register')}
       />
     );
   }
