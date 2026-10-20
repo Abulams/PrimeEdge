@@ -195,6 +195,18 @@ class RealtimeService:
                             if already_executed_signal:
                                 continue  # Already executed this signal instance
 
+                            # Guard D: Prevent duplicate active trades on the same instrument
+                            has_active_trade = db.query(TradeRecord).join(
+                                SetupSnapshot, TradeRecord.setup_snapshot_id == SetupSnapshot.id
+                            ).filter(
+                                TradeRecord.account_id == acc.id,
+                                TradeRecord.lifecycle_state == "ACTIVE",
+                                SetupSnapshot.instrument == inst
+                            ).first()
+                            if has_active_trade:
+                                logger.debug(f"[Auto-Execution] Account #{acc.login} already has active trade #{has_active_trade.id} on {inst} - skipping duplicate")
+                                continue
+
                             # Determine lot size & risk from user preferences
                             risk_percentage = acc.risk_pct or 1.0
                             acc_balance = acc.balance if (acc.balance and acc.balance > 0) else 10000.0
@@ -252,32 +264,29 @@ class RealtimeService:
                             continue
 
                 if auto_accounts:
-                    # 1. Run engine scan to catch ANY NEW READY setups and create/dispatch them IMMEDIATELY
+                    # 1. Run DUAL-HORIZON engine scan (matching Watchlist) to catch ANY NEW READY setups and dispatch IMMEDIATELY
                     instruments_to_scan = ["XAUUSD", "US100", "EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "AUDJPY"]
                     for inst in instruments_to_scan:
                         try:
-                            trend = DecisionIntelligenceEngine.get_current_trend(db, inst)
-                            prof_data = DecisionIntelligenceEngine.generate_daily_profile_v2(db, inst, today, trend)
+                            dual_profiles = DecisionIntelligenceEngine.generate_dual_profiles(db, inst, today)
+                            candidates = [p for p in [dual_profiles.get("long"), dual_profiles.get("short")] if p is not None]
 
-                            if prof_data and prof_data.get("status_state") == "READY":
-                                direction = prof_data.get("direction", "LONG")
-                                ref_price = prof_data.get("setup_ref_price", 0.0)
-                                session_name = prof_data.get("best_session", "ANY")
+                            for prof_data in candidates:
+                                if prof_data and prof_data.get("status_state") == "READY":
+                                    direction = prof_data.get("direction", "LONG")
 
-                                existing_snap = db.query(SetupSnapshot).filter(
-                                    SetupSnapshot.instrument == inst,
-                                    SetupSnapshot.date == today,
-                                    SetupSnapshot.snapshot_source == "AUTONOMOUS_CLOUD_ENGINE",
-                                    SetupSnapshot.direction == direction,
-                                    SetupSnapshot.setup_ref_price == ref_price,
-                                    SetupSnapshot.status_at_snapshot == "READY",
-                                    SetupSnapshot.session == session_name
-                                ).first()
+                                    existing_snap = db.query(SetupSnapshot).filter(
+                                        SetupSnapshot.instrument == inst,
+                                        SetupSnapshot.date == today,
+                                        SetupSnapshot.snapshot_source == "AUTONOMOUS_CLOUD_ENGINE",
+                                        SetupSnapshot.direction == direction,
+                                        SetupSnapshot.status_at_snapshot == "READY"
+                                    ).order_by(SetupSnapshot.id.desc()).first()
 
-                                if not existing_snap:
-                                    logger.info(f"[Auto-Execution] New READY signal detected for {inst} ({direction}) — creating snapshot and dispatching immediately")
-                                    new_snap = JournalService.create_setup_snapshot(db, inst, source="AUTONOMOUS_CLOUD_ENGINE", direction=direction)
-                                    _dispatch_snap_to_auto_accounts(new_snap)
+                                    if not existing_snap:
+                                        logger.info(f"🚀 [Auto-Execution] New READY signal detected for {inst} ({direction}) score {prof_data.get('confidence_score')} — creating snapshot and dispatching immediately")
+                                        new_snap = JournalService.create_setup_snapshot(db, inst, source="AUTONOMOUS_CLOUD_ENGINE", direction=direction)
+                                        _dispatch_snap_to_auto_accounts(new_snap)
                         except Exception as eng_err:
                             logger.error(f"[Auto-Execution] Engine scan error for {inst}: {eng_err}")
 
