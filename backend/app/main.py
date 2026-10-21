@@ -429,6 +429,23 @@ def log_journal_entry(req: JournalCreate, db: Session = Depends(get_db)):
     return journal_entry
 
 # 5b. Auto Journal Endpoints (Immutable T₀ Snapshots & Trade Lifecycle)
+@app.post("/api/v1/telegram/test-alert")
+def send_telegram_test_alert(current_user: Optional[User] = Depends(get_current_user_optional)):
+    """Sends a verification test alert to configured Telegram chat/channel."""
+    from .telegram_service import TelegramService
+    uid_str = f"User #{current_user.id} ({current_user.email})" if current_user else "System Admin"
+    test_msg = (
+        "⚡ <b>PRIMEEDGE QUANT ALERT ENGINE TEST</b>\n\n"
+        "• <b>Status:</b> Connected & Operational\n"
+        f"• <b>Triggered By:</b> {uid_str}\n"
+        "• <b>Signal Pipeline:</b> Live Tick Corridors Active\n\n"
+        "🔗 <a href='https://primeedge.io'>PrimeEdge Institutional Terminal</a>"
+    )
+    results = {}
+    for cid in TelegramService.get_chat_ids():
+        results[cid] = TelegramService._send_raw_message(cid, test_msg)
+    return {"success": any(results.values()), "delivery": results}
+
 @app.post("/api/v1/journal/snapshot", response_model=SetupSnapshotResponse)
 def create_setup_snapshot(
     req: SetupSnapshotCreate,
@@ -438,7 +455,14 @@ def create_setup_snapshot(
     """Captures an immutable T₀ snapshot of the setup for an instrument."""
     try:
         uid = current_user.id if current_user else None
-        return JournalService.create_setup_snapshot(db, req.instrument, source=req.source or "MANUAL", user_id=uid, direction=req.direction)
+        snap = JournalService.create_setup_snapshot(db, req.instrument, source=req.source or "MANUAL", user_id=uid, direction=req.direction)
+        if snap.status_at_snapshot == "READY":
+            try:
+                from .telegram_service import TelegramService
+                TelegramService.send_setup_alert(snap, current_live_price=snap.live_price_at_snap)
+            except Exception as te:
+                logger.error(f"Error alerting telegram on snapshot: {te}")
+        return snap
     except ValueError as ve:
         raise HTTPException(status_code=404, detail=str(ve))
 

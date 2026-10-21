@@ -149,10 +149,40 @@ class RealtimeService:
             except Exception as je:
                 logger.error(f"Error updating active trade journal: {je}")
 
-            # 3. Autonomous Execution Scanner for Auto-Execution Enabled Accounts
+            # 3. Autonomous Execution Scanner & Telegram Signal Dispatcher
             try:
                 from .models import UserBrokerAccount, TradeRecord, SetupSnapshot
                 from .journal_service import JournalService
+                from .telegram_service import TelegramService
+
+                # Maintain an in-memory set of alerted snapshot IDs on the realtime service
+                if not hasattr(self, "_alerted_snapshot_ids"):
+                    from datetime import timedelta
+                    cutoff = datetime.utcnow() - timedelta(minutes=15)
+                    try:
+                        older_snaps = db.query(SetupSnapshot.id).filter(
+                            SetupSnapshot.date == today,
+                            SetupSnapshot.created_at < cutoff
+                        ).all()
+                        self._alerted_snapshot_ids = {s[0] for s in older_snaps}
+                    except Exception:
+                        self._alerted_snapshot_ids = set()
+
+                def _dispatch_telegram_alert(snap):
+                    if not snap or not getattr(snap, "id", None):
+                        return
+                    if snap.id in self._alerted_snapshot_ids:
+                        return
+                    self._alerted_snapshot_ids.add(snap.id)
+
+                    # Capture exact live tick quote price from memory
+                    inst_quote = self.current_quotes.get(snap.instrument)
+                    live_tick = None
+                    if inst_quote and isinstance(inst_quote, dict):
+                        live_tick = inst_quote.get("price")
+
+                    TelegramService.send_setup_alert(snap, current_live_price=live_tick)
+                    logger.info(f"📣 [Telegram Alert] Dispatched READY signal #{snap.id} ({snap.instrument} {snap.direction}) with live tick {live_tick}")
 
                 auto_accounts = db.query(UserBrokerAccount).filter(
                     UserBrokerAccount.is_active == True,
@@ -160,6 +190,8 @@ class RealtimeService:
                 ).all()
 
                 def _dispatch_snap_to_auto_accounts(snap):
+                    if not auto_accounts:
+                        return
                     inst = snap.instrument
                     direction = snap.direction or "LONG"
                     for acc in auto_accounts:
@@ -263,42 +295,46 @@ class RealtimeService:
                             db.rollback()
                             continue
 
-                if auto_accounts:
-                    # 1. Run DUAL-HORIZON engine scan (matching Watchlist) to catch ANY NEW READY setups and dispatch IMMEDIATELY
-                    instruments_to_scan = ["XAUUSD", "US100", "EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "AUDJPY"]
-                    for inst in instruments_to_scan:
-                        try:
-                            dual_profiles = DecisionIntelligenceEngine.generate_dual_profiles(db, inst, today)
-                            candidates = [p for p in [dual_profiles.get("long"), dual_profiles.get("short")] if p is not None]
+                # 1. Run DUAL-HORIZON engine scan across key instruments to detect ANY NEW READY setups and dispatch IMMEDIATELY
+                instruments_to_scan = ["XAUUSD", "US100", "EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "AUDJPY"]
+                for inst in instruments_to_scan:
+                    try:
+                        dual_profiles = DecisionIntelligenceEngine.generate_dual_profiles(db, inst, today)
+                        candidates = [p for p in [dual_profiles.get("long"), dual_profiles.get("short")] if p is not None]
 
-                            for prof_data in candidates:
-                                if prof_data and prof_data.get("status_state") == "READY":
-                                    direction = prof_data.get("direction", "LONG")
+                        for prof_data in candidates:
+                            if prof_data and prof_data.get("status_state") == "READY":
+                                direction = prof_data.get("direction", "LONG")
 
-                                    existing_snap = db.query(SetupSnapshot).filter(
-                                        SetupSnapshot.instrument == inst,
-                                        SetupSnapshot.date == today,
-                                        SetupSnapshot.snapshot_source == "AUTONOMOUS_CLOUD_ENGINE",
-                                        SetupSnapshot.direction == direction,
-                                        SetupSnapshot.status_at_snapshot == "READY"
-                                    ).order_by(SetupSnapshot.id.desc()).first()
+                                existing_snap = db.query(SetupSnapshot).filter(
+                                    SetupSnapshot.instrument == inst,
+                                    SetupSnapshot.date == today,
+                                    SetupSnapshot.snapshot_source == "AUTONOMOUS_CLOUD_ENGINE",
+                                    SetupSnapshot.direction == direction,
+                                    SetupSnapshot.status_at_snapshot == "READY"
+                                ).order_by(SetupSnapshot.id.desc()).first()
 
-                                    if not existing_snap:
-                                        logger.info(f"🚀 [Auto-Execution] New READY signal detected for {inst} ({direction}) score {prof_data.get('confidence_score')} — creating snapshot and dispatching immediately")
-                                        new_snap = JournalService.create_setup_snapshot(db, inst, source="AUTONOMOUS_CLOUD_ENGINE", direction=direction)
-                                        _dispatch_snap_to_auto_accounts(new_snap)
-                        except Exception as eng_err:
-                            logger.error(f"[Auto-Execution] Engine scan error for {inst}: {eng_err}")
+                                if not existing_snap:
+                                    logger.info(f"🚀 [Quant Engine] New READY signal detected for {inst} ({direction}) score {prof_data.get('confidence_score')} — creating snapshot and alerting")
+                                    new_snap = JournalService.create_setup_snapshot(db, inst, source="AUTONOMOUS_CLOUD_ENGINE", direction=direction)
+                                    _dispatch_telegram_alert(new_snap)
+                                    _dispatch_snap_to_auto_accounts(new_snap)
+                                else:
+                                    _dispatch_telegram_alert(existing_snap)
+                                    _dispatch_snap_to_auto_accounts(existing_snap)
+                    except Exception as eng_err:
+                        logger.error(f"[Quant Engine] Engine scan error for {inst}: {eng_err}")
 
-                    # 2. Also sweep any existing READY snaps for today that have not yet been executed
-                    ready_snaps = db.query(SetupSnapshot).filter(
-                        SetupSnapshot.date == today,
-                        SetupSnapshot.status_at_snapshot == "READY",
-                        SetupSnapshot.snapshot_source == "AUTONOMOUS_CLOUD_ENGINE"
-                    ).all()
+                # 2. Also sweep any existing READY snaps for today
+                ready_snaps = db.query(SetupSnapshot).filter(
+                    SetupSnapshot.date == today,
+                    SetupSnapshot.status_at_snapshot == "READY",
+                    SetupSnapshot.snapshot_source == "AUTONOMOUS_CLOUD_ENGINE"
+                ).all()
 
-                    for snap in ready_snaps:
-                        _dispatch_snap_to_auto_accounts(snap)
+                for snap in ready_snaps:
+                    _dispatch_telegram_alert(snap)
+                    _dispatch_snap_to_auto_accounts(snap)
             except Exception as auto_err:
                 logger.error(f"Error in autonomous execution scanner: {auto_err}", exc_info=True)
 
