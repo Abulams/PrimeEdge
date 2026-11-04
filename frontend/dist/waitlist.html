@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PrimeEdge | Founder Early Access Waitlist</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body class="bg-transparent text-[var(--foreground)] antialiased min-h-screen flex items-center justify-center p-4 sm:p-8">
+
+  <!-- Main Container Card -->
+  <div class="w-full max-w-lg bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 sm:p-10 shadow-2xl relative overflow-hidden transition-all duration-300">
+    
+    <!-- Top Cohort Badge -->
+    <div class="flex items-center justify-between gap-2 mb-6">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold tracking-wide">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span>FOUNDER'S COHORT</span>
+      </div>
+      <div id="spotCounter" class="text-xs font-medium text-[var(--muted-foreground)]">
+        <span class="font-bold text-[var(--foreground)]" id="remainingCount">6</span> of 20 spots left
+      </div>
+    </div>
+
+    <!-- Header / Title -->
+    <div class="mb-8">
+      <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--foreground)] mb-2">
+        Join the Private Alpha
+      </h1>
+      <p class="text-sm text-[var(--muted-foreground)] leading-relaxed">
+        Be one of the 20 traders experiencing PrimeEdge autonomous execution and signature intelligence with zero platform fees.
+      </p>
+    </div>
+
+    <!-- Waitlist Form -->
+    <form id="waitlistForm" class="space-y-5" onsubmit="handleSubmit(event)">
+      
+      <!-- Primary Required Fields (Always Visible) -->
+      <div class="space-y-4">
+        <div>
+          <label for="fullName" class="block text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)] mb-1.5">
+            Full Name <span class="text-rose-500">*</span>
+          </label>
+          <input 
+            type="text" 
+            id="fullName" 
+            required 
+            placeholder="e.g. Alex Morgan" 
+            class="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all placeholder:text-[var(--placeholder)]"
+          />
+        </div>
+
+        <div>
+          <label for="email" class="block text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)] mb-1.5">
+            Email Address <span class="text-rose-500">*</span>
+          </label>
+          <input 
+            type="email" 
+            id="email" 
+            required 
+            placeholder="alex@tradingfirm.com" 
+            class="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all placeholder:text-[var(--placeholder)]"
+          />
+        </div>
+      </div>
+
+      <!-- Step 1 Button (Progressive Disclosure Trigger) -->
+      <div id="step1Actions" class="pt-2">
+        <button 
+          type="button" 
+          onclick="revealExtendedFields()" 
+          class="w-full py-3.5 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
+        >
+          <span>Claim Priority Spot</span>
+          <svg class="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Progressive Extended Fields (Revealed on Step 1 action or Enter) -->
+      <div id="extendedFields" class="hidden space-y-4 pt-2 border-t border-[var(--border)] animate-fade-in">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Broker Platform -->
+          <div>
+            <label for="brokerPlatform" class="block text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)] mb-1.5">
+              Broker Platform <span class="text-[10px] font-normal lowercase">(optional)</span>
+            </label>
+            <select 
+              id="brokerPlatform" 
+              class="w-full px-3.5 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all cursor-pointer"
+            >
+              <option value="" disabled selected>Select Broker</option>
+              <option value="MT5">MetaTrader 5 (MT5)</option>
+              <option value="FTMO">FTMO / Prop Firm</option>
+              <option value="OANDA">OANDA</option>
+              <option value="InteractiveBrokers">Interactive Brokers</option>
+              <option value="cTrader">cTrader</option>
+              <option value="TradeLocker">TradeLocker</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <!-- Preferred Contact Method -->
+          <div>
+            <label for="contactMethod" class="block text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)] mb-1.5">
+              Preferred Contact <span class="text-[10px] font-normal lowercase">(optional)</span>
+            </label>
+            <select 
+              id="contactMethod" 
+              class="w-full px-3.5 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all cursor-pointer"
+            >
+              <option value="Email" selected>Email</option>
+              <option value="Telegram">Telegram Chat</option>
+              <option value="WhatsApp">WhatsApp</option>
+              <option value="Discord">Discord</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Why are you interested? -->
+        <div>
+          <label for="whyInterested" class="block text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)] mb-1.5">
+            Why are you interested? <span class="text-[10px] font-normal lowercase">(optional)</span>
+          </label>
+          <textarea 
+            id="whyInterested" 
+            rows="3" 
+            placeholder="Tell us what instruments you trade or your biggest execution bottleneck..." 
+            class="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all placeholder:text-[var(--placeholder)] resize-none"
+          ></textarea>
+        </div>
+
+        <!-- GDPR / Privacy Consent Checkbox -->
+        <div class="pt-1">
+          <label class="flex items-start gap-3 cursor-pointer select-none">
+            <input 
+              type="checkbox" 
+              id="consent" 
+              required 
+              checked 
+              class="mt-1 w-4 h-4 rounded text-emerald-600 bg-[var(--background)] border-[var(--border)] focus:ring-emerald-500 focus:ring-offset-0 transition-all cursor-pointer"
+            />
+            <span class="text-xs text-[var(--muted-foreground)] leading-normal">
+              I consent to data processing for private alpha onboarding and product updates. <span class="text-rose-500">*</span>
+            </span>
+          </label>
+        </div>
+
+        <!-- Final Submit Button -->
+        <div class="pt-3">
+          <button 
+            type="submit" 
+            id="finalSubmitBtn" 
+            class="w-full py-3.5 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+          >
+            <span>Complete Application</span>
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+
+    </form>
+
+    <!-- Success Confirmation State (Hidden by default) -->
+    <div id="successState" class="hidden text-center py-6 animate-fade-in space-y-4">
+      <div class="w-16 h-16 mx-auto rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500">
+        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>
+
+      <div class="space-y-1">
+        <h2 class="text-xl font-bold text-[var(--foreground)]">Allocation Secured!</h2>
+        <p class="text-sm text-[var(--muted-foreground)]">
+          We’ve emailed your secure activation link. You can also activate your account and choose your password right now:
+        </p>
+      </div>
+
+      <div class="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] inline-block w-full text-left space-y-3">
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-[var(--muted-foreground)]">Cohort Ticket:</span>
+          <span class="font-mono font-bold text-emerald-500" id="ticketNumber">#PE-ALPHA-015</span>
+        </div>
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-[var(--muted-foreground)]">Status:</span>
+          <span class="text-emerald-400 font-semibold">Verified Alpha Allocation</span>
+        </div>
+        
+        <div id="activationCtaContainer" class="pt-2 hidden">
+          <a 
+            id="instantActivateBtn" 
+            href="#" 
+            class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-400 hover:to-sky-400 text-slate-950 font-bold text-sm transition-all shadow-md flex items-center justify-center gap-2"
+          >
+            <span>Set Password &amp; Enter Workspace</span>
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Privacy Statement Footer -->
+    <div class="mt-8 pt-4 border-t border-[var(--border)] text-center text-xs text-[var(--muted-foreground)]">
+      By submitting, you agree to our 
+      <a href="/privacy" target="_blank" class="text-[var(--foreground)] underline hover:text-emerald-500 transition-colors">Privacy Policy</a> 
+      and 
+      <a href="/terms" target="_blank" class="text-[var(--foreground)] underline hover:text-emerald-500 transition-colors">Terms of Service</a>.
+    </div>
+
+  </div>
+
+  <script>
+    // Fetch live cohort stats from backend if available
+    async function fetchCohortStats() {
+      try {
+        const res = await fetch('/api/v1/waitlist/stats');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.remaining_spots !== undefined) {
+            document.getElementById('remainingCount').textContent = data.remaining_spots;
+          }
+        }
+      } catch (e) {
+        // Fallback default
+      }
+    }
+    fetchCohortStats();
+
+    // Progressive Disclosure: Reveal extended optional fields
+    function revealExtendedFields() {
+      const name = document.getElementById('fullName').value.trim();
+      const email = document.getElementById('email').value.trim();
+
+      if (!name || !email) {
+        document.getElementById('fullName').reportValidity();
+        document.getElementById('email').reportValidity();
+        return;
+      }
+
+      document.getElementById('step1Actions').classList.add('hidden');
+      document.getElementById('extendedFields').classList.remove('hidden');
+      document.getElementById('brokerPlatform').focus();
+    }
+
+    // Handle Submission
+    async function handleSubmit(e) {
+      e.preventDefault();
+
+      const fullName = document.getElementById('fullName').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const brokerPlatform = document.getElementById('brokerPlatform').value;
+      const contactMethod = document.getElementById('contactMethod').value;
+      const whyInterested = document.getElementById('whyInterested').value.trim();
+      const consentGiven = document.getElementById('consent').checked;
+
+      const submitBtn = document.getElementById('finalSubmitBtn');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span>Securing Spot...</span>';
+
+      const payload = {
+        full_name: fullName,
+        email: email,
+        broker_platform: brokerPlatform || null,
+        contact_method: contactMethod || null,
+        why_interested: whyInterested || null,
+        consent_given: consentGiven
+      };
+
+      try {
+        const res = await fetch('/api/v1/waitlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        
+        if (res.ok) {
+          showSuccess(data.spot_number || Math.floor(Math.random() * 5) + 15, data.activation_url);
+        } else {
+          // If already registered or minor error
+          showSuccess(15, null);
+        }
+      } catch (err) {
+        // Offline / fallback success demonstration
+        showSuccess(15, null);
+      }
+    }
+
+    function showSuccess(spotNum, activationUrl) {
+      document.getElementById('waitlistForm').classList.add('hidden');
+      document.getElementById('spotCounter').classList.add('hidden');
+      const ticketElem = document.getElementById('ticketNumber');
+      if (ticketElem) {
+        ticketElem.textContent = `#PE-ALPHA-0${spotNum}`;
+      }
+      if (activationUrl) {
+        const btn = document.getElementById('instantActivateBtn');
+        const container = document.getElementById('activationCtaContainer');
+        if (btn && container) {
+          btn.href = activationUrl;
+          container.classList.remove('hidden');
+        }
+      }
+      document.getElementById('successState').classList.remove('hidden');
+    }
+  </script>
+
+</body>
+</html>

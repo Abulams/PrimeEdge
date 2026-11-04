@@ -982,12 +982,29 @@ class DecisionIntelligenceEngine:
             else:
                 dxy_raw = 10.0
         elif inst_upper in ["XAUUSD", "GOLD"]:
-            dxy_raw = 100.0 if dxy_upper == "BEARISH" else 20.0
-        elif inst_upper == "AUDUSD":
-            if dxy_upper == "BEARISH" and sentiment_upper == "RISK_ON":
+            if (trend_upper == "BULLISH" and dxy_upper == "BEARISH") or (trend_upper == "BEARISH" and dxy_upper == "BULLISH"):
                 dxy_raw = 100.0
-            elif dxy_upper == "BULLISH" or sentiment_upper == "RISK_OFF":
-                dxy_raw = 10.0
+            elif (trend_upper == "BULLISH" and dxy_upper == "BULLISH") or (trend_upper == "BEARISH" and dxy_upper == "BEARISH"):
+                dxy_raw = 20.0
+            else:
+                dxy_raw = 50.0
+        elif inst_upper == "AUDUSD":
+            if trend_upper == "BULLISH":
+                if dxy_upper == "BEARISH" and sentiment_upper == "RISK_ON":
+                    dxy_raw = 100.0
+                elif dxy_upper == "BULLISH" or sentiment_upper == "RISK_OFF":
+                    dxy_raw = 10.0
+                else:
+                    dxy_raw = 50.0
+            elif trend_upper == "BEARISH":
+                if dxy_upper == "BULLISH" and sentiment_upper == "RISK_OFF":
+                    dxy_raw = 100.0
+                elif dxy_upper == "BEARISH" or sentiment_upper == "RISK_ON":
+                    dxy_raw = 10.0
+                else:
+                    dxy_raw = 50.0
+            else:
+                dxy_raw = 50.0
 
         weighted_dxy = dxy_raw * 0.25
 

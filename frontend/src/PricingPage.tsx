@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   Check,
   X,
@@ -60,8 +60,12 @@ export default function PricingPage() {
     const activated = params.get('activated');
 
     if (reference) {
-      setActivationNotice('Verifying payment with Paystack...');
-      apiFetch(`/api/v1/subscription/paystack/verify/${reference}`)
+      const isFlutterwave = params.get('payment') === 'flutterwave' || reference.startsWith('pe_flw_');
+      const verifyEndpoint = isFlutterwave
+        ? `/api/v1/subscription/flutterwave/verify/${reference}`
+        : `/api/v1/subscription/paystack/verify/${reference}`;
+      setActivationNotice(isFlutterwave ? 'Verifying payment with Flutterwave...' : 'Verifying payment with Paystack...');
+      apiFetch(verifyEndpoint)
         .then(async (res) => {
           if (res.ok) {
             await fetchCurrentSubscription();
@@ -119,7 +123,7 @@ export default function PricingPage() {
     try {
       const endpoint = currency === 'NGN'
         ? '/api/v1/subscription/paystack/checkout'
-        : '/api/v1/subscription/checkout';
+        : '/api/v1/subscription/flutterwave/checkout';
 
       const response = await apiFetch(endpoint, {
         method: 'POST',
@@ -381,7 +385,7 @@ export default function PricingPage() {
                 cursor: 'pointer'
               }}
             >
-              Launch Trading Cockpit →
+              Launch Trading Cockpit â†’
             </button>
           </div>
         )}
@@ -424,10 +428,29 @@ export default function PricingPage() {
                 cursor: 'pointer'
               }}
             >
-              Sign In to Continue →
+              Sign In to Continue â†’
             </button>
           </div>
         )}
+
+        {/* Launch-offer banner */}
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(251,191,36,0.10))',
+          border: '1px solid rgba(245, 158, 11, 0.55)',
+          borderRadius: '14px',
+          padding: '14px 24px',
+          marginBottom: '28px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '10px'
+        }}>
+          <Sparkles size={18} color="#fbbf24" />
+          <span style={{ fontSize: '15px', fontWeight: 800, color: '#fbbf24', letterSpacing: '0.3px' }}>
+            🎉 LIMITED-TIME LAUNCH OFFER — <span style={{ textDecoration: 'underline' }}>50% OFF ALL PLANS</span>
+          </span>
+          <Sparkles size={18} color="#fbbf24" />
+        </div>
 
         <div style={{ textAlign: 'center', marginBottom: '48px' }}>
           <div style={{
@@ -446,7 +469,7 @@ export default function PricingPage() {
             marginBottom: '16px'
           }}>
             <Zap size={13} />
-            Institutional Quantitative Intelligence
+            Evidence-Based Decision Intelligence
           </div>
 
           <h1 style={{
@@ -467,7 +490,7 @@ export default function PricingPage() {
             margin: '0 auto 32px',
             lineHeight: 1.6
           }}>
-            Institutional-grade market intelligence, automated trade planning, and ultra-low latency execution capabilities for systematic traders.
+            Evidence-based decision support with automated trade planning, historical replay, and execution controls for serious intraday traders.
           </p>
 
           {/* Billing Toggle Switch & Currency Selector */}
@@ -534,48 +557,20 @@ export default function PricingPage() {
               </button>
             </div>
 
-            {/* Currency / Payment Gateway Selector */}
+                        {/* Instant Activation Gateway Badge */}
             <div style={{
               display: 'inline-flex',
               alignItems: 'center',
-              background: 'rgba(15, 23, 42, 0.85)',
-              border: '1px solid rgba(0, 242, 254, 0.25)',
-              borderRadius: '10px',
-              padding: '3px',
-              gap: '4px'
+              gap: '8px',
+              padding: '8px 18px',
+              borderRadius: '20px',
+              background: 'rgba(16, 185, 129, 0.12)',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              color: '#34d399',
+              fontSize: '13px',
+              fontWeight: 700
             }}>
-              <button
-                onClick={() => setCurrency('NGN')}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '7px',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  background: currency === 'NGN' ? 'linear-gradient(135deg, #10b981, #059669)' : 'transparent',
-                  color: currency === 'NGN' ? '#fff' : '#94a3b8'
-                }}
-              >
-                🇳🇬 Pay with Naira (₦) — Paystack / Cards / Bank
-              </button>
-              <button
-                onClick={() => setCurrency('USD')}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '7px',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  background: currency === 'USD' ? 'linear-gradient(135deg, #00f2fe, #38bdf8)' : 'transparent',
-                  color: currency === 'USD' ? '#08090d' : '#94a3b8'
-                }}
-              >
-                🌍 Pay in USD ($) — Stripe / Global
-              </button>
+              <span>Instant Card, Bank & USSD Activation (Paystack)</span>
             </div>
           </div>
         </div>
@@ -710,7 +705,7 @@ export default function PricingPage() {
                     textTransform: 'uppercase',
                     boxShadow: '0 4px 12px rgba(245, 158, 11, 0.35)'
                   }}>
-                    Full Institutional
+                    Full Platform Access
                   </div>
                 )}
 
@@ -742,19 +737,46 @@ export default function PricingPage() {
                   {tier.description}
                 </p>
 
-                {/* Price */}
+                {/* Price — 50% launch offer */}
                 <div style={{
                   paddingBottom: '20px',
                   borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
                   marginBottom: '20px'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                  {tier.price_monthly > 0 && (
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      background: 'rgba(245,158,11,0.15)',
+                      border: '1px solid rgba(245,158,11,0.4)',
+                      borderRadius: '12px',
+                      padding: '3px 10px',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      color: '#fbbf24',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase' as const,
+                      marginBottom: '8px'
+                    }}>
+                      <Sparkles size={11} />
+                      50% OFF — Launch Offer
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap' as const }}>
                     <span style={{ fontSize: '38px', fontWeight: 900, color: '#fff', letterSpacing: '-1px' }}>
-                      {tier.price_monthly === 0 ? '$0' : currency === 'NGN' ? `₦${(billingInterval === 'month' ? (tier.price_monthly_ngn || 45000) : (tier.price_monthly_ngn || 45000) * 10).toLocaleString()}` : `$${price}`}
+                      {tier.price_monthly === 0 ? '$0' : currency === 'NGN' ? `₦${(billingInterval === 'month' ? (tier.price_monthly_ngn || 22500) : (tier.price_monthly_ngn || 22500) * 10).toLocaleString()}` : `$${price}`}
                     </span>
-                    <span style={{ fontSize: '15px', color: '#64748b', fontWeight: 600, marginLeft: '6px' }}>
+                    <span style={{ fontSize: '15px', color: '#64748b', fontWeight: 600 }}>
                       /{billingInterval === 'month' ? 'month' : 'year'}
                     </span>
+                    {tier.price_monthly > 0 && (
+                      <span style={{ fontSize: '17px', color: '#94a3b8', fontWeight: 600, textDecoration: 'line-through' }}>
+                        {currency === 'NGN'
+                          ? `₦${(billingInterval === 'month' ? (tier.price_monthly_ngn || 22500) * 2 : (tier.price_monthly_ngn || 22500) * 20).toLocaleString()}`
+                          : `$${billingInterval === 'month' ? (tier.price_monthly * 2).toFixed(2) : ((tier.price_yearly || tier.price_monthly * 10) * 2).toFixed(2)}`}
+                      </span>
+                    )}
                   </div>
                   {billingInterval === 'year' && savings > 0 && (
                     <div style={{ fontSize: '12px', color: '#10b981', fontWeight: 700, marginTop: '4px' }}>
@@ -804,7 +826,7 @@ export default function PricingPage() {
                       fontWeight: 700
                     }}>
                       <Zap size={14} />
-                      Autonomous Cloud Execution (cTrader)
+                      Automated Execution Controls
                     </div>
                   )}
                 </div>
@@ -868,7 +890,7 @@ export default function PricingPage() {
                     </>
                   ) : (
                     <>
-                      Upgrade to {tier.display_name} ({currency === 'NGN' ? 'Paystack' : 'Stripe'})
+                      Get Started with {tier.display_name} (Paystack)
                       <ChevronRight size={16} />
                     </>
                   )}
@@ -936,7 +958,7 @@ export default function PricingPage() {
                   ))}
                 </tr>
                 <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                  <td style={{ padding: '14px 16px', fontSize: '13px', color: '#cbd5e1' }}>Autonomous MT5 Execution (Cloud Worker Node)</td>
+                  <td style={{ padding: '14px 16px', fontSize: '13px', color: '#cbd5e1' }}>Autonomous cTrader Execution (Cloud Worker Node)</td>
                   {tiers.map((t) => (
                     <td key={t.id} style={{ padding: '14px 16px', textAlign: 'center' }}>
                       {t.auto_execution_enabled ? (
@@ -960,7 +982,7 @@ export default function PricingPage() {
                   ))}
                 </tr>
                 <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                  <td style={{ padding: '14px 16px', fontSize: '13px', color: '#cbd5e1' }}>Connected MT5 Accounts</td>
+                  <td style={{ padding: '14px 16px', fontSize: '13px', color: '#cbd5e1' }}>Connected cTrader Accounts (MT5 Coming Soon)</td>
                   {tiers.map((t) => (
                     <td key={t.id} style={{ padding: '14px 16px', textAlign: 'center', fontSize: '13px', fontWeight: 700, color: '#fff' }}>
                       {t.max_accounts >= 999 ? 'Unlimited' : `${t.max_accounts} Account${t.max_accounts > 1 ? 's' : ''}`}
@@ -996,8 +1018,8 @@ export default function PricingPage() {
                 a: 'Yes. You can upgrade at any time and get instant access to higher-tier features. Billing is prorated automatically through Stripe.'
               },
               {
-                q: 'How does Cloud MT5 Execution work in Premium?',
-                a: 'PrimeEdge connects securely to your MetaTrader 5 terminal through dedicated, sandboxed execution workers in London/New York for sub-millisecond execution.'
+                q: 'How does Cloud cTrader Execution work in Premium?',
+                a: 'PrimeEdge connects securely to your cTrader account via OpenAPI with dedicated, sandboxed execution workers for sub-millisecond execution and automated risk guardrails (MT5 support coming soon).'
               },
               {
                 q: 'What happens if I cancel my subscription?',

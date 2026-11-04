@@ -8,8 +8,9 @@ backend/venv/
 .eggs/
 
 # Node
+node_modules/
 frontend/node_modules/
-frontend/dist/
+video-engine/node_modules/
 
 # Environment & secrets
 .env
@@ -35,15 +36,13 @@ Thumbs.db
 
 # Audit scripts (local tooling)
 backend/audit_*.py
+backend/scratch/
 
 # Binaries & Sandbox Terminals
 cloudflared.exe
-caddy.exe
-*.exe
 terminals/
-backups/
-backend/scratch/
-*.csv
-caddy/
-migration_bundle/
-*.zip
+**/frames/
+**/out/
+*.mp4
+*.mkv
+

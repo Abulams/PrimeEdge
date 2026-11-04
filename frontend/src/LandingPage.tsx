@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   Compass,
   Sliders,
@@ -26,7 +26,8 @@ import {
   Star as StarIcon,
   Shield,
   Crown,
-  ChevronRight
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -233,6 +234,28 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
           margin: '0 auto',
           textAlign: 'center'
         }}>
+          {/* Launch Offer Banner */}
+          <div
+            onClick={() => window.location.href = '/pricing'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '10px',
+              background: 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(251,191,36,0.10))',
+              border: '1px solid rgba(245, 158, 11, 0.55)',
+              borderRadius: '14px',
+              padding: '10px 20px',
+              marginBottom: '24px',
+              cursor: 'pointer'
+            }}
+          >
+            <Sparkles size={15} color="#fbbf24" />
+            <span style={{ fontSize: '13px', fontWeight: 800, color: '#fbbf24' }}>
+              Ã°Å¸Å½"° 50% OFF ALL PLANS — Limited-Time Launch Offer
+            </span>
+            <ArrowRight size={13} color="#fbbf24" />
+          </div>
+
           {/* Top Badge */}
           <div style={{
             display: 'inline-flex',
@@ -254,7 +277,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
               backgroundColor: '#00f2fe',
               boxShadow: '0 0 8px #00f2fe'
             }} />
-            <span>INSTANT ACCESS — THREE TIER OPTIONS</span>
+            <span>EVIDENCE-BASED DECISION SUPPORT</span>
           </div>
 
           {/* Main Headline */}
@@ -267,13 +290,13 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
             margin: '0 auto 20px',
             color: '#ffffff'
           }}>
-            Make Every Trading Decision <br />
+            Turn Trading Setups Into <br />
             <span style={{
               background: 'linear-gradient(135deg, #00f2fe 0%, #38bdf8 50%, #818cf8 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent'
             }}>
-              Backed by Point-in-Time Evidence.
+              Evidence-Based Decisions.
             </span>
           </h1>
 
@@ -285,7 +308,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
             margin: '0 auto 36px',
             lineHeight: 1.6
           }}>
-            PrimeEdge is a disciplined trading decision infrastructure. It scans session setups, calculates empirical invalidation from historical MAE/MFE distributions, protects execution through isolated MT5 worker processes, and auto-journals every fill with zero emotional interference.
+            PrimeEdge helps intraday FX and gold traders evaluate setups with historical evidence, define risk-aware entry and invalidation zones, replay past conditions and record every decision before execution.
           </p>
 
           {/* Hero CTAs */}
@@ -375,11 +398,11 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Activity size={16} color="#00f2fe" />
-              <span>Institutional MAE/MFE Distributions</span>
+              <span>Historical MAE/MFE Distributions</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Server size={16} color="#38bdf8" />
-              <span>Dedicated Process-Isolated MT5 Nodes</span>
+              <span>Isolated Execution Nodes</span>
             </div>
           </div>
 
@@ -391,7 +414,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                 <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ef4444' }} />
                 <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#f59e0b' }} />
                 <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#10b981' }} />
-                <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '12px', fontFamily: 'monospace' }}>PrimeEdge Terminal v2.4 · London Core</span>
+                <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '12px', fontFamily: 'monospace' }}>PrimeEdge Terminal v2.4 Ã‚Â· London Core</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#10b981' }}>
                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }} />
@@ -400,7 +423,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
             </div>
             <img
               src="/screenshots/radar.png"
-              alt="PrimeEdge Live Opportunity Radar showing GBPUSD READY, EURUSD WAIT, and AUDUSD institutional setups with MSS scores"
+              alt="PrimeEdge Live Opportunity Radar showing GBPUSD READY, EURUSD WAIT, and AUDUSD setups with evidence scores"
               style={{ width: '100%', display: 'block' }}
             />
           </div>
@@ -421,11 +444,11 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                 The Decision Paradox
               </span>
               <h2 style={{ fontSize: 'clamp(26px, 4vw, 40px)', fontWeight: 800, marginTop: '8px', color: '#fff' }}>
-                Trading Information Isn’t the Problem. <br />
+                Trading Information Isn't the Problem. <br />
                 Turning It Into a Decision Is.
               </h2>
               <p style={{ fontSize: '16px', color: '#94a3b8', maxWidth: '700px', margin: '14px auto 0' }}>
-                Traders don’t blow accounts because they lack indicators. They struggle because their decision process is fragmented across disjointed tools, discretionary second-guessing, and uncontrolled execution slip.
+                Traders don't blow accounts because they lack indicators. They struggle because their decision process is fragmented across disjointed tools, discretionary second-guessing, and uncontrolled execution slip.
               </p>
             </div>
 
@@ -568,7 +591,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                   </p>
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px', color: '#cbd5e1' }}>
                     <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <CheckCircle size={15} color="#10b981" /> Strict session filtering — zero chasing during off-hours chop.
+                      <CheckCircle size={15} color="#10b981" /> Strict session filtering — zero chasing during off-hours chop.
                     </li>
                     <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <CheckCircle size={15} color="#10b981" /> Triple-state qualification: READY, WAIT, or MONITOR.
@@ -631,7 +654,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                       <CheckCircle size={15} color="#10b981" /> Complete MAE/MFE histograms showing outcome dispersion.
                     </li>
                     <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <CheckCircle size={15} color="#10b981" /> Zero look-ahead bias — all historical analogies evaluated point-in-time.
+                      <CheckCircle size={15} color="#10b981" /> Zero look-ahead bias — all historical analogies evaluated point-in-time.
                     </li>
                     <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <CheckCircle size={15} color="#10b981" /> Full transparency into sample size confidence penalties.
@@ -651,10 +674,10 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                     STAGE 4: EXECUTION & GUARDRAILS
                   </div>
                   <h3 style={{ fontSize: '24px', fontWeight: 800, color: '#fff', marginBottom: '12px' }}>
-                    Dedicated MT5 Process Isolation
+                    Cloud cTrader Execution & Guardrails
                   </h3>
                   <p style={{ fontSize: '14px', color: '#94a3b8', lineHeight: 1.7, marginBottom: '16px' }}>
-                    Orders route through private, sandboxed MT5 worker processes hosted on institutional infrastructure. Hard-coded guardrails prevent slippage, news spikes, and fat-finger position sizing.
+                    Orders route through private, sandboxed execution worker processes with hard-coded guardrails that prevent slippage, news spikes, and fat-finger position sizing.
                   </p>
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px', color: '#cbd5e1' }}>
                     <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -664,12 +687,12 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                       <CheckCircle size={15} color="#10b981" /> Spread & Slippage Caps: rejects market fills if spread widens beyond tolerance.
                     </li>
                     <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <CheckCircle size={15} color="#10b981" /> Zero shared credentials: each trader runs in an isolated sandboxed terminal.
+                      <CheckCircle size={15} color="#10b981" /> Zero shared credentials: direct cTrader OpenAPI execution without desktop terminals running (MT5 support coming soon).
                     </li>
                   </ul>
                 </div>
                 <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(0, 242, 254, 0.2)', boxShadow: '0 8px 24px rgba(0, 242, 254, 0.12)' }}>
-                  <img src="/screenshots/execution.png" alt="PrimeEdge Cloud MT5 Execution Guardrails" style={{ width: '100%', display: 'block' }} />
+                  <img src="/screenshots/execution.png" alt="PrimeEdge Cloud cTrader Execution Guardrails" style={{ width: '100%', display: 'block' }} />
                 </div>
               </div>
             )}
@@ -694,7 +717,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                       <CheckCircle size={15} color="#10b981" /> Replay Engine: simulate alternative entry corridor rules across historical batches.
                     </li>
                     <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <CheckCircle size={15} color="#10b981" /> PDF & CSV audit export for institutional compliance.
+                      <CheckCircle size={15} color="#10b981" /> PDF & CSV audit export for trade review and decision analysis.
                     </li>
                   </ul>
                 </div>
@@ -721,7 +744,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                 Competitive Differentiation
               </span>
               <h2 style={{ fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 800, marginTop: '8px', color: '#fff' }}>
-                What PrimeEdge Is — And What It Is Not
+                What PrimeEdge Is — And What It Is Not
               </h2>
               <p style={{ fontSize: '15px', color: '#94a3b8', maxWidth: '680px', margin: '12px auto 0' }}>
                 Most trading software attempts to replace the trader with a black-box or flood them with 50 indicators. PrimeEdge is trading decision infrastructure.
@@ -769,7 +792,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                   <span style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>Not a Generative LLM Bot</span>
                 </div>
                 <p style={{ fontSize: '13px', color: '#94a3b8', lineHeight: 1.6 }}>
-                  LLMs hallucinate trading advice. PrimeEdge’s core quantitative engine is purely deterministic and statistical. The AI Assistant acts solely as an explanatory copilot grounded in mathematical tables.
+                  LLMs hallucinate trading advice. PrimeEdge's core quantitative engine is purely deterministic and statistical. The AI Assistant acts solely as an explanatory copilot grounded in mathematical tables.
                 </p>
               </div>
             </div>
@@ -782,7 +805,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
         <section id="product" style={{ padding: '80px 24px', maxWidth: '1200px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '40px' }}>
             <span style={{ fontSize: '12px', fontWeight: 700, color: '#00f2fe', textTransform: 'uppercase', letterSpacing: '1px' }}>
-              Institutional Interface
+              Evidence Interface
             </span>
             <h2 style={{ fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 800, marginTop: '8px', color: '#fff' }}>
               Engineered for High-Conviction Intraday Execution
@@ -849,7 +872,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                   <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '10px', borderLeft: '3px solid #00f2fe' }}>
                     <div style={{ fontSize: '12px', fontWeight: 800, color: '#fff' }}>Market Signature Score (MSS)</div>
                     <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
-                      Composite score (0–100) combining structural alignment, macro regimes, and news buffer windows.
+                      Composite score (0—œ100) combining structural alignment, macro regimes, and news buffer windows.
                     </div>
                   </div>
                   <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '10px', borderLeft: '3px solid #10b981' }}>
@@ -909,7 +932,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
                   <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '10px', borderLeft: '3px solid #00f2fe' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 800, color: '#fff' }}>Direct MT5 Telemetry</div>
+                    <div style={{ fontSize: '12px', fontWeight: 800, color: '#fff' }}>Direct cTrader Telemetry</div>
                     <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
                       Tracks open tickets, fill timestamps, commission, swap, and slippage in real time.
                     </div>
@@ -997,7 +1020,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
               Execution Protection
             </span>
             <h2 style={{ fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 800, marginTop: '8px', color: '#fff' }}>
-              Institutional Guardrails on Every Order
+              Decision Guardrails on Every Trade
             </h2>
             <p style={{ fontSize: '15px', color: '#94a3b8', maxWidth: '680px', margin: '12px auto 0' }}>
               Most losses occur not because the thesis was wrong, but because execution was sloppy. PrimeEdge deploys real-time runtime safety filters.
@@ -1067,15 +1090,15 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                 </div>
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '14px', color: '#cbd5e1' }}>
                   <li style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                    <span style={{ color: '#10b981', fontWeight: 800 }}>✓</span>
+                    <span style={{ color: '#10b981', fontWeight: 800 }}>Ã¢Å“"</span>
                     <span><strong>Systematic Intraday Traders:</strong> Traders operating London and New York sessions who value empirical discipline over hunches.</span>
                   </li>
                   <li style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                    <span style={{ color: '#10b981', fontWeight: 800 }}>✓</span>
+                    <span style={{ color: '#10b981', fontWeight: 800 }}>Ã¢Å“"</span>
                     <span><strong>Prop Firm & Account Scalers:</strong> Traders with strict daily drawdown limits who require verified P90 adverse excursion boundaries.</span>
                   </li>
                   <li style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                    <span style={{ color: '#10b981', fontWeight: 800 }}>✓</span>
+                    <span style={{ color: '#10b981', fontWeight: 800 }}>Ã¢Å“"</span>
                     <span><strong>Evidence-Driven Operators:</strong> Traders tired of discretionary second-guessing who want cold, hard probability tables and auto-journal telemetry.</span>
                   </li>
                 </ul>
@@ -1094,15 +1117,15 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                 </div>
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '14px', color: '#cbd5e1' }}>
                   <li style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                    <span style={{ color: '#ef4444', fontWeight: 800 }}>✕</span>
+                    <span style={{ color: '#ef4444', fontWeight: 800 }}>Ã¢Å“"¢</span>
                     <span><strong>Get-Rich-Quick Seekers:</strong> We do not offer 95% win-rate promises, automated passive riches, or magical compounding calculators.</span>
                   </li>
                   <li style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                    <span style={{ color: '#ef4444', fontWeight: 800 }}>✕</span>
+                    <span style={{ color: '#ef4444', fontWeight: 800 }}>Ã¢Å“"¢</span>
                     <span><strong>Passive Copy-Traders:</strong> If you want to click a button and walk away without understanding your risk parameters, PrimeEdge is not for you.</span>
                   </li>
                   <li style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                    <span style={{ color: '#ef4444', fontWeight: 800 }}>✕</span>
+                    <span style={{ color: '#ef4444', fontWeight: 800 }}>Ã¢Å“"¢</span>
                     <span><strong>Crypto Degens & Moonshot Traders:</strong> PrimeEdge focuses strictly on institutional FX majors and gold (XAUUSD) where liquidity and microstructure allow genuine statistical edge.</span>
                   </li>
                 </ul>
@@ -1128,7 +1151,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
               Choose Your Trading Intelligence Tier
             </h2>
             <p style={{ fontSize: '15px', color: '#94a3b8', maxWidth: '620px', margin: '0 auto 28px' }}>
-              Institutional-grade market intelligence and execution capabilities for every trader level. From manual analysis to fully automated execution.
+              Evidence-based decision support for every trader level. PrimeEdge identifies high-quality opportunities, explains the evidence behind them, and measures whether its intelligence improves your decision-making.
             </p>
 
             <button
@@ -1224,15 +1247,15 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
               {[
                 {
                   q: "How does PrimeEdge connect to my broker?",
-                  a: "PrimeEdge connects to MetaTrader 5 (MT5) via isolated, sandboxed worker processes. Your credentials are encrypted using institutional cryptography standards and stored securely on dedicated worker nodes. We do not hold client capital, pool deposits, or broker trades directly."
+                  a: "PrimeEdge connects to your broker via isolated, sandboxed execution controls. Your credentials are encrypted and stored securely on dedicated worker nodes. We do not hold client capital, pool deposits, or broker trades directly."
                 },
                 {
                   q: "Is PrimeEdge an automated black-box EA?",
-                  a: "No. PrimeEdge is a trading decision system. It discovers high-probability session setups and computes exact mathematical invalidation stops. You review and authorize setups in the Trade Planner before they execute through the guarded MT5 bridge."
+                  a: "No. PrimeEdge is a trading decision system. It discovers high-probability session setups and computes exact mathematical invalidation stops. You review and authorize setups in the Trade Planner before they execute through the guarded cTrader bridge (MT5 support coming soon)."
                 },
                 {
                   q: "What instruments does PrimeEdge support?",
-                  a: "PrimeEdge currently specializes in major foreign exchange pairs (GBPUSD, EURUSD, USDJPY, AUDUSD, USDCAD) and Gold (XAUUSD). We deliberately focus on liquid institutional markets where microstructure and volatility models remain statistically reliable."
+                  a: "PrimeEdge currently specializes in major foreign exchange pairs (GBPUSD, EURUSD, USDJPY, AUDUSD, USDCAD) and Gold (XAUUSD). We deliberately focus on liquid markets where microstructure and volatility models remain statistically reliable."
                 },
                 {
                   q: "What is the Market Signature Score (MSS)?",
@@ -1348,7 +1371,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                 <strong>REGULATORY & RISK DISCLOSURE:</strong> PrimeEdge provides trading decision support software and statistical analytical models. PrimeEdge is not a registered broker-dealer, commodity trading advisor (CTA), or financial advisory firm. All trading models, Market Signature Scores (MSS), and empirical distributions are provided strictly for educational and analytical purposes. Past performance and statistical analogies do not guarantee future results. Trading foreign exchange and leveraged financial contracts carries significant risk of capital loss and is not suitable for all investors.
               </p>
               <p>
-                © {new Date().getFullYear()} PrimeEdge. All rights reserved. Encrypted institutional infrastructure.
+                Ã‚Â© {new Date().getFullYear()} PrimeEdge. All rights reserved. Encrypted institutional infrastructure.
               </p>
             </div>
           </div>

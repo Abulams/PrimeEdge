@@ -5,8 +5,13 @@
     admin off
 }
 
-# Domain HTTPS Virtual Hosts
-primeedge.app, www.primeedge.app {
+# Canonical redirect: Permanent 301 from www to apex
+www.primeedge.app {
+    redir https://primeedge.app{uri} permanent
+}
+
+# Domain HTTPS Virtual Host (Canonical Host)
+primeedge.app {
     reverse_proxy 127.0.0.1:8000
 }
 

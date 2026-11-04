@@ -8,6 +8,7 @@ import re
 
 from ..database import get_db
 from ..models import User
+from ..email_validator import validate_email_authenticity
 from ..auth import (
     hash_password, verify_password,
     create_access_token, create_refresh_token,
@@ -77,6 +78,15 @@ class AdminUpdateUserRequest(BaseModel):
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
     """Register a new user account openly for the broader world."""
     email_clean = req.email.strip().lower()
+
+    # Block disposable email domains and verify DNS / MX deliverability
+    is_valid, err_msg = validate_email_authenticity(email_clean)
+    if not is_valid:
+        raise HTTPException(
+            status_code=400,
+            detail=err_msg
+        )
+
     existing = db.query(User).filter(User.email == email_clean).first()
     if existing:
         raise HTTPException(

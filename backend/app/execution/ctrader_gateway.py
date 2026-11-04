@@ -126,6 +126,9 @@ class CTraderGateway:
         self._connected = False
         self._app_authed = False
 
+        self._symbol_details_cache: Dict[str, Dict[str, Any]] = {}
+        self._symbol_name_by_id: Dict[str, str] = {}
+
         self._loop: Optional[asyncio.AbstractEventLoop] = None
 
     # ------------------------------------------------------------------
@@ -412,6 +415,8 @@ class CTraderGateway:
         """
         if not hasattr(self, "_symbol_details_cache"):
             self._symbol_details_cache = {}
+        if not hasattr(self, "_symbol_name_by_id"):
+            self._symbol_name_by_id = {}
 
         cache_key = f"{account_id}:{symbol_id}"
         if cache_key in self._symbol_details_cache:
@@ -440,14 +445,50 @@ class CTraderGateway:
         except Exception as exc:
             logger.warning("Failed to fetch detailed symbol metadata for %s: %s", symbol_id, exc)
 
-        return self._symbol_details_cache.get(cache_key, {
-            "id": symbol_id,
-            "digits": 2 if symbol_id == 41 else (3 if symbol_id == 4 else 5),
-            "pip_position": 2 if symbol_id in (41, 4) else 4,
-            "min_volume": 100 if symbol_id == 41 else 100000,
-            "step_volume": 100 if symbol_id == 41 else 100000,
-            "lot_size": 10000 if symbol_id == 41 else 10000000,
-        })
+        # Smart fallback if details could not be fetched from broker
+        sym_name = self._symbol_name_by_id.get(cache_key, "").upper()
+        is_index = any(k in sym_name for k in ["100", "NAS", "TEC", "US30", "SPX", "GER", "DAX", "DOW"]) or symbol_id == 41
+        is_gold = any(k in sym_name for k in ["XAU", "GOLD"])
+        is_jpy = "JPY" in sym_name or symbol_id == 4
+
+        if is_index:
+            fallback = {
+                "id": symbol_id,
+                "digits": 2,
+                "pip_position": 1,
+                "min_volume": 100,
+                "step_volume": 100,
+                "lot_size": 10000,
+            }
+        elif is_gold:
+            fallback = {
+                "id": symbol_id,
+                "digits": 2,
+                "pip_position": 2,
+                "min_volume": 100,
+                "step_volume": 100,
+                "lot_size": 10000000,
+            }
+        elif is_jpy:
+            fallback = {
+                "id": symbol_id,
+                "digits": 3,
+                "pip_position": 2,
+                "min_volume": 1000,
+                "step_volume": 1000,
+                "lot_size": 10000000,
+            }
+        else:
+            fallback = {
+                "id": symbol_id,
+                "digits": 5,
+                "pip_position": 4,
+                "min_volume": 100000,
+                "step_volume": 100000,
+                "lot_size": 10000000,
+            }
+
+        return self._symbol_details_cache.get(cache_key, fallback)
 
     async def execute_market_order(
         self,
@@ -498,7 +539,29 @@ class CTraderGateway:
             if rel_sl > 0:
                 req.relativeStopLoss = rel_sl
         elif stop_loss_pips is not None:
-            pips_unit = 10 if digits == 5 else (100 if digits == 3 else 1000)
+            # pips_unit converts a pip count to cTrader's relative price integer
+            # (which has 5 implied decimal places, i.e. raw = price * 100000).
+            #
+            # Forex 5-digit (e.g. EURUSD, digits=5): 1 pip = 0.00010 → raw 10
+            # Forex 3-digit (e.g. USDJPY, digits=3): 1 pip = 0.010   → raw 1000
+            # Indices  2-digit (e.g. US100, digits=2): 1 point = 1.0  → raw 100000
+            # Indices  0-digit (e.g. some CFDs):        1 point = 1.0  → raw 100000
+            # We use pip_position from symbol details when available; fallback to
+            # a digits-based heuristic otherwise.
+            pip_position = details.get("pip_position", None)
+            if pip_position is not None:
+                # pip_size = 10^(-pip_position); relative unit = pip_size * 100000
+                pips_unit = int(round(100000 * (10 ** (-pip_position))))
+            elif digits == 5:
+                pips_unit = 10       # 0.00010 * 100000
+            elif digits == 3:
+                pips_unit = 1000     # 0.010 * 100000
+            elif digits <= 2:
+                # Index / CFD (US100 = 2 digits, some at 0 or 1)
+                # 1 full point = 1.00 in price → relative unit = 100000
+                pips_unit = 100000
+            else:
+                pips_unit = 10       # safe fallback for 4-digit
             rel_sl = int(round(stop_loss_pips * pips_unit))
             if tick_step > 0:
                 rel_sl = (rel_sl // tick_step) * tick_step
@@ -514,7 +577,17 @@ class CTraderGateway:
             if rel_tp > 0:
                 req.relativeTakeProfit = rel_tp
         elif take_profit_pips is not None:
-            pips_unit = 10 if digits == 5 else (100 if digits == 3 else 1000)
+            pip_position = details.get("pip_position", None)
+            if pip_position is not None:
+                pips_unit = int(round(100000 * (10 ** (-pip_position))))
+            elif digits == 5:
+                pips_unit = 10
+            elif digits == 3:
+                pips_unit = 1000
+            elif digits <= 2:
+                pips_unit = 100000
+            else:
+                pips_unit = 10
             rel_tp = int(round(take_profit_pips * pips_unit))
             if tick_step > 0:
                 rel_tp = (rel_tp // tick_step) * tick_step
@@ -637,16 +710,24 @@ class CTraderGateway:
                 f"Timeout fetching symbols for account {account_id}"
             )
 
-        return [
-            {
-                "id": getattr(sym, "symbolId", None),
-                "name": getattr(sym, "symbolName", None) or getattr(sym, "name", None) or "",
+        symbols_list = []
+        if not hasattr(self, "_symbol_name_by_id"):
+            self._symbol_name_by_id = {}
+
+        for sym in res.symbol:
+            s_id = getattr(sym, "symbolId", None)
+            s_name = getattr(sym, "symbolName", None) or getattr(sym, "name", None) or ""
+            if s_id and s_name:
+                self._symbol_name_by_id[f"{account_id}:{s_id}"] = s_name
+
+            symbols_list.append({
+                "id": s_id,
+                "name": s_name,
                 "description": getattr(sym, "description", ""),
                 "digits": getattr(sym, "digits", None),
                 "category": getattr(sym, "tradingMode", None),
-            }
-            for sym in res.symbol
-        ]
+            })
+        return symbols_list
 
     async def get_open_positions(self, account_id: int) -> List[Dict[str, Any]]:
         """
@@ -672,20 +753,75 @@ class CTraderGateway:
         positions = []
         for pos in res.position:
             td = pos.tradeData
+            # unrealizedGrossPnl is in cents → convert to account currency units
+            pnl_monetary = (getattr(pos, "unrealizedGrossPnl", 0) or 0) / 100.0
+
+            # ------------------------------------------------------------------
+            # Derive pnl_pips from price movement, not monetary PnL.
+            # cTrader stores prices as integers with 5 implied decimal places
+            # (i.e. price_int / 100000 = actual price).  open_price comes back
+            # as a raw integer from the protobuf; bid/ask are not available here,
+            # so we use pnl_monetary as a conservative directional indicator and
+            # leave the precise pip calculation to the MAE monitor which already
+            # has the SL distance in raw price units.
+            #
+            # For the MAE monitor all that matters is a same-unit comparison, so
+            # we expose pnl_monetary under the key "pnl" and also store the
+            # per-instrument metadata the monitor needs for a correct threshold.
+            # ------------------------------------------------------------------
+            symbol_id = td.symbolId
+            # Fetch cached symbol details if available; fall back to safe defaults.
+            details = {}
+            if hasattr(self, "_symbol_details_cache"):
+                details = self._symbol_details_cache.get(f"{account_id}:{symbol_id}", {})
+
+            digits = details.get("digits", 5)
+            pip_position = details.get("pip_position", 4)
+
+            # pip_size: the price difference that equals 1 pip for this instrument.
+            # For forex 5-digit (EUR/USD): pip_size = 0.0001
+            # For indices like US100 (digits=2, pip_position=0 or 1): pip_size = 1.0
+            # Formula: pip_size = 10 ^ (-pip_position)
+            pip_size = 10 ** (-pip_position) if pip_position >= 0 else 1.0
+
+            # open_price from ProtoOA is a scaled integer (divide by 100000 to get
+            # the actual broker price).  We cannot reliably compute current price
+            # here without a live tick, so pnl_pips is estimated from monetary PnL.
+            # The MAE monitor will use this purely for sign and rough magnitude.
+            # A proper per-instrument pip_value would require contract_size and
+            # current price; we use pip_size as the normaliser for a direction check.
+            lot_size = details.get("lot_size", 10_000_000)
+            # Volume in standard lots = Proto volume (in cents) / lot_size
+            volume_lots = td.volume / lot_size if lot_size > 0 else (td.volume / 100.0)
+            # pip_value_per_lot: how much 1 pip of movement is worth in account
+            # currency for 1 standard lot.  For indices: typically 1 pt = $1/lot.
+            # Approximate: pip_value_per_lot = lot_size * pip_size (USD-denominated)
+            pip_value_per_lot = lot_size * pip_size
+            if pip_value_per_lot > 0 and volume_lots > 0:
+                pnl_pips = pnl_monetary / (pip_value_per_lot * volume_lots)
+            else:
+                pnl_pips = 0.0
+
             positions.append(
                 {
                     "position_id": pos.positionId,
-                    "symbol_id": td.symbolId,
+                    "symbol_id": symbol_id,
                     "direction": "BUY"
                     if td.tradeSide == ProtoOATradeSide.Value("BUY")
                     else "SELL",
                     "volume": td.volume,
-                    "volume_lots": td.volume / _LOTS_TO_CTRADER_UNITS,
+                    "volume_lots": volume_lots,
                     "open_price": pos.price,
                     "open_timestamp": td.openTimestamp,
                     "swap": getattr(pos, "swap", 0) / 100 if getattr(pos, "swap", None) is not None else 0.0,
                     "commission": getattr(pos, "commission", 0) / 100 if getattr(pos, "commission", None) is not None else 0.0,
-                    "pnl": (getattr(pos, "unrealizedGrossPnl", 0) or 0) / 100.0,
+                    "pnl": pnl_monetary,
+                    # pnl_pips: normalised pip equivalent of unrealised PnL.
+                    # Used by the MAE monitor; sign matches PnL (negative = adverse).
+                    "pnl_pips": pnl_pips,
+                    # Raw pip_size stored so MAE monitor can compute a
+                    # correct instrument-specific threshold.
+                    "pip_size": pip_size,
                     "account_id": account_id,
                 }
             )

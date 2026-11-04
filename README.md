@@ -1,101 +1,149 @@
-# PrimeEdge
+# PrimeEdge (Market-OS)
 
-> **Private repository — authorised contributors only.**
+Institutional-grade quantitative FX/commodities trading platform and statistical edge intelligence system.
 
-An institutional-grade execution and decision intelligence platform for active FX and commodities traders. PrimeEdge combines real-time macro regime analysis, structured trade planning, cloud-native MT5 auto-execution, and a forensic replay engine into a single, unified interface.
-
----
-
-## Modules
-
-| Module | Description |
-|---|---|
-| **FIND (Radar)** | Real-time macro regime detection — DXY, VIX, US10Y, currency strength matrix, instrument DNA profiling |
-| **PLAN (Cockpit)** | Structured trade planning with R-based risk sizing, entry logic, invalidation and target levels |
-| **EXECUTION (Bridge)** | Cloud MT5 execution — zero-install auto-execution via encrypted broker account connection, per-account killswitches, MAE/MFE guardrails |
-| **Auto-Journal** | Automatic trade journaling with performance analytics, R-multiple tracking, and session tagging |
-| **WHY (Evidence)** | Historical evidence scoring — surfaces similar market days ranked by structural similarity |
-| **REPLAY (Simulation)** | Batch simulation engine for hypothesis testing and strategy validation |
-| **AI Analyst** | Contextual market narrative generation and pattern interpretation |
+Live Production: **[https://primeedge.app](https://primeedge.app)**  
+Architecture: **Linux VPS (Linode Ubuntu) + FastAPI / Gunicorn + cTrader OpenAPI v2 + MQL5 EA Bridge + Caddy**
 
 ---
 
-## Stack
+## 1. System Overview
 
-**Backend:** Python 3.11 · FastAPI · SQLAlchemy · SQLite · JWT Auth  
-**Frontend:** React 18 · TypeScript · Vite · Native CSS (no Tailwind)  
-**Execution:** MT5 native connector · Cloud execution router · AES-256 credential encryption  
-**Deployment:** Cloudflare Tunnel · Windows host · Single-port (8000) serving
+PrimeEdge delivers empirical probability-weighted trade setups across major FX pairs and commodities (`EURUSD`, `GBPUSD`, `AUDUSD`, `USDJPY`, `XAUUSD`). It computes statistical corridor distributions (P25/P50/P75/P90), Maximum Adverse Excursion (MAE), Maximum Favorable Excursion (MFE), and macro regime overlays (DXY, VIX) with zero look-ahead bias.
+
+### Key Capabilities
+- **Quantitative Signal Engine (V4)**: Point-in-time empirical distributions with multi-session reference anchoring (T₀) and continuous corridor validation.
+- **Direct cTrader Execution**: Native cTrader OpenAPI v2 TCP engine for real-time order execution and multi-client trade copying with client risk guardrails.
+- **MQL5 EA Remote Bridge**: Zero-polling HTTP execution bridge for self-hosted client MT5 terminals.
+- **AI Analyst Engine**: Natural language reasoning interface (Gemini LLM) grounded strictly in deterministic quantitative tool outputs.
+- **Institutional Telemetry & Alerts**: Automated Telegram signal dispatch with dynamically rendered Pillow visual cards and rich macro context.
 
 ---
 
-## Project Structure
+## 2. Architecture & Components
 
 ```
-market-os/
+                ┌──────────────────────────────────────────────┐
+                │             Caddy Reverse Proxy              │
+                │        (primeedge.app, ops.primeedge.app)    │
+                └──────────────────────┬───────────────────────┘
+                                       │
+                                       ▼
+                ┌──────────────────────────────────────────────┐
+                │        FastAPI Application (Gunicorn)        │
+                │      - Quant Engines (V4 Signals & Scenarios)│
+                │      - User & Broker Account Management      │
+                │      - AI Analyst Engine                     │
+                │      - Telegram Notification Service         │
+                └──────────────┬───────────────────────────────┘
+                               │
+            ┌──────────────────┴──────────────────┐
+            ▼                                     ▼
+ ┌──────────────────────┐              ┌──────────────────────┐
+ │   cTrader Copier     │              │    MQL5 EA Bridge    │
+ │ (Twisted TCP v2)     │              │  (/api/v1/execution) │
+ │ Direct copy to client│              │ Polled by client EAs │
+ │ cTrader accounts     │              │ on remote terminals  │
+ └──────────────────────┘              └──────────────────────┘
+```
+
+---
+
+## 3. Technology Stack
+
+- **Backend**: Python 3.11, FastAPI, SQLAlchemy, SQLite (production/staging), Gunicorn (`uvicorn.workers.UvicornWorker`)
+- **Web & Proxy**: Caddy (automatic SSL, zero-config reverse proxy)
+- **Execution**:
+  - `cTrader OpenAPI v2`: Protobuf TCP stream (`ctrader_gateway.py`, `ctrader_copier_service.py`)
+  - `MQL5 Bridge`: REST endpoint polling (`ea_bridge_router.py`, `MarketOS_Bridge.mq5`)
+- **Frontend**: Single-Page App built with Vite + React + Tailwind CSS (compiled static assets served from `frontend/dist`)
+- **Database**: SQLite / PostgreSQL compatible SQLAlchemy models
+
+---
+
+## 4. Local Development Setup
+
+### Prerequisites
+- Python 3.11+
+- Git
+
+### Installation
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Abulamido/Market-OS.git
+   cd Market-OS
+   ```
+2. Set up virtual environment and install dependencies:
+   ```bash
+   python -m venv venv
+   # Linux/macOS:
+   source venv/bin/activate
+   # Windows:
+   .\venv\Scripts\Activate.ps1
+
+   pip install -r requirements_full.txt
+   ```
+3. Configure environment:
+   ```bash
+   cp .env.example backend/.env
+   # Edit backend/.env with your local credentials and paths
+   ```
+4. Run the local backend:
+   ```bash
+   cd backend
+   python -m uvicorn app.main:app --reload --port 8000
+   ```
+5. Access the API and UI at `http://localhost:8000`.
+
+---
+
+## 5. Deployment Pipeline
+
+Deployments target the Linode production server (`172.237.112.138`) at `/var/www/market-os`:
+
+```bash
+# Standard deploy (rsync backend + restart systemd service)
+./deploy.sh
+
+# Deploy with database migrations
+./deploy.sh --migrate
+
+# Full deployment (including static assets)
+./deploy.sh --full
+```
+
+Or via `make`:
+```bash
+make deploy
+make health
+```
+
+---
+
+## 6. Directory Structure
+
+```
+Market-OS/
 ├── backend/
-│   └── app/
-│       ├── main.py                  # FastAPI app + static file serving
-│       ├── auth.py                  # JWT + bcrypt auth
-│       ├── models.py                # SQLAlchemy models
-│       ├── routers/
-│       │   ├── auth_router.py       # Register / login / refresh / me
-│       │   └── execution_cloud_router.py  # Cloud execution API
-│       └── execution/
-│           ├── cloud_router.py      # Multi-tenant execution router
-│           ├── crypto.py            # AES-256 credential encryption
-│           ├── mt5_client.py        # MT5 native connector
-│           └── bridge_manager.py   # Local execution bridge
+│   ├── app/
+│   │   ├── execution/        # cTrader gateway & copier, bridge manager
+│   │   ├── routers/          # FastAPI REST endpoints
+│   │   ├── analyst_engine.py # AI Analyst LLM reasoning & tools
+│   │   ├── telegram_service.py # Signal card generator & Telegram bot
+│   │   ├── models.py         # SQLAlchemy ORM models
+│   │   └── main.py           # Application entrypoint & lifespan
+│   └── tests/                # Pytest unit & regression tests
 ├── frontend/
-│   └── src/
-│       ├── App.tsx                  # Main app shell + auth gate
-│       ├── AuthContext.tsx          # JWT session management
-│       ├── LoginPage.tsx            # Institutional login UI
-│       └── ExecutionTab.tsx         # Cloud execution + admin console
-├── worker/
-│   ├── marketos_worker.py          # Windows VPS worker service
-│   └── setup_worker.ps1            # 1-click worker setup
+│   └── dist/                 # Pre-compiled static assets served by FastAPI
+├── mql5/
+│   ├── MarketOS_Bridge.mq5   # Canonical MQL5 Expert Advisor source
+│   └── MarketOS_Bridge.ex5   # Compiled MT5 binary for remote bridge
+├── archive/
+│   ├── windows_worker/       # Retired Windows MT5 multi-terminal scripts
+│   └── windows_scripts/      # Retired Windows batch & supervisor scripts
 ├── docs/
-│   └── cloud_mt5_bridge_guide.md   # Operational runbook
-└── replay_archive/                  # Historical simulation batches
+│   └── archive/              # Diagnostic reports and legacy phase research
+├── deploy.sh                 # Canonical production deployment script
+├── Makefile                  # Local workflow and deployment targets
+└── Caddyfile                 # Production reverse proxy configuration
 ```
-
----
-
-## Execution Architecture
-
-```
-Subscriber (any device / browser)
-        ↓  HTTPS via Cloudflare Tunnel
-PrimeEdge Backend (FastAPI · port 8000)
-        ↓
-Cloud Execution Router (multi-tenant · in-memory queues)
-        ↓
-Windows Worker (marketos_worker.py)
-        ↓
-MT5 Terminal Sessions (isolated per broker account)
-        ↓
-Individual Broker Accounts
-```
-
-**Guardrails applied per position:**
-- `-0.35R` MAE early invalidation
-- `+0.35R` MFE disarm
-- `≤ 2.5 pip` spread check before entry
-- Per-account and global killswitch
-- AES-256 encrypted broker credentials at rest
-
----
-
-## Deployment
-
-**Soft launch (current):** Local Windows PC + Cloudflare Tunnel (free, zero infrastructure cost)  
-**Scale-up path:** Windows VPS (worker) + named Cloudflare Tunnel (permanent URL)
-
----
-
-## Access
-
-Authorised subscribers access the platform via the live URL shared by the administrator. No installation required — runs entirely in the browser.
-
-Admin portal: `Execution → Admin Operations Console`

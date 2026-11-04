@@ -182,7 +182,7 @@ class RealtimeService:
                         live_tick = inst_quote.get("price")
 
                     TelegramService.send_setup_alert(snap, current_live_price=live_tick)
-                    logger.info(f"📣 [Telegram Alert] Dispatched READY signal #{snap.id} ({snap.instrument} {snap.direction}) with live tick {live_tick}")
+                    logger.info(f"ðŸ“£ [Telegram Alert] Dispatched READY signal #{snap.id} ({snap.instrument} {snap.direction}) with live tick {live_tick}")
 
                 auto_accounts = db.query(UserBrokerAccount).filter(
                     UserBrokerAccount.is_active == True,
@@ -239,11 +239,59 @@ class RealtimeService:
                                 logger.debug(f"[Auto-Execution] Account #{acc.login} already has active trade #{has_active_trade.id} on {inst} - skipping duplicate")
                                 continue
 
+                            # Guard E: Block opposite-direction trade on same instrument within same session
+                            # A "session" = last 4 hours. Prevents noise-chasing by flipping direction.
+                            from datetime import timedelta
+                            session_cutoff = datetime.utcnow() - timedelta(hours=4)
+                            recent_opposite = db.query(TradeRecord).join(
+                                SetupSnapshot, TradeRecord.setup_snapshot_id == SetupSnapshot.id
+                            ).filter(
+                                TradeRecord.account_id == acc.id,
+                                TradeRecord.lifecycle_state == "CLOSED",
+                                TradeRecord.exit_timestamp >= session_cutoff,
+                                SetupSnapshot.instrument == inst,
+                                SetupSnapshot.direction != direction
+                            ).first()
+                            if recent_opposite:
+                                mins_ago = (datetime.utcnow() - recent_opposite.exit_timestamp).total_seconds() / 60
+                                logger.info(
+                                    f"[Auto-Execution] BLOCKING {direction} on {inst} -- "
+                                    f"opposite direction closed {mins_ago:.0f}min ago. No same-session direction flip."
+                                )
+                                continue
+
+                            # Guard F: Cooldown after early invalidation (30 min minimum before re-entry)
+                            recent_early_inval = db.query(TradeRecord).join(
+                                SetupSnapshot, TradeRecord.setup_snapshot_id == SetupSnapshot.id
+                            ).filter(
+                                TradeRecord.account_id == acc.id,
+                                TradeRecord.lifecycle_state == "CLOSED",
+                                TradeRecord.exit_reason == "EARLY_INVALIDATION_MAE",
+                                TradeRecord.exit_timestamp >= datetime.utcnow() - timedelta(minutes=30),
+                                SetupSnapshot.instrument == inst
+                            ).first()
+                            if recent_early_inval:
+                                elapsed = (datetime.utcnow() - recent_early_inval.exit_timestamp).total_seconds() / 60
+                                logger.info(
+                                    f"[Auto-Execution] COOLDOWN active for {inst} -- "
+                                    f"early invalidation {elapsed:.0f}min ago. Skipping new entry."
+                                )
+                                continue
+
                             # Determine lot size & risk from user preferences
                             risk_percentage = acc.risk_pct or 1.0
                             acc_balance = acc.balance if (acc.balance and acc.balance > 0) else 10000.0
 
-                            pip_mult = 100.0 if "JPY" in inst else (10.0 if "XAU" in inst else 10000.0)
+                            # pip_mult: per-instrument correct values
+                            # Indices (US100, NAS100, USTEC, etc.) trade in index points, not pip fractions
+                            if "JPY" in inst:
+                                pip_mult = 100.0
+                            elif "XAU" in inst or "GOLD" in inst:
+                                pip_mult = 10.0
+                            elif any(idx in inst for idx in ("US100", "NAS100", "USTEC", "UK100", "GER40", "SPX", "US30", "AUS200")):
+                                pip_mult = 1.0  # Index points -- TP/SL in raw price units
+                            else:
+                                pip_mult = 10000.0  # Standard FX (4-decimal pairs)
                             dir_sign = 1.0 if direction == "LONG" else -1.0
                             mfe_target_pips = snap.mfe_p75_pips or snap.mfe_p50_pips or 30.0
 
@@ -270,10 +318,10 @@ class RealtimeService:
                                     size_lots = max(0.01, min(calc_lots, 50.0))
                                 else:
                                     size_lots = 0.01
-                                logger.info(f"📊 [Auto-Execution Sizing] Account #{acc.login} DYNAMIC_RISK_PCT: balance=${acc_balance:.2f}, risk={risk_percentage}%, risk_amount=${risk_amount_usd:.2f}, risk_pips={risk_pips:.1f} -> lots={size_lots}")
+                                logger.info(f"ðŸ“Š [Auto-Execution Sizing] Account #{acc.login} DYNAMIC_RISK_PCT: balance=${acc_balance:.2f}, risk={risk_percentage}%, risk_amount=${risk_amount_usd:.2f}, risk_pips={risk_pips:.1f} -> lots={size_lots}")
                             else:
                                 size_lots = acc.fixed_lot_size or 0.01
-                                logger.info(f"📊 [Auto-Execution Sizing] Account #{acc.login} FIXED_LOT: lots={size_lots}")
+                                logger.info(f"ðŸ“Š [Auto-Execution Sizing] Account #{acc.login} FIXED_LOT: lots={size_lots}")
 
                             # Accept trade tied to user and account
                             JournalService.accept_setup(
@@ -289,9 +337,9 @@ class RealtimeService:
                                 account_id=acc.id,
                                 user_id=acc.user_id
                             )
-                            logger.info(f"🤖 [Auto-Execution] Queued READY signal #{snap.id} ({inst} {direction}) for Account #{acc.login} (Acc ID {acc.id})")
+                            logger.info(f"ðŸ¤– [Auto-Execution] Queued READY signal #{snap.id} ({inst} {direction}) for Account #{acc.login} (Acc ID {acc.id})")
                         except Exception as acc_exec_err:
-                            logger.error(f"❌ [Auto-Execution] Error executing signal #{snap.id} for Account #{acc.id}: {acc_exec_err}", exc_info=True)
+                            logger.error(f"âŒ [Auto-Execution] Error executing signal #{snap.id} for Account #{acc.id}: {acc_exec_err}", exc_info=True)
                             db.rollback()
                             continue
 
@@ -315,7 +363,7 @@ class RealtimeService:
                                 ).order_by(SetupSnapshot.id.desc()).first()
 
                                 if not existing_snap:
-                                    logger.info(f"🚀 [Quant Engine] New READY signal detected for {inst} ({direction}) score {prof_data.get('confidence_score')} — creating snapshot and alerting")
+                                    logger.info(f"ðŸš€ [Quant Engine] New READY signal detected for {inst} ({direction}) score {prof_data.get('confidence_score')} â€” creating snapshot and alerting")
                                     new_snap = JournalService.create_setup_snapshot(db, inst, source="AUTONOMOUS_CLOUD_ENGINE", direction=direction)
                                     _dispatch_telegram_alert(new_snap)
                                     _dispatch_snap_to_auto_accounts(new_snap)
@@ -337,6 +385,16 @@ class RealtimeService:
                     _dispatch_snap_to_auto_accounts(snap)
             except Exception as auto_err:
                 logger.error(f"Error in autonomous execution scanner: {auto_err}", exc_info=True)
+
+            # 4. Automatic Session Close Daily Performance Digest (at or after 21:00 UTC)
+            now = datetime.utcnow()
+            if now.hour >= 21 and getattr(self, "_last_digest_date", None) != now.date():
+                self._last_digest_date = now.date()
+                try:
+                    TelegramService.send_daily_digest(db)
+                    logger.info("[Telegram] Automatic daily digest dispatched at session close.")
+                except Exception as de:
+                    logger.error(f"[Telegram] Error dispatching automatic daily digest: {de}")
 
             logger.info("Realtime data refresh complete")
         except Exception as e:

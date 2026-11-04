@@ -7,7 +7,7 @@ from .rate_limiter import waitlist_rate_limiter, ai_rate_limiter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse as StaticFileResponse
+from fastapi.responses import FileResponse as StaticFileResponse, HTMLResponse
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 from contextlib import asynccontextmanager
@@ -178,6 +178,7 @@ from .routers.feedback_router import router as feedback_router
 from .routers.ea_bridge_router import router as ea_bridge_router
 from .routers.subscription_router import router as subscription_router
 from .routers.ctrader_auth_router import router as ctrader_auth_router
+from .routers.video_render import router as video_render_router
 from .auth import get_current_user
 from .models import User as UserModel
 
@@ -187,16 +188,22 @@ app.include_router(feedback_router)
 app.include_router(ea_bridge_router)
 app.include_router(subscription_router)
 app.include_router(ctrader_auth_router)
+app.include_router(video_render_router)
 
 
-# Root endpoint — serve React app if built, otherwise API health message
+# Root endpoint — serve SEO-prerendered React app if built, otherwise API health message
 @app.get("/")
 def read_root():
     _dist_index = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist", "index.html")
     if os.path.isfile(_dist_index):
-        return StaticFileResponse(_dist_index)
+        try:
+            with open(_dist_index, "r", encoding="utf-8") as f:
+                raw_html = f.read()
+            from .seo_renderer import render_html_for_route
+            return HTMLResponse(content=render_html_for_route(raw_html, "/"), status_code=200)
+        except Exception:
+            return StaticFileResponse(_dist_index)
     return {"message": "Welcome to Market OS API. Bloomberg Terminal x Quantitative Research Engine."}
-
 def sync_live_macro_regime(db: Session) -> DailyMarketRegime:
     """
     Synchronizes the DailyMarketRegime with live macro data (DXY, VIX, US10Y).
@@ -1658,8 +1665,13 @@ def get_waitlist_stats(db: Session = Depends(get_db)):
 def submit_waitlist(req: WaitlistSubmitRequest, request: Request, db: Session = Depends(get_db)):
     waitlist_rate_limiter.check(request)
     from .models import WaitlistLead
+    from .email_validator import validate_email_authenticity
     if not req.full_name or not req.email:
         raise HTTPException(status_code=400, detail="Full Name and Email Address are required.")
+
+    is_valid, err_msg = validate_email_authenticity(req.email.strip().lower())
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=err_msg)
 
     existing = db.query(WaitlistLead).filter(WaitlistLead.email == req.email.strip().lower()).first()
     if existing:
@@ -1739,38 +1751,53 @@ def submit_waitlist(req: WaitlistSubmitRequest, request: Request, db: Session = 
 
 
 
-# ── Public Landing & Compliance Routes ──────────────────────────────────────
+# -- SEO, Robots, Sitemap & Prerendering -------------------------------------
 _PUBLIC_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public")
-_WAITLIST_HTML = os.path.join(_PUBLIC_DIR, "waitlist.html")
-_PRIVACY_HTML = os.path.join(_PUBLIC_DIR, "privacy.html")
-_TERMS_HTML = os.path.join(_PUBLIC_DIR, "terms.html")
+_DIST = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
 
-@app.get("/waitlist", include_in_schema=False)
+from .seo_renderer import render_html_for_route, is_valid_route, NOT_FOUND_HTML
+
+@app.get("/robots.txt", include_in_schema=False)
+def serve_robots():
+    robots_path = os.path.join(_PUBLIC_DIR, "robots.txt")
+    if os.path.exists(robots_path):
+        return StaticFileResponse(robots_path, media_type="text/plain")
+    dist_robots = os.path.join(_DIST, "robots.txt")
+    if os.path.exists(dist_robots):
+        return StaticFileResponse(dist_robots, media_type="text/plain")
+    raise HTTPException(status_code=404, detail="robots.txt not found")
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+def serve_sitemap():
+    sitemap_path = os.path.join(_PUBLIC_DIR, "sitemap.xml")
+    if os.path.exists(sitemap_path):
+        return StaticFileResponse(sitemap_path, media_type="application/xml")
+    dist_sitemap = os.path.join(_DIST, "sitemap.xml")
+    if os.path.exists(dist_sitemap):
+        return StaticFileResponse(dist_sitemap, media_type="application/xml")
+    raise HTTPException(status_code=404, detail="sitemap.xml not found")
+
+
+_WAITLIST_HTML = os.path.join(_PUBLIC_DIR, "waitlist.html")
 @app.get("/waitlist.html", include_in_schema=False)
 def serve_waitlist():
     if os.path.exists(_WAITLIST_HTML):
         return StaticFileResponse(_WAITLIST_HTML)
     raise HTTPException(status_code=404, detail="Waitlist page not found")
 
-@app.get("/privacy", include_in_schema=False)
-@app.get("/privacy.html", include_in_schema=False)
-def serve_privacy():
-    if os.path.exists(_PRIVACY_HTML):
-        return StaticFileResponse(_PRIVACY_HTML)
-    raise HTTPException(status_code=404, detail="Privacy page not found")
 
-@app.get("/terms", include_in_schema=False)
-@app.get("/terms.html", include_in_schema=False)
-def serve_terms():
-    if os.path.exists(_TERMS_HTML):
-        return StaticFileResponse(_TERMS_HTML)
-    raise HTTPException(status_code=404, detail="Terms page not found")
+# -- Telegram Performance Digest Trigger -------------------------------------
+@app.post("/api/v1/telegram/daily-digest")
+@app.get("/api/v1/telegram/daily-digest")
+def trigger_telegram_daily_digest(db: Session = Depends(get_db)):
+    """Triggers the Telegram daily decision and execution performance digest."""
+    from .telegram_service import TelegramService
+    success = TelegramService.send_daily_digest(db)
+    return {"status": "success" if success else "failed", "dispatched": success}
 
 
-# ── Serve built React frontend ──────────────────────────────────────────────
-# Must be mounted LAST so all API routes take priority.
-_DIST = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
-
+# -- Serve built React frontend with Dynamic SEO Prerender & Strict 404s -----
 if os.path.isdir(_DIST):
     app.mount("/assets", StaticFiles(directory=os.path.join(_DIST, "assets")), name="assets")
     _SCREENSHOTS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "screenshots")
@@ -1783,9 +1810,30 @@ if os.path.isdir(_DIST):
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_fallback(full_path: str):
-        if full_path == "" or full_path == "/":
-            return StaticFileResponse(os.path.join(_DIST, "index.html"))
+        # 1. File on disk (favicon, images, etc.)
         file_path = os.path.join(_DIST, full_path)
-        if os.path.exists(file_path) and os.path.isfile(file_path):
+        if full_path and os.path.exists(file_path) and os.path.isfile(file_path):
             return StaticFileResponse(file_path)
-        return StaticFileResponse(os.path.join(_DIST, "index.html"))
+
+        # 2. Check if this is a known, valid client-side route
+        clean_path = ("/" + full_path.strip("/")).rstrip("/")
+        if clean_path == "":
+            clean_path = "/"
+
+        if not is_valid_route(clean_path):
+            return HTMLResponse(content=NOT_FOUND_HTML, status_code=404)
+
+        # 3. Read base index.html and inject route-specific SEO metadata & prerendered HTML
+        index_file = os.path.join(_DIST, "index.html")
+        if os.path.exists(index_file):
+            try:
+                with open(index_file, "r", encoding="utf-8") as f:
+                    raw_html = f.read()
+                rendered = render_html_for_route(raw_html, clean_path)
+                return HTMLResponse(content=rendered, status_code=200)
+            except Exception as render_err:
+                logger.warning("Error rendering route SEO for %s: %s", clean_path, render_err)
+                return StaticFileResponse(index_file)
+
+        return HTMLResponse(content=NOT_FOUND_HTML, status_code=404)
+

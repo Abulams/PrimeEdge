@@ -58,6 +58,10 @@ def _detect_intent(query: str, symbol: Optional[str]) -> str:
     """Classify query intent for tool routing."""
     q = query.upper()
 
+    signal_card_phrases = ["SHOW ME", "GIVE ME", "CARD FOR", "SIGNAL FOR", "SIGNAL CARD", "WHAT'S THE SIGNAL", "WHATS THE SIGNAL"]
+    if any(p in q for p in signal_card_phrases) and any(sym in q for sym in ["GBPUSD", "EURUSD", "XAUUSD", "AUDUSD", "USDJPY", "GOLD", "JPY"]):
+        return "SIGNAL_CARD"
+
     comparison_words = ["OR", "VS", "VERSUS", "COMPARE", "BETTER", "BEST", "RANK"]
     simulate_words = ["IF", "WHAT IF", "SUPPOSE", "SCENARIO", "DROPS", "FALLS", "RISES", "MOVES", "PIP"]
     explain_words = ["WHY", "EXPLAIN", "REASON", "HOW DOES", "WHAT DOES", "WHAT IS", "DEFINE", "MEAN"]
@@ -171,6 +175,15 @@ def _build_context(db: Session, intent: str, symbol: Optional[str], query: str) 
             ctx["methodology"] = tools.get_methodology_doc(topic)
         except Exception as e:
             logger.warning(f"methodology_doc failed: {e}")
+
+    elif intent == "SIGNAL_CARD":
+        target_sym = symbol or "GBPUSD"
+        try:
+            ctx["instrument_profile"] = tools.get_instrument_profile(db, target_sym)
+            ctx["historical_evidence"] = tools.get_historical_evidence(db, target_sym)
+            ctx["entry_analysis"] = tools.get_entry_zone_analysis(db, target_sym)
+        except Exception as e:
+            logger.warning(f"signal_card context failed: {e}")
 
     elif intent == "ENTRY":
         if symbol:
@@ -368,6 +381,16 @@ def _call_llm(
 
         client = genai.Client(api_key=api_key)
 
+        # Dynamic Live Macro Header Injection
+        snap = ctx.get("market_snapshot", {})
+        regime = snap.get("macro_regime", {}) if snap else {}
+        macro_line = (
+            f"LIVE MACRO CONTEXT: DXY {regime.get('dxy_direction','?')} at {regime.get('dxy_level','?')} | "
+            f"VIX {regime.get('vix_level','?')} {regime.get('risk_sentiment','?')} | "
+            f"Session: {snap.get('session','?')}"
+            if snap else "LIVE MACRO CONTEXT: unavailable"
+        )
+
         # Build context block
         facts_json = json.dumps(ctx, indent=2, default=str)
         context_block = f"""
@@ -394,16 +417,16 @@ The above are the ONLY quantitative facts you should use. Do not invent numbers.
         contents.append(
             types.Content(
                 role="user",
-                parts=[types.Part(text=f"{context_block}\n\nUser question: {query}")]
+                parts=[types.Part(text=f"[{macro_line}]\n\n{context_block}\n\nUser question: {query}")]
             )
         )
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.0-flash",  # Using gemini-2.0-flash; upgrade to gemini-2.5-flash-preview when available
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_PROMPT,
                 temperature=0.2,
-                max_output_tokens=1200,
+                max_output_tokens=1800,
             ),
             contents=contents,
         )

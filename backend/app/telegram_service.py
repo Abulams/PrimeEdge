@@ -32,13 +32,24 @@ TEXT_GREY   = (140, 160, 190)
 TEXT_YELLOW = (255, 210,  60)
 BADGE_LONG  = (0,  140,  80)      # green badge
 BADGE_SHORT = (180,  40,  40)     # red badge
-BADGE_READY = (0,  140, 200)      # cyan badge
+BADGE_READY   = (0,  140, 200)      # cyan badge
+BADGE_WAIT    = (180, 110,  20)     # amber/orange badge
+BADGE_INVALID = (140,  30,  30)     # dark red badge
 
 CARD_W = 840
 CARD_H = 480
 CORNER = 18
 
 # ──────────────────────────────────────────────────────────────────────────────
+
+def _get_ssl_context():
+    try:
+        import certifi
+        import ssl
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return None
+
 
 def _rounded_rect(draw, xy, radius, fill=None, outline=None, width=2):
     """Draw a rounded rectangle using PIL."""
@@ -92,6 +103,8 @@ def generate_signal_card_image(snap, current_live_price: Optional[float] = None)
     sample_n  = getattr(snap, "historical_n", 45) or 45
     session   = (getattr(snap, "session",    "LONDON") or "LONDON").upper().replace(" ", "_")
     dxy       = getattr(snap, "dxy_regime",  "NEUTRAL") or "NEUTRAL"
+    vix_val   = getattr(snap, "vix_level", None) or getattr(snap, "vix_regime", None) or ""
+    regime_hdr = f"DXY: {dxy}" + (f" | VIX: {vix_val}" if vix_val else "")
     thesis    = (getattr(snap, "setup_thesis", "") or
                  f"{inst} {'long' if is_long else 'short'} setup. "
                  f"Entry inside P25-P75 corridor with {rr:.2f}:1 reward feasibility.")
@@ -137,6 +150,9 @@ def generate_signal_card_image(snap, current_live_price: Optional[float] = None)
     # Brand text
     draw.text((70, 22), "PrimeEdge", font=_font(18, bold=True), fill=TEXT_WHITE)
     draw.text((70, 46), "INSTITUTIONAL DECISION INTELLIGENCE", font=_font(9), fill=TEXT_GREY)
+    # Live Regime line
+    draw.text((CARD_W-360, 26), regime_hdr, font=_font(10, bold=True), fill=TEXT_CYAN)
+
     # Verified badge
     badge_txt = "★ STATISTICALLY VERIFIED EDGE"
     bt_font = _font(9, bold=True)
@@ -159,10 +175,17 @@ def generate_signal_card_image(snap, current_live_price: Optional[float] = None)
     _rounded_rect(draw, (dx, y+8, dx+dw, y+38), 10, fill=dir_color)
     draw.text((dx+11, y+12), dir_lbl, font=d_font, fill=TEXT_WHITE)
 
-    # Status badge (READY)
+    # Status badge (READY / WAIT / INVALID)
+    if status == "READY":
+        s_color = BADGE_READY
+    elif status in ("WAIT", "PENDING"):
+        s_color = BADGE_WAIT
+    else:
+        s_color = BADGE_INVALID
+
     s_font   = _font(13, bold=True)
     sw       = int(draw.textlength(status, font=s_font)) + 22
-    _rounded_rect(draw, (CARD_W-30-sw, y+8, CARD_W-30, y+38), 10, fill=BADGE_READY)
+    _rounded_rect(draw, (CARD_W-30-sw, y+8, CARD_W-30, y+38), 10, fill=s_color)
     draw.text((CARD_W-30-sw+11, y+12), status, font=s_font, fill=TEXT_WHITE)
 
     # ── Three primary metric boxes ─────────────────────────────────────────────
@@ -221,8 +244,13 @@ def generate_signal_card_image(snap, current_live_price: Optional[float] = None)
     draw.text((30, CARD_H-30), "⚡ Point-in-time empirical model • Zero look-ahead", font=_font(9), fill=TEXT_GREY)
     draw.text((CARD_W-145, CARD_H-30), "primeedge.app", font=_font(9, bold=True), fill=TEXT_CYAN)
 
-    # ── Watermark DXY line ─────────────────────────────────────────────────────
-    draw.text((CARD_W-155, y+10), f"DXY: {dxy}  |  Live: {price_fmt.format(live_val)}", font=_font(9), fill=TEXT_GREY)
+    # ── Live price on instrument row ──────────────────────────────────────────
+    draw.text((CARD_W-220, y+10), f"Live: {price_fmt.format(live_val)}", font=_font(11, bold=True), fill=TEXT_WHITE)
+
+    # ── Corridor breakdown in quant reasoning block ───────────────────────────
+    corr_y = y4 + 24 + (min(len(lines_out), 3) * 16) + 6
+    if corr_y + 14 < CARD_H - 40:
+        draw.text((48, corr_y), f"Corridor P25: {price_fmt.format(corr_low)}  |  P75: {price_fmt.format(corr_high)}  |  P90: {price_fmt.format(sl_price)}", font=_font(9), fill=TEXT_CYAN)
 
     buf = io.BytesIO()
     img.save(buf, format="PNG", optimize=True)
@@ -271,7 +299,8 @@ class TelegramService:
                 url, data=json.dumps(payload).encode("utf-8"),
                 headers={"Content-Type": "application/json"}
             )
-            with urllib.request.urlopen(req, timeout=8) as response:
+            ssl_ctx = _get_ssl_context()
+            with urllib.request.urlopen(req, timeout=8, context=ssl_ctx) as response:
                 res_data = json.loads(response.read().decode("utf-8"))
                 ok = res_data.get("ok", False)
                 if ok:
@@ -332,7 +361,8 @@ class TelegramService:
                 url, data=body,
                 headers={"Content-Type": f"multipart/form-data; boundary={boundary}"}
             )
-            with urllib.request.urlopen(req, timeout=15) as response:
+            ssl_ctx = _get_ssl_context()
+            with urllib.request.urlopen(req, timeout=15, context=ssl_ctx) as response:
                 res_data = json.loads(response.read().decode("utf-8"))
                 ok = res_data.get("ok", False)
                 if ok:
@@ -379,9 +409,11 @@ class TelegramService:
         else:
             price_str = f"{live_val:.5f}"
 
+        status  = getattr(snap, "status_at_snapshot", "READY").upper()
+        dxy_val = getattr(snap, "dxy_regime", "NEUTRAL") or "NEUTRAL"
         return (
-            f"{dir_emoji} <b>{inst} {direction} — READY</b>\n"
-            f"Live Tick: <code>{price_str}</code> | Confidence: <code>{conf}%</code>\n"
+            f"{dir_emoji} <b>{inst} {direction} — {status}</b>\n"
+            f"Regime: <code>{dxy_val}</code> | Live: <code>{price_str}</code> | Conf: <code>{conf}%</code>\n"
             f"<i>{thesis[:160]}</i>\n\n"
             f"<a href='https://primeedge.app'>Open PrimeEdge Terminal</a>"
         )
@@ -441,3 +473,168 @@ class TelegramService:
             cls.send_message_async(text)
         except Exception as e:
             logger.error(f"[Telegram] Failed to send execution notification: {e}")
+
+    @classmethod
+    def send_outcome_alert(cls, trade_record) -> None:
+        """
+        Dispatches an instant outcome alert when a setup/trade resolves (Target Hit, SL, Early Inval).
+        """
+        try:
+            setup = getattr(trade_record, "setup", None)
+            inst = (setup.instrument if setup else getattr(trade_record, "instrument", None)) or "UNKNOWN"
+            direction = (setup.direction if setup else getattr(trade_record, "direction", "LONG")) or "LONG"
+            outcome = getattr(trade_record, "outcome", "BREAKEVEN") or "BREAKEVEN"
+            pnl_pips = getattr(trade_record, "pnl_pips", 0.0) or 0.0
+            pnl_r = getattr(trade_record, "pnl_r", 0.0) or 0.0
+            exit_reason = getattr(trade_record, "exit_reason", "MANUAL") or "MANUAL"
+            exit_price = getattr(trade_record, "exit_price", 0.0) or 0.0
+            entry_price = getattr(trade_record, "actual_entry", None) or (setup.setup_ref_price if setup else 0.0)
+            mae_pips = getattr(trade_record, "max_mae_pips", 0.0) or 0.0
+            mfe_pips = getattr(trade_record, "max_mfe_pips", 0.0) or 0.0
+
+            # Emoji and badge formatting
+            if outcome == "WIN" or exit_reason == "TAKE_PROFIT" or pnl_r > 0.3:
+                badge = "🎯 <b>TARGET REACHED</b>"
+                result_emoji = "✅"
+            elif exit_reason == "EARLY_INVALIDATION_MAE":
+                badge = "🛡️ <b>EARLY INVALIDATION</b>"
+                result_emoji = "⚠️"
+            elif outcome == "LOSS" or exit_reason == "STOP_LOSS":
+                badge = "🛑 <b>INVALIDATED (STOP LOSS)</b>"
+                result_emoji = "❌"
+            else:
+                badge = "⚖️ <b>BREAKEVEN / CLOSED</b>"
+                result_emoji = "🔹"
+
+            # Format price string
+            if "JPY" in inst:
+                price_fmt = "{:.3f}"
+            elif "XAU" in inst:
+                price_fmt = "{:.2f}"
+            elif "US100" in inst:
+                price_fmt = "{:.1f}"
+            else:
+                price_fmt = "{:.5f}"
+
+            entry_str = price_fmt.format(entry_price) if entry_price else "N/A"
+            exit_str = price_fmt.format(exit_price) if exit_price else "N/A"
+
+            # Reason description
+            reason_map = {
+                "TAKE_PROFIT": "Target corridor reached",
+                "STOP_LOSS": "Thesis invalidation breached",
+                "EARLY_INVALIDATION_MAE": "Adverse momentum guardrail (-0.35R)",
+                "MANUAL": "Manual position exit",
+                "EOD": "End of session close"
+            }
+            reason_desc = reason_map.get(exit_reason, exit_reason)
+
+            text = (
+                f"{result_emoji} <b>SETUP RESOLVED: {inst} {direction}</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━\n"
+                f"• <b>Status:</b> {badge}\n"
+                f"• <b>Net Payoff:</b> <b>{pnl_r:+.2f} R</b> ({pnl_pips:+.1f} pips)\n"
+                f"• <b>Entry → Exit:</b> <code>{entry_str}</code> → <code>{exit_str}</code>\n"
+                f"• <b>Exit Reason:</b> <i>{reason_desc}</i>\n"
+                f"• <b>Max Excursion:</b> MAE <code>{mae_pips} pips</code> | MFE <code>{mfe_pips} pips</code>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━\n"
+                f"🛡️ <i>Evidence-backed decision recorded in PrimeEdge Journal.</i>\n\n"
+                f"<a href='https://primeedge.app'>View Live Journal & Audits</a>"
+            )
+            cls.send_message_async(text)
+            logger.info(f"[Telegram] Dispatched outcome alert for {inst} {direction}: {outcome} ({pnl_r}R)")
+        except Exception as e:
+            logger.error(f"[Telegram] Failed to dispatch outcome alert: {e}", exc_info=True)
+
+    @classmethod
+    def send_daily_digest(cls, db) -> bool:
+        """
+        Compiles and dispatches the daily performance digest of all setups/trades closed in the last 24h.
+        """
+        try:
+            from .models import TradeRecord
+            from sqlalchemy.orm import joinedload
+            from datetime import datetime, timedelta
+
+            cutoff = datetime.utcnow() - timedelta(hours=24)
+            closed_trades = db.query(TradeRecord).options(
+                joinedload(TradeRecord.setup)
+            ).filter(
+                TradeRecord.lifecycle_state == "CLOSED",
+                TradeRecord.exit_timestamp >= cutoff
+            ).order_by(TradeRecord.exit_timestamp.desc()).all()
+
+            date_str = datetime.utcnow().strftime("%B %d, %Y")
+
+            if not closed_trades:
+                text = (
+                    f"📊 <b>PRIMEEDGE DAILY DECISION DIGEST</b>\n"
+                    f"<i>Session Record for {date_str}</i>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"No setups reached resolution in the last 24 hours.\n"
+                    f"<i>The system held discipline and preserved capital.</i>\n\n"
+                    f"<a href='https://primeedge.app'>Open Decision Terminal</a>"
+                )
+                cls.send_message_async(text)
+                return True
+
+            total = len(closed_trades)
+            wins = sum(1 for t in closed_trades if (t.pnl_r or 0) > 0.1)
+            losses = sum(1 for t in closed_trades if (t.pnl_r or 0) < -0.1)
+            breakevens = total - wins - losses
+            win_rate = (wins / total * 100.0) if total > 0 else 0.0
+
+            total_r = sum((t.pnl_r or 0.0) for t in closed_trades)
+            total_pips = sum((t.pnl_pips or 0.0) for t in closed_trades)
+
+            # Saved R from early invalidations vs standard 1R stop
+            saved_r = sum(
+                (1.0 - abs(t.pnl_r or 0.35))
+                for t in closed_trades
+                if t.exit_reason == "EARLY_INVALIDATION_MAE" and (t.pnl_r or 0) < 0
+            )
+
+            # Build list of items
+            items_text = []
+            for t in closed_trades[:8]:
+                setup = t.setup
+                inst = (setup.instrument if setup else t.instrument) or "UNKNOWN"
+                direction = (setup.direction if setup else "TRADE")
+                pnl_r = t.pnl_r or 0.0
+                pnl_pips = t.pnl_pips or 0.0
+                if pnl_r > 0.1:
+                    emo = "✅"
+                elif t.exit_reason == "EARLY_INVALIDATION_MAE":
+                    emo = "⚠️"
+                elif pnl_r < -0.1:
+                    emo = "❌"
+                else:
+                    emo = "🔹"
+                items_text.append(f"• {emo} <b>{inst} {direction}:</b> <code>{pnl_r:+.2f} R</code> ({pnl_pips:+.1f} p)")
+
+            trades_block = "\n".join(items_text)
+
+            text = (
+                f"📊 <b>PRIMEEDGE DAILY DECISION DIGEST</b>\n"
+                f"<i>Intraday Performance & Evidence — {date_str}</i>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━\n"
+                f"<b>Setups Resolved:</b> {total}\n"
+                f"{trades_block}\n"
+                f"━━━━━━━━━━━━━━━━━━━━━\n"
+                f"📈 <b>Net Payoff:</b> <b>{total_r:+.2f} R</b> ({total_pips:+.1f} pips)\n"
+                f"🎯 <b>Win Rate:</b> <b>{win_rate:.1f}%</b> ({wins}W - {losses}L)\n"
+            )
+            if saved_r > 0.1:
+                text += f"🛡️ <b>Guardrail Savings:</b> <b>+{saved_r:.2f} R</b> (early invalidation)\n"
+
+            text += (
+                f"\n<i>\"Trade with evidence. Execute with discipline.\"</i>\n"
+                f"<a href='https://primeedge.app'>Audit Full Trade Records at primeedge.app</a>"
+            )
+
+            cls.send_message_async(text)
+            logger.info(f"[Telegram] Dispatched daily digest: {total} trades, net {total_r:+.2f}R")
+            return True
+        except Exception as e:
+            logger.error(f"[Telegram] Failed to dispatch daily digest: {e}", exc_info=True)
+            return False

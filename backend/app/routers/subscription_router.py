@@ -273,3 +273,87 @@ async def handle_paystack_webhook(request: Request, db: Session = Depends(get_db
     except Exception as e:
         logger.error(f"Paystack webhook error: {e}")
         raise HTTPException(status_code=500, detail="Webhook processing failed")
+
+# --- Flutterwave Routes (USD / Global) ---
+
+class FlutterwaveCheckoutRequest(BaseModel):
+    tier_name: str
+    billing_interval: str = "month"
+    currency: str = "USD"
+
+
+class FlutterwaveCheckoutResponse(BaseModel):
+    checkout_url: str
+    reference: str
+
+
+@router.get("/flutterwave/config")
+def get_flutterwave_config():
+    """Get Flutterwave public configuration for frontend checkout."""
+    from ..flutterwave_service import FlutterwaveService
+    return FlutterwaveService.get_public_config()
+
+
+@router.post("/flutterwave/checkout", response_model=FlutterwaveCheckoutResponse)
+def create_flutterwave_checkout(
+    req: FlutterwaveCheckoutRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create Flutterwave checkout session for USD / international cards."""
+    from ..flutterwave_service import FlutterwaveService
+    try:
+        session = FlutterwaveService.create_checkout_session(
+            db=db,
+            user_id=current_user.id,
+            tier_name=req.tier_name,
+            billing_interval=req.billing_interval,
+            currency=req.currency
+        )
+        return FlutterwaveCheckoutResponse(
+            checkout_url=session["checkout_url"],
+            reference=session["reference"]
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating Flutterwave checkout: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create Flutterwave checkout session")
+
+
+@router.get("/flutterwave/verify/{reference}")
+def verify_flutterwave_payment(
+    reference: str,
+    transaction_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Verify a Flutterwave transaction and activate subscription immediately."""
+    from ..flutterwave_service import FlutterwaveService
+    try:
+        result = FlutterwaveService.verify_transaction(db, reference=reference, transaction_id=transaction_id)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error verifying Flutterwave payment: {e}")
+        raise HTTPException(status_code=500, detail="Failed to verify payment")
+
+
+@router.post("/flutterwave-webhook")
+async def handle_flutterwave_webhook(request: Request, db: Session = Depends(get_db)):
+    """
+    Handle incoming Flutterwave webhook events.
+    Verifies verif-hash header against secret hash.
+    """
+    from ..flutterwave_service import FlutterwaveService
+    body = await request.body()
+    signature = request.headers.get("verif-hash")
+    try:
+        FlutterwaveService.handle_webhook_event(db, body, signature or "")
+        return {"status": "success"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Flutterwave webhook error: {e}")
+        raise HTTPException(status_code=500, detail="Webhook processing failed")
