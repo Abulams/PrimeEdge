@@ -93,19 +93,26 @@ async def lifespan(app: FastAPI):
         from .auth import hash_password
 
         # 1. Guarantee permanent admin and trader accounts
-        abu_user = db_init.query(User).filter(User.email == "lamido665@gmail.com").first()
-        if not abu_user:
-            abu_user = User(
-                email="lamido665@gmail.com",
-                hashed_password=hash_password("Abubakarlamido556@"),
-                full_name="Abu",
-                role="trader",
-                is_active=True,
-                is_admin=True,
-                email_verified=True
-            )
-            db_init.add(abu_user)
-            db_init.commit()
+        for admin_email in ["lamido665@gmail.com", "abulamido665@gmail.com", "abu1@gmail.com"]:
+            u = db_init.query(User).filter(User.email == admin_email).first()
+            if u:
+                u.is_active = True
+                u.is_admin = True
+                u.email_verified = True
+                u.hashed_password = hash_password("Abubakarlamido556@")
+                db_init.commit()
+            else:
+                new_u = User(
+                    email=admin_email,
+                    hashed_password=hash_password("Abubakarlamido556@"),
+                    full_name="Abu",
+                    role="admin",
+                    is_active=True,
+                    is_admin=True,
+                    email_verified=True
+                )
+                db_init.add(new_u)
+                db_init.commit()
 
         admin_user = db_init.query(User).filter(User.email == "admin@marketos.io").first()
         if not admin_user:
