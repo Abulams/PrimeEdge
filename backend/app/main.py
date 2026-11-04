@@ -158,6 +158,9 @@ async def lifespan(app: FastAPI):
 
     # Start the realtime polling service (every 15 seconds for autonomous execution)
     await realtime_service.start(interval_seconds=15)
+    # Warm up dashboard caches immediately on startup (non-blocking)
+    import asyncio as _asyncio
+    _asyncio.create_task(realtime_service._recompute_dashboard_caches())
     yield
     # Stop the service on shutdown
     await realtime_service.stop()
@@ -326,25 +329,29 @@ def get_macro_regime(db: Session = Depends(get_db)):
     return sync_live_macro_regime(db)
 
 
-# 2. Watchlist Endpoint
+# 2. Watchlist Endpoint — served from background cache for instant response
 @app.get("/api/v1/dashboard/watchlist", response_model=List[WatchlistInstrument])
-def get_watchlist(db: Session = Depends(get_db)):
-    today = datetime.date.today()
-    regime = sync_live_macro_regime(db)
-    instruments = ["XAUUSD", "US100", "EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "AUDJPY"]
-    watchlist = []
+async def get_watchlist(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """
+    Returns the cached watchlist instantly. If cache is empty (cold start),
+    computes synchronously for first request then keeps it warm via background refresh.
+    """
+    # If cache is populated, return immediately (< 1ms)
+    if realtime_service.watchlist_cache:
+        raw = realtime_service.watchlist_cache
+        # Trigger a background refresh so next call is fresh
+        background_tasks.add_task(realtime_service._recompute_dashboard_caches)
+    else:
+        # Cold start: compute now (blocks, but only once)
+        await realtime_service._recompute_dashboard_caches()
+        raw = realtime_service.watchlist_cache
 
-    for inst in instruments:
-        dual_profiles = DecisionIntelligenceEngine.generate_dual_profiles(db, inst, today)
-        candidates = [p for p in [dual_profiles.get("long"), dual_profiles.get("short")] if p is not None]
-        
-        # Rank candidate directions by actionability: READY > WAIT > NO EDGE > NO SETUP, then confidence score
-        cand_order = {"READY": 0, "WAIT": 1, "NO EDGE": 2, "NO SETUP": 3, "INVALID": 4}
-        if candidates:
-            # Sort candidate directions to select the most actionable and highest-confidence setup
-            candidates.sort(key=lambda p: (cand_order.get(p.get("status_state"), 9), -p.get("confidence_score", 0)))
-            profile_data = candidates[0]
-            
+    # Convert raw dicts to WatchlistInstrument schema
+    watchlist = []
+    status_order = {"READY": 0, "WAIT": 1, "NO EDGE": 2, "NO SETUP": 3, "INVALID": 4}
+    evidence_order = {"Strong": 0, "Moderate": 1, "Weak": 2}
+    for profile_data in raw:
+        try:
             watchlist.append(
                 WatchlistInstrument(
                     instrument=profile_data["instrument"],
@@ -352,12 +359,12 @@ def get_watchlist(db: Session = Depends(get_db)):
                     status_state=profile_data.get("status_state", "WAIT"),
                     why_this_now=profile_data.get("why_this_now", ""),
                     evidence_strength=profile_data.get("evidence_strength", "Moderate"),
-                    mss_score=profile_data["confidence_score"],
-                    current_regime=profile_data["current_regime"],
-                    continuation_probability=profile_data["continuation_probability"],
-                    best_session=profile_data["best_session"],
-                    historical_sample_size=profile_data["historical_sample_size"],
-                    supporting_explanation=profile_data["supporting_explanation"] or "",
+                    mss_score=profile_data.get("confidence_score", 0.0),
+                    current_regime=profile_data.get("current_regime", ""),
+                    continuation_probability=profile_data.get("continuation_probability", 0.5),
+                    best_session=profile_data.get("best_session", ""),
+                    historical_sample_size=profile_data.get("historical_sample_size", 0),
+                    supporting_explanation=profile_data.get("supporting_explanation") or "",
                     acceptable_corridor=profile_data.get("acceptable_corridor"),
                     preferred_zone=profile_data.get("preferred_zone"),
                     historical_adverse_boundary=profile_data.get("historical_adverse_boundary"),
@@ -367,10 +374,8 @@ def get_watchlist(db: Session = Depends(get_db)):
                     mss_decomposition=profile_data.get("mss_decomposition")
                 )
             )
-
-    # Sort watchlist by actionability: READY (0) -> WAIT (1) -> NO EDGE (2) -> NO SETUP (3), then mss_score desc
-    status_order = {"READY": 0, "WAIT": 1, "NO EDGE": 2, "NO SETUP": 3, "INVALID": 4}
-    evidence_order = {"Strong": 0, "Moderate": 1, "Weak": 2}
+        except Exception:
+            pass
 
     watchlist.sort(
         key=lambda x: (
@@ -1083,9 +1088,23 @@ async def force_realtime_refresh(background_tasks: BackgroundTasks):
     background_tasks.add_task(realtime_service.refresh_data)
     return {"message": "Realtime refresh initiated"}
 
-# 11. Currency Strength Matrix Endpoint
+# 11. Currency Strength Matrix Endpoint — served from background cache
 @app.get("/api/v1/dashboard/currency-strength")
-def get_currency_strength(mode: str = "intraday", db: Session = Depends(get_db)):
+async def get_currency_strength(mode: str = "intraday", background_tasks: BackgroundTasks = None, db: Session = Depends(get_db)):
+    """Returns CSI matrix from cache for instant response."""
+    if mode.lower() != "intraday":
+        # Non-intraday requests go direct (less common)
+        from .engine import CurrencyStrengthEngine
+        return CurrencyStrengthEngine.get_matrix(db, mode=mode)
+    if realtime_service.csi_cache:
+        if background_tasks:
+            background_tasks.add_task(realtime_service._recompute_dashboard_caches)
+        return realtime_service.csi_cache
+    # Cache miss: compute now
+    await realtime_service._recompute_dashboard_caches()
+    if realtime_service.csi_cache:
+        return realtime_service.csi_cache
+    # Absolute fallback
     from .engine import CurrencyStrengthEngine
     return CurrencyStrengthEngine.get_matrix(db, mode=mode)
 
