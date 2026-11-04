@@ -17,10 +17,48 @@ import threading
 import time
 from typing import Callable, Optional, Dict, List, Any
 
-from twisted.internet import reactor
-from ctrader_open_api import Client, Protobuf, TcpProtocol, EndPoints
+try:
+    from twisted.internet import reactor
+    from ctrader_open_api import Client, Protobuf, TcpProtocol, EndPoints
+    from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoMessage
+    from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
+        ProtoOAPayloadType,
+        ProtoOAOrderType,
+        ProtoOATradeSide,
+    )
+    from ctrader_open_api.messages.OpenApiMessages_pb2 import (
+        ProtoOAApplicationAuthReq,
+        ProtoOAApplicationAuthRes,
+        ProtoOAAccountAuthReq,
+        ProtoOAAccountAuthRes,
+        ProtoOATraderReq,
+        ProtoOATraderRes,
+        ProtoOANewOrderReq,
+        ProtoOAExecutionEvent,
+        ProtoOAClosePositionReq,
+        ProtoOASymbolsListReq,
+        ProtoOASymbolByIdReq,
+        ProtoOAReconcileReq,
+        ProtoOAGetAccountListByAccessTokenReq,
+        ProtoOAErrorRes,
+    )
+    CTRADER_AVAILABLE = True
+except ImportError:
+    CTRADER_AVAILABLE = False
+    reactor = None
+    Client = Protobuf = TcpProtocol = EndPoints = None
+    ProtoMessage = None
+    ProtoOAPayloadType = ProtoOAOrderType = ProtoOATradeSide = None
+    ProtoOAApplicationAuthReq = ProtoOAApplicationAuthRes = None
+    ProtoOAAccountAuthReq = ProtoOAAccountAuthRes = None
+    ProtoOATraderReq = ProtoOATraderRes = ProtoOANewOrderReq = None
+    ProtoOAExecutionEvent = ProtoOAClosePositionReq = None
+    ProtoOASymbolsListReq = ProtoOASymbolByIdReq = ProtoOAReconcileReq = None
+    ProtoOAGetAccountListByAccessTokenReq = ProtoOAErrorRes = None
 
 def _ensure_reactor():
+    if not CTRADER_AVAILABLE or reactor is None:
+        raise CTraderConnectionError("cTrader OpenAPI dependencies are not available on this server")
     if not reactor.running:
         t = threading.Thread(
             target=reactor.run,
@@ -30,33 +68,6 @@ def _ensure_reactor():
         )
         t.start()
         time.sleep(0.1)
-from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoMessage
-from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
-    ProtoOAPayloadType,
-    ProtoOAOrderType,
-    ProtoOATradeSide,
-)
-from ctrader_open_api.messages.OpenApiMessages_pb2 import (
-    ProtoOAApplicationAuthReq,
-    ProtoOAApplicationAuthRes,
-    ProtoOAAccountAuthReq,
-    ProtoOAAccountAuthRes,
-    ProtoOATraderReq,
-    ProtoOATraderRes,
-    ProtoOANewOrderReq,
-    ProtoOAExecutionEvent,
-    ProtoOAClosePositionReq,
-    ProtoOASymbolsListReq,
-    ProtoOASymbolsListRes,
-    ProtoOASymbolByIdReq,
-    ProtoOASymbolByIdRes,
-    ProtoOAReconcileReq,
-    ProtoOAReconcileRes,
-    ProtoOAGetAccountListByAccessTokenReq,
-    ProtoOAGetAccountListByAccessTokenRes,
-    ProtoOAErrorRes,
-)
-
 logger = logging.getLogger("ctrader_gateway")
 
 # ---------------------------------------------------------------------------
