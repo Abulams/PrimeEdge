@@ -23,52 +23,55 @@ class RealtimeService:
         self._cache_computing = False      # prevent concurrent recompute
 
     async def _recompute_dashboard_caches(self):
-        """Recomputes watchlist + CSI in a thread pool and stores results."""
+        """Recomputes watchlist + CSI in thread pool and stores results with thread-safe DB sessions."""
         if self._cache_computing:
             return
         self._cache_computing = True
         try:
             from .engine import DecisionIntelligenceEngine, CurrencyStrengthEngine
-            db = SessionLocal()
-            try:
-                import datetime as _dt
-                today = _dt.date.today()
-                instruments = ["XAUUSD", "US100", "EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "AUDJPY"]
+            import datetime as _dt
+            today = _dt.date.today()
+            instruments = ["XAUUSD", "US100", "EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "AUDJPY"]
 
-                def _build_watchlist():
+            def _build_watchlist():
+                db_t = SessionLocal()
+                try:
                     watchlist = []
                     cand_order = {"READY": 0, "WAIT": 1, "NO EDGE": 2, "NO SETUP": 3, "INVALID": 4}
                     for inst in instruments:
                         try:
-                            dual = DecisionIntelligenceEngine.generate_dual_profiles(db, inst, today)
+                            dual = DecisionIntelligenceEngine.generate_dual_profiles(db_t, inst, today)
                             candidates = [p for p in [dual.get("long"), dual.get("short")] if p is not None]
                             if candidates:
                                 candidates.sort(key=lambda p: (cand_order.get(p.get("status_state"), 9), -p.get("confidence_score", 0)))
                                 watchlist.append(candidates[0])
                         except Exception as e:
-                            logger.error(f"[Cache] Watchlist error for {inst}: {e}")
+                            logger.error(f"[Cache] Watchlist error for {inst}: {e}", exc_info=True)
                     return watchlist
+                finally:
+                    db_t.close()
 
-                def _build_csi():
-                    try:
-                        return CurrencyStrengthEngine.get_matrix(db, mode="intraday")
-                    except Exception as e:
-                        logger.error(f"[Cache] CSI error: {e}")
-                        return {}
+            def _build_csi():
+                db_t = SessionLocal()
+                try:
+                    return CurrencyStrengthEngine.get_matrix(db_t, mode="intraday")
+                except Exception as e:
+                    logger.error(f"[Cache] CSI error: {e}", exc_info=True)
+                    return {}
+                finally:
+                    db_t.close()
 
-                wl, csi = await asyncio.gather(
-                    asyncio.to_thread(_build_watchlist),
-                    asyncio.to_thread(_build_csi),
-                )
-                if wl:
-                    self.watchlist_cache = wl
-                if csi:
-                    self.csi_cache = csi
-                logger.info(f"[Cache] Dashboard caches updated - {len(self.watchlist_cache)} watchlist items, {len(self.csi_cache)} currencies")
-            finally:
-                db.close()
+            wl, csi = await asyncio.gather(
+                asyncio.to_thread(_build_watchlist),
+                asyncio.to_thread(_build_csi),
+            )
+            if wl:
+                self.watchlist_cache = wl
+            if csi:
+                self.csi_cache = csi
+            logger.info(f"[Cache] Dashboard caches updated - {len(self.watchlist_cache)} watchlist items, {len(self.csi_cache)} currencies")
         except Exception as e:
-            logger.error(f"[Cache] Recompute error: {e}")
+            logger.error(f"[Cache] Recompute error: {e}", exc_info=True)
         finally:
             self._cache_computing = False
 

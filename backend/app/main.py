@@ -184,6 +184,36 @@ app.add_middleware(
 # Enable GZip compression (60-70% bandwidth reduction on JSON payloads)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
+
+# -- Debug Diagnostic Endpoint -----------------------------------------------
+@app.get("/api/v1/debug/status")
+def get_debug_status(db: Session = Depends(get_db)):
+    import os, datetime
+    from .models import MarketSignature, PriceCache, InstrumentDailyProfile, User
+    from .realtime import realtime_service
+
+    db_path = getattr(engine.url, 'database', str(engine.url))
+    db_size = os.path.getsize(db_path) if os.path.exists(db_path) else -1
+
+    sig_count = db.query(MarketSignature).count()
+    price_count = db.query(PriceCache).count()
+    user_count = db.query(User).count()
+
+    return {
+        "version": "2.4.2-cache-debug",
+        "db_path": db_path,
+        "db_exists": os.path.exists(db_path),
+        "db_size_bytes": db_size,
+        "counts": {
+            "market_signatures": sig_count,
+            "price_cache": price_count,
+            "users": user_count
+        },
+        "cache_computing": getattr(realtime_service, '_cache_computing', None),
+        "watchlist_cache_count": len(getattr(realtime_service, 'watchlist_cache', [])),
+        "csi_cache_count": len(getattr(realtime_service, 'csi_cache', {}))
+    }
+
 @app.get("/api/v1/health")
 async def health_check():
     """Fast, zero-overhead health check endpoint for supervisor and monitors."""
@@ -336,15 +366,20 @@ async def get_watchlist(background_tasks: BackgroundTasks, db: Session = Depends
     Returns the cached watchlist instantly. If cache is empty (cold start),
     computes synchronously for first request then keeps it warm via background refresh.
     """
-    # If cache is populated, return immediately (< 1ms)
-    if realtime_service.watchlist_cache:
+    import asyncio as _aio
+    # If cache is empty, wait for background computation or trigger one
+    if not realtime_service.watchlist_cache:
+        for _ in range(20):
+            if realtime_service.watchlist_cache:
+                break
+            if not realtime_service._cache_computing:
+                await realtime_service._recompute_dashboard_caches()
+                break
+            await _aio.sleep(0.5)
         raw = realtime_service.watchlist_cache
-        # Trigger a background refresh so next call is fresh
-        background_tasks.add_task(realtime_service._recompute_dashboard_caches)
     else:
-        # Cold start: compute now (blocks, but only once)
-        await realtime_service._recompute_dashboard_caches()
         raw = realtime_service.watchlist_cache
+        background_tasks.add_task(realtime_service._recompute_dashboard_caches)
 
     # Convert raw dicts to WatchlistInstrument schema
     watchlist = []
@@ -1096,15 +1131,19 @@ async def get_currency_strength(mode: str = "intraday", background_tasks: Backgr
         # Non-intraday requests go direct (less common)
         from .engine import CurrencyStrengthEngine
         return CurrencyStrengthEngine.get_matrix(db, mode=mode)
+    import asyncio as _aio
+    if not realtime_service.csi_cache:
+        for _ in range(20):
+            if realtime_service.csi_cache:
+                break
+            if not realtime_service._cache_computing:
+                await realtime_service._recompute_dashboard_caches()
+                break
+            await _aio.sleep(0.5)
     if realtime_service.csi_cache:
         if background_tasks:
             background_tasks.add_task(realtime_service._recompute_dashboard_caches)
         return realtime_service.csi_cache
-    # Cache miss: compute now
-    await realtime_service._recompute_dashboard_caches()
-    if realtime_service.csi_cache:
-        return realtime_service.csi_cache
-    # Absolute fallback
     from .engine import CurrencyStrengthEngine
     return CurrencyStrengthEngine.get_matrix(db, mode=mode)
 
