@@ -3,10 +3,12 @@ services:
     name: primeedge
     env: python
     plan: free
-    buildCommand: "pip install -r backend/requirements.txt"
+    buildCommand: "pip install -r requirements.txt"
     startCommand: "uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: PYTHONUNBUFFERED
         value: "1"
+      - key: PYTHONPATH
+        value: "backend"
       - key: DATABASE_URL
         value: "sqlite:///./backend/market_os.db"
