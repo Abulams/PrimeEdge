@@ -129,3 +129,35 @@ def get_current_user_optional(
         return db.query(User).filter(User.email == email, User.is_active == True).first()
     except Exception:
         return None
+
+def create_password_reset_token(email: str) -> str:
+    """Generate a one-time password-reset token valid for 1 hour."""
+    expire = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+    payload = {
+        "sub": email.lower(),
+        "type": "password_reset",
+        "exp": expire,
+    }
+    return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+def decode_password_reset_token(token: str) -> str:
+    """Verify a password-reset token and return the email address.
+    Raises HTTP 400 if invalid or expired.
+    """
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        if payload.get("type") != "password_reset":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid token type",
+            )
+        email = payload.get("sub")
+        if not email:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token missing subject")
+        return email
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password reset link is invalid or has expired (links expire after 1 hour).",
+        )

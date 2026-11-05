@@ -220,3 +220,70 @@ def send_applicant_invite_email(
 
     return _send_email(email, subject, html_body)
 
+def send_password_reset_email(email: str, reset_token: str, full_name: str = "") -> bool:
+    """Send a branded password-reset email with a secure one-hour link."""
+    reset_url = f"https://primeedge.app/reset-password?token={reset_token}"
+    first_name = (full_name.split()[0] if full_name else "") or "Trader"
+    subject = "Reset Your PrimeEdge Password"
+
+    html_body = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PrimeEdge â€” Password Reset</title>
+</head>
+<body style="margin:0;padding:0;background:#08090d;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#f1f5f9;">
+  <div style="max-width:580px;margin:36px auto;background:#111318;border:1px solid #242936;border-radius:14px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,.6);">
+
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#0d1520,#111827);border-bottom:1px solid #242936;padding:28px 32px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
+        <div style="width:34px;height:34px;background:linear-gradient(135deg,#00f2fe,#38bdf8);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;color:#08090d;">P</div>
+        <span style="font-size:20px;font-weight:800;color:#fff;letter-spacing:-.4px;">PrimeEdge</span>
+      </div>
+      <div style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.8px;">Institutional Decision Intelligence Platform</div>
+    </div>
+
+    <!-- Banner -->
+    <div style="background:rgba(0,242,254,.06);border-left:4px solid #00f2fe;padding:20px 32px;">
+      <div style="font-size:15px;font-weight:800;color:#fff;">Password Reset Requested</div>
+      <div style="font-size:13px;color:#94a3b8;margin-top:3px;">Hi {first_name} â€” we received a request to reset your password.</div>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:28px 32px;font-size:14px;line-height:1.7;color:#cbd5e1;">
+      <p style="margin-top:0;">
+        Click the button below to set a new password. This link is valid for <strong style="color:#f1f5f9;">1 hour</strong> and can only be used once.
+      </p>
+
+      <!-- CTA Button -->
+      <div style="text-align:center;margin:32px 0;">
+        <a href="{reset_url}"
+           style="display:inline-block;background:linear-gradient(135deg,#00f2fe,#38bdf8);color:#08090d;padding:14px 36px;border-radius:10px;font-weight:800;font-size:14px;text-decoration:none;box-shadow:0 4px 20px rgba(0,242,254,.35);">
+          Reset My Password &rarr;
+        </a>
+      </div>
+
+      <!-- Security note -->
+      <div style="background:rgba(255,255,255,.03);border:1px solid #1e2532;border-radius:8px;padding:14px 18px;font-size:12px;color:#94a3b8;">
+        <strong style="color:#f1f5f9;">Didn't request this?</strong>
+        You can safely ignore this email â€” your password will not change unless you click the link above.
+      </div>
+    </div>
+
+    <!-- URL fallback -->
+    <div style="padding:0 32px 24px;font-size:11px;color:#64748b;word-break:break-all;">
+      If the button doesn't work, copy and paste this URL into your browser:<br/>
+      <a href="{reset_url}" style="color:#00f2fe;text-decoration:none;">{reset_url}</a>
+    </div>
+
+    <!-- Footer -->
+    <div style="background:#0c0e14;border-top:1px solid #1e2532;padding:16px 32px;font-size:11px;color:#64748b;display:flex;justify-content:space-between;align-items:center;">
+      <span>PrimeEdge Institutional Decision Systems</span>
+      <span>support@primeedge.app</span>
+    </div>
+  </div>
+</body>
+</html>"""
+
+    return _send_email(email, subject, html_body)

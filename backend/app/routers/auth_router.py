@@ -320,4 +320,63 @@ def activate_invite_account(
         user=UserProfileResponse.model_validate(user),
     )
 
+# ---------------------------------------------------------------------------
+# Password Reset
+# ---------------------------------------------------------------------------
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
+
+
+@router.post("/forgot-password")
+def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Request a password-reset email.
+    Always returns 200 so attackers cannot enumerate registered emails.
+    """
+    from ..auth import create_password_reset_token
+    from ..email_service import send_password_reset_email
+
+    email = req.email.strip().lower()
+    user = db.query(User).filter(User.email == email).first()
+    if user and user.is_active:
+        token = create_password_reset_token(email)
+        sent = send_password_reset_email(email, token, full_name=user.full_name or "")
+        if not sent:
+            # SMTP not configured â€” log the reset link so an admin can relay it manually
+            import logging
+            logging.getLogger("auth_router").warning(
+                "SMTP not configured. Password reset token for %s: %s", email, token
+            )
+    return {"detail": "If that email is registered, a reset link has been sent."}
+
+
+@router.post("/reset-password", response_model=TokenResponse)
+def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Consume a one-time reset token and set a new password.
+    Returns a fresh access + refresh token pair so the user is logged in immediately.
+    """
+    from ..auth import decode_password_reset_token
+
+    if len(req.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
+
+    email = decode_password_reset_token(req.token)
+    user = db.query(User).filter(User.email == email).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=404, detail="User not found or account is disabled.")
+
+    user.hashed_password = hash_password(req.password)
+    user.last_login = datetime.datetime.utcnow()
+    db.commit()
+
+    return TokenResponse(
+        access_token=create_access_token(user.email),
+        refresh_token=create_refresh_token(user.email),
+    )
