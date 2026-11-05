@@ -129,7 +129,7 @@ async def lifespan(app: FastAPI):
             db_init.commit()
 
         # 2. Seed connected Demo Broker Account for primary user
-        first_user = abu_user or db_init.query(User).first()
+        first_user = db_init.query(User).filter(User.email == "abu1@gmail.com").first() or db_init.query(User).first()
         if first_user:
             account = db_init.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == first_user.id).first()
             if not account:

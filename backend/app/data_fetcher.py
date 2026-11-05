@@ -191,11 +191,18 @@ TV_MARKET_MAP = {
 }
 
 
+_tv_rate_limited_until = 0.0
+
 def fetch_tradingview_quotes() -> Dict[str, Dict]:
     """
     Directly queries TradingView's institutional scanner endpoint for ultra-low latency real-time quotes.
     Provides 100% price parity with TradingView charts.
     """
+    global _tv_rate_limited_until
+    import time
+    if time.time() < _tv_rate_limited_until:
+        return {}
+
     quotes = {}
     for market, mapping in TV_MARKET_MAP.items():
         url = f"https://scanner.tradingview.com/{market}/scan"
@@ -238,7 +245,12 @@ def fetch_tradingview_quotes() -> Dict[str, Dict]:
                             "source": "TradingView/OANDA"
                         }
         except Exception as e:
-            logger.warning(f"TradingView scanner fetch failed for {market}: {e}")
+            if "429" in str(e):
+                _tv_rate_limited_until = time.time() + 120.0
+                logger.warning(f"TradingView rate limited (429) for {market} - pausing TV scanner for 2 minutes and using secondary feed")
+                break
+            else:
+                logger.warning(f"TradingView scanner fetch failed for {market}: {e}")
 
     return quotes
 

@@ -24,6 +24,7 @@ video-engine/node_modules/
 *.sqlite
 *.sqlite3
 !backend/market_os.db
+!market_os.db
 
 # Logs
 *.log
