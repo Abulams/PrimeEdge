@@ -58,6 +58,26 @@ async def lifespan(app: FastAPI):
     # Ensure all tables (including users and subscriptions) are created
     Base.metadata.create_all(bind=engine)
 
+    # Auto-migrate SQLite schema for missing columns on startup
+    try:
+        from sqlalchemy import inspect, text as sa_text
+        inspector = inspect(engine)
+        with engine.begin() as conn:
+            for table in Base.metadata.sorted_tables:
+                if inspector.has_table(table.name):
+                    existing = {col["name"] for col in inspector.get_columns(table.name)}
+                    for col in table.columns:
+                        if col.name not in existing:
+                            t_str = str(col.type).upper()
+                            sql_t = "INTEGER" if "INT" in t_str else "REAL" if ("FLOAT" in t_str or "NUMERIC" in t_str) else "INTEGER DEFAULT 0" if "BOOL" in t_str else "TEXT"
+                            try:
+                                conn.execute(sa_text(f"ALTER TABLE {table.name} ADD COLUMN {col.name} {sql_t}"))
+                                print(f"[Migration] Added column {table.name}.{col.name}")
+                            except Exception as me:
+                                print(f"[Migration] Column {table.name}.{col.name} notice: {me}")
+    except Exception as e:
+        print(f"[Migration Warning] Auto-migration: {e}")
+
     # Initialize subscription tiers if they don't exist
     try:
         from .stripe_service import StripeService
