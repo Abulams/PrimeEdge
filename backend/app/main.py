@@ -153,7 +153,7 @@ async def lifespan(app: FastAPI):
         if first_user:
             # Ensure primary cTrader account (IC Markets Demo 10124502) is active
             ct_acc = db_init.query(UserBrokerAccount).filter(
-                (UserBrokerAccount.login == 10124502) | (UserBrokerAccount.ctrader_account_id == 10124502)
+                (UserBrokerAccount.login == 10124502) | (UserBrokerAccount.ctrader_account_id == 49127263)
             ).first()
             if not ct_acc:
                 ct_acc = UserBrokerAccount(
@@ -163,14 +163,14 @@ async def lifespan(app: FastAPI):
                     encrypted_password="CTRADER_DEMO_CONNECTED",
                     platform_type="CTRADER_CLOUD",
                     platform="ctrader",
-                    ctrader_account_id=10124502,
+                    ctrader_account_id=49127263,
                     is_active=True,
                     auto_execution_enabled=True,
                     is_copier_active=True,
-                    balance=10000.0,
-                    equity=10000.0,
+                    balance=11068.31,
+                    equity=11068.31,
                     currency="USD",
-                    leverage=100,
+                    leverage=1000,
                     ping_ms=1.5,
                     last_heartbeat=datetime.datetime.utcnow()
                 )
@@ -180,6 +180,7 @@ async def lifespan(app: FastAPI):
                 ct_acc.is_active = True
                 ct_acc.auto_execution_enabled = True
                 ct_acc.is_copier_active = True
+                ct_acc.ctrader_account_id = 49127263
                 db_init.commit()
 
             account = db_init.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == first_user.id).first()
@@ -212,6 +213,31 @@ async def lifespan(app: FastAPI):
     # Warm up dashboard caches immediately on startup (non-blocking)
     import asyncio as _asyncio
     _asyncio.create_task(realtime_service._recompute_dashboard_caches())
+
+    # Start cTrader OpenAPI execution bridge
+    async def _start_ctrader_bridge():
+        try:
+            from .execution.ctrader_gateway import CTraderGateway, CTRADER_AVAILABLE
+            from .execution.ctrader_copier_runner import get_master_credentials, poll_signal_queue
+            if not CTRADER_AVAILABLE:
+                logger.info("[cTrader Bridge] cTrader OpenAPI library not available, skipping bridge")
+                return
+            acc_id, token = get_master_credentials()
+            if not acc_id or not token:
+                logger.info("[cTrader Bridge] No cTrader master account credentials in DB")
+                return
+            client_id = os.getenv("CTRADER_CLIENT_ID", "43796_NUbyz1CxFRhD01Tm0Jqc1hMVHd4ubgk5lZQcwtftpuH5zJozj1")
+            client_secret = os.getenv("CTRADER_CLIENT_SECRET", "j9WYsJ4mG80iyHKbale8Fuxx75fO9eaMuUoOhrZWSlCS653C9C")
+            is_demo = os.getenv("CTRADER_IS_DEMO", "true").lower() == "true"
+            gw = CTraderGateway(client_id, client_secret, is_demo=is_demo)
+            await gw.connect()
+            await gw.authorize_account(acc_id, token)
+            logger.info("[cTrader Bridge] Connected and authorized for account %s", acc_id)
+            await poll_signal_queue(gw, acc_id, token)
+        except Exception as bridge_err:
+            logger.warning("[cTrader Bridge] Bridge background worker error: %s", bridge_err)
+
+    _asyncio.create_task(_start_ctrader_bridge())
     yield
     # Stop the service on shutdown
     await realtime_service.stop()

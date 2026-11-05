@@ -531,6 +531,12 @@ class StripeService:
 
     @staticmethod
     def check_auto_execution_access(db: Session, user_id: int) -> bool:
-        """Check if user has auto-execution access (Premium tier only)."""
+        """Check if user has auto-execution access (Admin or Premium tier)."""
+        try:
+            user = db.query(User).filter(User.id == user_id).first()
+            if user and (getattr(user, "is_admin", False) or getattr(user, "role", "") == "admin"):
+                return True
+        except Exception:
+            pass
         tier_info = StripeService.get_user_tier_info(db, user_id)
-        return tier_info and tier_info.get("auto_execution_enabled", False)
+        return bool(tier_info and tier_info.get("auto_execution_enabled", False))

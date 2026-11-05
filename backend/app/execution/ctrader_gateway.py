@@ -762,7 +762,10 @@ class CTraderGateway:
             )
 
         positions = []
-        for pos in res.position:
+        raw_positions = getattr(res, "position", [])
+        if not hasattr(raw_positions, "__iter__"):
+            raw_positions = [raw_positions] if raw_positions else []
+        for pos in raw_positions:
             td = pos.tradeData
             # unrealizedGrossPnl is in cents → convert to account currency units
             pnl_monetary = (getattr(pos, "unrealizedGrossPnl", 0) or 0) / 100.0
