@@ -58,6 +58,8 @@ def _get_gateway() -> CTraderGateway:
 
 async def _exchange_code_for_tokens(code: str, redirect_uri: Optional[str] = None) -> dict:
     r_uri = redirect_uri or CTRADER_REDIRECT_URI
+    if "localhost" in str(r_uri):
+        r_uri = "https://primeedge.app/api/v1/ctrader/callback" 
     async with httpx.AsyncClient(timeout=15) as client:
         response = await client.post(
             CTRADER_TOKEN_URL,
@@ -125,6 +127,8 @@ async def ctrader_auth_redirect(
         )
 
     r_uri = redirect_uri or CTRADER_REDIRECT_URI
+    if "localhost" in str(r_uri):
+        r_uri = "https://primeedge.app/api/v1/ctrader/callback" 
 
     auth_url = (
         f"{CTRADER_AUTH_URL}"
