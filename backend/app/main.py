@@ -151,6 +151,37 @@ async def lifespan(app: FastAPI):
         # 2. Seed connected Demo Broker Account for primary user
         first_user = db_init.query(User).filter(User.email == "abu1@gmail.com").first() or db_init.query(User).first()
         if first_user:
+            # Ensure primary cTrader account (IC Markets Demo 10124502) is active
+            ct_acc = db_init.query(UserBrokerAccount).filter(
+                (UserBrokerAccount.login == 10124502) | (UserBrokerAccount.ctrader_account_id == 10124502)
+            ).first()
+            if not ct_acc:
+                ct_acc = UserBrokerAccount(
+                    user_id=first_user.id,
+                    broker_server="IC Markets (Demo)",
+                    login=10124502,
+                    encrypted_password="CTRADER_DEMO_CONNECTED",
+                    platform_type="CTRADER_CLOUD",
+                    platform="ctrader",
+                    ctrader_account_id=10124502,
+                    is_active=True,
+                    auto_execution_enabled=True,
+                    is_copier_active=True,
+                    balance=10000.0,
+                    equity=10000.0,
+                    currency="USD",
+                    leverage=100,
+                    ping_ms=1.5,
+                    last_heartbeat=datetime.datetime.utcnow()
+                )
+                db_init.add(ct_acc)
+                db_init.commit()
+            else:
+                ct_acc.is_active = True
+                ct_acc.auto_execution_enabled = True
+                ct_acc.is_copier_active = True
+                db_init.commit()
+
             account = db_init.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == first_user.id).first()
             if not account:
                 account = UserBrokerAccount(
