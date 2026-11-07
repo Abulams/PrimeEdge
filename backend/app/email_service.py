@@ -20,12 +20,12 @@ except ImportError:
 
 def _get_smtp_config():
     return {
-        "host": os.getenv("SMTP_HOST", "mail.privateemail.com"),
+        "host": os.getenv("SMTP_HOST", "smtppro.zoho.com"),
         "port": int(os.getenv("SMTP_PORT", "465")),
-        "user": os.getenv("SMTP_USER", "support@primeedge.app"),
+        "user": os.getenv("SMTP_USER", "abu@primeedge.app"),
         "password": os.getenv("SMTP_PASS", ""),
-        "from_addr": os.getenv("SMTP_FROM", "support@primeedge.app"),
-        "admin_notify": os.getenv("ADMIN_NOTIFY_EMAIL", "support@primeedge.app")
+        "from_addr": os.getenv("SMTP_FROM", "abu@primeedge.app"),
+        "admin_notify": os.getenv("ADMIN_NOTIFY_EMAIL", "abu@primeedge.app")
     }
 
 
