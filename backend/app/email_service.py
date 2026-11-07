@@ -30,10 +30,39 @@ def _get_smtp_config():
 
 
 def _send_email(to: str, subject: str, html_body: str) -> bool:
-    """Send a single HTML email. Returns True on success."""
+    """Send a single HTML email via Resend API (fastest, modern HTTP) or fallback to SMTP."""
+    resend_key = os.getenv("RESEND_API_KEY", "")
+    from_email = os.getenv("EMAIL_FROM", "PrimeEdge <abu@primeedge.app>")
+
+    if resend_key:
+        try:
+            import httpx
+            resp = httpx.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {resend_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": from_email,
+                    "to": [to],
+                    "subject": subject,
+                    "html": html_body,
+                },
+                timeout=10,
+            )
+            if resp.status_code in (200, 201):
+                logger.info(f"Email sent successfully via Resend to {to}: {subject}")
+                return True
+            else:
+                logger.warning(f"Resend send returned status {resp.status_code}: {resp.text}")
+        except Exception as e:
+            logger.warning(f"Resend API error: {e}")
+
+    # Fallback to SMTP
     cfg = _get_smtp_config()
     if not cfg["user"] or not cfg["password"]:
-        logger.warning("SMTP credentials not configured. Skipping email send.")
+        logger.warning("SMTP credentials not configured. Skipping SMTP email send.")
         return False
     try:
         msg = MIMEMultipart("alternative")
@@ -52,7 +81,7 @@ def _send_email(to: str, subject: str, html_body: str) -> bool:
                 server.starttls()
                 server.login(cfg["user"], cfg["password"])
                 server.sendmail(cfg["from_addr"], [to], msg.as_string())
-        logger.info(f"Email sent successfully to {to}: {subject}")
+        logger.info(f"Email sent successfully via SMTP to {to}: {subject}")
         return True
     except Exception as e:
         logger.error(f"Failed to send email to {to}: {e}")
