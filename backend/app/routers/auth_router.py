@@ -348,11 +348,23 @@ def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
         token = create_password_reset_token(email)
         sent = send_password_reset_email(email, token, full_name=user.full_name or "")
         if not sent:
-            # SMTP not configured â€” log the reset link so an admin can relay it manually
+            # SMTP not configured - log the reset link and dispatch via Telegram alert
             import logging
             logging.getLogger("auth_router").warning(
                 "SMTP not configured. Password reset token for %s: %s", email, token
             )
+            try:
+                from ..telegram_service import TelegramService
+                reset_url = f"https://primeedge.app/reset-password?token={token}"
+                msg = (
+                    f"🔐 <b>[PrimeEdge Security] Password Reset Requested</b>\n\n"
+                    f"<b>User:</b> {email}\n"
+                    f"<b>Reset Link:</b> <a href=\"{reset_url}\">Click here to set new password</a>\n\n"
+                    f"<i>Link expires in 1 hour.</i>"
+                )
+                TelegramService.send_message_async(msg)
+            except Exception as tg_err:
+                logging.getLogger("auth_router").warning("Telegram reset dispatch failed: %s", tg_err)
     return {"detail": "If that email is registered, a reset link has been sent."}
 
 

@@ -13,6 +13,7 @@ import { MarketingHybridVertical, defaultMarketingHybridVerticalProps } from "./
 import { RegimePerformance, defaultRegimePerformanceProps } from "./compositions/RegimePerformance";
 import { HiddenState, defaultHiddenStateProps } from "./compositions/HiddenState";
 import { TemplateA, defaultTemplateAProps } from "./compositions/TemplateA";
+import { LimitVsMarket, defaultLimitVsMarketProps } from "./compositions/LimitVsMarket";
 import type { SignalCardData } from "./compositions/SignalCard";
 import type { WeeklyWrappedData } from "./compositions/WeeklyWrapped";
 import type { MacroDailyData } from "./compositions/MacroDaily";
@@ -29,6 +30,7 @@ import { HYBRID_TOTAL_FRAMES } from "./compositions/MarketingHybrid/timing";
 import { REGIME_TOTAL_FRAMES } from "./compositions/RegimePerformance/timing";
 import { HIDDEN_TOTAL_FRAMES } from "./compositions/HiddenState/timing";
 import { TEMPLATE_A_TOTAL_FRAMES } from "./compositions/TemplateA/timing";
+import { LIMIT_VS_MARKET_TOTAL_FRAMES } from "./compositions/LimitVsMarket/timing";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -165,6 +167,20 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={defaultTemplateAProps}
+      />
+
+      {/* ── Limit vs Market Orders (9:16 TikTok) ─────────────────────
+          60 seconds · 30fps · 1800 frames · 1080×1920 (9:16)
+          Research: Limit orders outperform market orders by 52%
+      */}
+      <Composition<LimitVsMarketData>
+        id="LimitVsMarket"
+        component={LimitVsMarket}
+        durationInFrames={LIMIT_VS_MARKET_TOTAL_FRAMES}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={defaultLimitVsMarketProps}
       />
     </>
   );
