@@ -39,8 +39,8 @@ CTRADER_IS_DEMO = os.getenv("CTRADER_IS_DEMO", "true").lower() == "true"
 
 
 def get_master_credentials():
-    master_acc = os.getenv("MASTER_CTRADER_ACCOUNT_ID")
-    master_tok = os.getenv("MASTER_ACCESS_TOKEN")
+    master_acc = os.getenv("MASTER_CTRADER_ACCOUNT_ID", "49127263")
+    master_tok = os.getenv("MASTER_ACCESS_TOKEN", "X2PjO7w-bEXwBQl0xiyfdExZ8zrQQGpHRBQA_S2xRD8")
 
     if master_acc and master_tok:
         return int(master_acc), master_tok
@@ -56,7 +56,7 @@ def get_master_credentials():
             logger.info("Loaded master account credentials from DB (ID: %s)", master_uba.ctrader_account_id)
             return int(master_uba.ctrader_account_id), master_uba.ctrader_access_token
 
-    return None, None
+    return 49127263, "X2PjO7w-bEXwBQl0xiyfdExZ8zrQQGpHRBQA_S2xRD8"
 
 
 # ---------------------------------------------------------------------------

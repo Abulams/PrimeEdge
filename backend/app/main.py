@@ -154,6 +154,7 @@ async def lifespan(app: FastAPI):
         first_user = db_init.query(User).filter(User.email == "abu1@gmail.com").first() or db_init.query(User).first()
         if first_user:
             # Ensure primary cTrader account (IC Markets Demo 10124502) is active
+            default_ctrader_tok = os.getenv("MASTER_ACCESS_TOKEN", "X2PjO7w-bEXwBQl0xiyfdExZ8zrQQGpHRBQA_S2xRD8")
             ct_acc = db_init.query(UserBrokerAccount).filter(
                 (UserBrokerAccount.login == 10124502) | (UserBrokerAccount.ctrader_account_id == 49127263)
             ).first()
@@ -166,6 +167,7 @@ async def lifespan(app: FastAPI):
                     platform_type="CTRADER_CLOUD",
                     platform="ctrader",
                     ctrader_account_id=49127263,
+                    ctrader_access_token=default_ctrader_tok,
                     is_active=True,
                     auto_execution_enabled=True,
                     is_copier_active=True,
@@ -183,7 +185,23 @@ async def lifespan(app: FastAPI):
                 ct_acc.auto_execution_enabled = True
                 ct_acc.is_copier_active = True
                 ct_acc.ctrader_account_id = 49127263
+                if not ct_acc.ctrader_access_token or len(str(ct_acc.ctrader_access_token)) < 10:
+                    ct_acc.ctrader_access_token = default_ctrader_tok
                 db_init.commit()
+
+            # Startup cleanup: Auto-close any unexecuted trades that were stuck without a broker ticket
+            stuck_trades = db_init.query(TradeRecord).filter(
+                TradeRecord.lifecycle_state == "ACTIVE",
+                TradeRecord.broker_ticket == None
+            ).all()
+            for st in stuck_trades:
+                logger.info(f"[Startup Cleanup] Closing stuck unexecuted trade #{st.id} on account #{st.account_id}")
+                st.lifecycle_state = "CLOSED"
+                st.execution_status = "CANCELLED"
+                st.exit_reason = "UNEXECUTED_STUCK_CLEANUP"
+                st.exit_timestamp = datetime.datetime.utcnow()
+                st.outcome = "CANCELLED"
+            db_init.commit()
 
             account = db_init.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == first_user.id).first()
             if not account:
@@ -216,28 +234,36 @@ async def lifespan(app: FastAPI):
     import asyncio as _asyncio
     _asyncio.create_task(realtime_service._recompute_dashboard_caches())
 
-    # Start cTrader OpenAPI execution bridge
+    # Start cTrader OpenAPI execution bridge (Resilient continuous runner)
     async def _start_ctrader_bridge():
-        try:
-            from .execution.ctrader_gateway import CTraderGateway, CTRADER_AVAILABLE
-            from .execution.ctrader_copier_runner import get_master_credentials, poll_signal_queue
-            if not CTRADER_AVAILABLE:
-                logger.info("[cTrader Bridge] cTrader OpenAPI library not available, skipping bridge")
-                return
-            acc_id, token = get_master_credentials()
-            if not acc_id or not token:
-                logger.info("[cTrader Bridge] No cTrader master account credentials in DB")
-                return
-            client_id = os.getenv("CTRADER_CLIENT_ID", "43796_NUbyz1CxFRhD01Tm0Jqc1hMVHd4ubgk5lZQcwtftpuH5zJozj1")
-            client_secret = os.getenv("CTRADER_CLIENT_SECRET", "j9WYsJ4mG80iyHKbale8Fuxx75fO9eaMuUoOhrZWSlCS653C9C")
-            is_demo = os.getenv("CTRADER_IS_DEMO", "true").lower() == "true"
-            gw = CTraderGateway(client_id, client_secret, is_demo=is_demo)
-            await gw.connect()
-            await gw.authorize_account(acc_id, token)
-            logger.info("[cTrader Bridge] Connected and authorized for account %s", acc_id)
-            await poll_signal_queue(gw, acc_id, token)
-        except Exception as bridge_err:
-            logger.warning("[cTrader Bridge] Bridge background worker error: %s", bridge_err)
+        logger.info("[cTrader Bridge] Starting resilient continuous bridge runner...")
+        while True:
+            try:
+                from .execution.ctrader_gateway import CTraderGateway, CTRADER_AVAILABLE
+                from .execution.ctrader_copier_runner import get_master_credentials, poll_signal_queue
+                if not CTRADER_AVAILABLE:
+                    logger.warning("[cTrader Bridge] cTrader OpenAPI library not installed/available, sleeping 60s...")
+                    await _asyncio.sleep(60)
+                    continue
+                acc_id, token = get_master_credentials()
+                if not acc_id or not token:
+                    acc_id = int(os.getenv("MASTER_CTRADER_ACCOUNT_ID", "49127263"))
+                    token = os.getenv("MASTER_ACCESS_TOKEN", "X2PjO7w-bEXwBQl0xiyfdExZ8zrQQGpHRBQA_S2xRD8")
+                client_id = os.getenv("CTRADER_CLIENT_ID", "43796_NUbyz1CxFRhD01Tm0Jqc1hMVHd4ubgk5lZQcwtftpuH5zJozj1")
+                client_secret = os.getenv("CTRADER_CLIENT_SECRET", "j9WYsJ4mG80iyHKbale8Fuxx75fO9eaMuUoOhrZWSlCS653C9C")
+                is_demo = os.getenv("CTRADER_IS_DEMO", "true").lower() == "true"
+                logger.info("[cTrader Bridge] Connecting CTraderGateway for account %s...", acc_id)
+                gw = CTraderGateway(client_id, client_secret, is_demo=is_demo)
+                await gw.connect()
+                await gw.authorize_account(acc_id, token)
+                logger.info("[cTrader Bridge] Connected and authorized for account %s! Polling execution queue...", acc_id)
+                await poll_signal_queue(gw, acc_id, token)
+            except _asyncio.CancelledError:
+                logger.info("[cTrader Bridge] Bridge background task cancelled.")
+                break
+            except Exception as bridge_err:
+                logger.error("[cTrader Bridge] Bridge worker encountered error: %s. Reconnecting in 15s...", bridge_err, exc_info=True)
+                await _asyncio.sleep(15)
 
     _asyncio.create_task(_start_ctrader_bridge())
     yield
@@ -1999,3 +2025,27 @@ if os.path.isdir(_DIST):
 
         return HTMLResponse(content=NOT_FOUND_HTML, status_code=404)
 
+
+@app.get("/api/v1/ctrader/status")
+def get_ctrader_bridge_diagnostic(db: Session = Depends(get_db)):
+    """Returns cTrader account status and bridge diagnostic info."""
+    from .models import UserBrokerAccount, ExecutionOrderQueue, TradeRecord
+    ct_acc = db.query(UserBrokerAccount).filter(
+        (UserBrokerAccount.login == 10124502) | (UserBrokerAccount.ctrader_account_id == 49127263)
+    ).first()
+    pending_orders = db.query(ExecutionOrderQueue).filter(ExecutionOrderQueue.status == "QUEUED").count()
+    active_trades = db.query(TradeRecord).filter(
+        TradeRecord.account_id == (ct_acc.id if ct_acc else 7),
+        TradeRecord.lifecycle_state == "ACTIVE"
+    ).count()
+    return {
+        "account_id": ct_acc.id if ct_acc else None,
+        "ctrader_account_id": ct_acc.ctrader_account_id if ct_acc else None,
+        "balance": ct_acc.balance if ct_acc else None,
+        "equity": ct_acc.equity if ct_acc else None,
+        "last_heartbeat": ct_acc.last_heartbeat if ct_acc else None,
+        "auto_execution_enabled": ct_acc.auto_execution_enabled if ct_acc else None,
+        "has_access_token": bool(ct_acc and ct_acc.ctrader_access_token),
+        "pending_queued_orders": pending_orders,
+        "active_trades_count": active_trades
+    }

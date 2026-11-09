@@ -280,10 +280,13 @@ class RealtimeService:
                                 logger.debug(f"[Auto-Execution] Instrument {inst} not in allowed list for Account #{acc.login}")
                                 continue
 
-                            # Guard B: Check Max Concurrent Open Trades
+                            # Guard B: Check Max Concurrent Open Trades (only genuine broker tickets or fresh in-flight < 2m)
+                            from datetime import timedelta
+                            fresh_order_cutoff = datetime.utcnow() - timedelta(minutes=2)
                             open_count = db.query(TradeRecord).filter(
                                 TradeRecord.account_id == acc.id,
-                                TradeRecord.lifecycle_state == "ACTIVE"
+                                TradeRecord.lifecycle_state == "ACTIVE",
+                                ((TradeRecord.broker_ticket != None) | (TradeRecord.entry_timestamp > fresh_order_cutoff))
                             ).count()
                             max_open = acc.max_concurrent_trades or 5
                             if open_count >= max_open:
@@ -299,12 +302,13 @@ class RealtimeService:
                             if already_executed_signal:
                                 continue  # Already executed this signal instance
 
-                            # Guard D: Prevent duplicate active trades on the same instrument
+                            # Guard D: Prevent duplicate active trades on the same instrument (only genuine broker tickets or fresh in-flight < 2m)
                             has_active_trade = db.query(TradeRecord).join(
                                 SetupSnapshot, TradeRecord.setup_snapshot_id == SetupSnapshot.id
                             ).filter(
                                 TradeRecord.account_id == acc.id,
                                 TradeRecord.lifecycle_state == "ACTIVE",
+                                ((TradeRecord.broker_ticket != None) | (TradeRecord.entry_timestamp > fresh_order_cutoff)),
                                 SetupSnapshot.instrument == inst
                             ).first()
                             if has_active_trade:
