@@ -112,12 +112,10 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
                     with SessionLocal() as db_sync:
                         from app.models import UserBrokerAccount, TradeRecord
                         acc = db_sync.query(UserBrokerAccount).filter(
-                            UserBrokerAccount.ctrader_account_id == str(master_account_id)
+                            (UserBrokerAccount.ctrader_account_id == int(master_account_id)) |
+                            (UserBrokerAccount.login == 10124502) |
+                            (UserBrokerAccount.platform == "ctrader")
                         ).first()
-                        if not acc:
-                            acc = db_sync.query(UserBrokerAccount).filter(
-                                UserBrokerAccount.login == master_account_id
-                            ).first()
                         if acc:
                             acc.balance = balance
                             acc.equity = equity

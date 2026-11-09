@@ -53,6 +53,8 @@ from . import analyst_engine
 
 from .realtime import realtime_service
 
+_ctrader_bridge_state = {"status": "initializing", "connected": False, "last_error": None, "last_connect_time": None}
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Ensure all tables (including users and subscriptions) are created
@@ -242,6 +244,8 @@ async def lifespan(app: FastAPI):
                 from .execution.ctrader_gateway import CTraderGateway, CTRADER_AVAILABLE
                 from .execution.ctrader_copier_runner import get_master_credentials, poll_signal_queue
                 if not CTRADER_AVAILABLE:
+                    _ctrader_bridge_state["status"] = "unavailable"
+                    _ctrader_bridge_state["last_error"] = "ctrader-open-api library not available"
                     logger.warning("[cTrader Bridge] cTrader OpenAPI library not installed/available, sleeping 60s...")
                     await _asyncio.sleep(60)
                     continue
@@ -252,16 +256,25 @@ async def lifespan(app: FastAPI):
                 client_id = os.getenv("CTRADER_CLIENT_ID", "43796_NUbyz1CxFRhD01Tm0Jqc1hMVHd4ubgk5lZQcwtftpuH5zJozj1")
                 client_secret = os.getenv("CTRADER_CLIENT_SECRET", "j9WYsJ4mG80iyHKbale8Fuxx75fO9eaMuUoOhrZWSlCS653C9C")
                 is_demo = os.getenv("CTRADER_IS_DEMO", "true").lower() == "true"
+                _ctrader_bridge_state["status"] = "connecting"
                 logger.info("[cTrader Bridge] Connecting CTraderGateway for account %s...", acc_id)
                 gw = CTraderGateway(client_id, client_secret, is_demo=is_demo)
                 await gw.connect()
                 await gw.authorize_account(acc_id, token)
+                _ctrader_bridge_state["status"] = "connected"
+                _ctrader_bridge_state["connected"] = True
+                _ctrader_bridge_state["last_error"] = None
+                _ctrader_bridge_state["last_connect_time"] = datetime.datetime.utcnow().isoformat()
                 logger.info("[cTrader Bridge] Connected and authorized for account %s! Polling execution queue...", acc_id)
                 await poll_signal_queue(gw, acc_id, token)
             except _asyncio.CancelledError:
+                _ctrader_bridge_state["status"] = "stopped"
                 logger.info("[cTrader Bridge] Bridge background task cancelled.")
                 break
             except Exception as bridge_err:
+                _ctrader_bridge_state["status"] = "error"
+                _ctrader_bridge_state["connected"] = False
+                _ctrader_bridge_state["last_error"] = str(bridge_err)
                 logger.error("[cTrader Bridge] Bridge worker encountered error: %s. Reconnecting in 15s...", bridge_err, exc_info=True)
                 await _asyncio.sleep(15)
 
@@ -323,6 +336,34 @@ def get_debug_status(db: Session = Depends(get_db)):
 async def health_check():
     """Fast, zero-overhead health check endpoint for supervisor and monitors."""
     return {"status": "HEALTHY", "timestamp": datetime.datetime.utcnow().isoformat()}
+
+
+@app.get("/api/v1/ctrader/status")
+def get_ctrader_bridge_diagnostic(db: Session = Depends(get_db)):
+    """Returns cTrader account status and bridge diagnostic info (BEFORE SPA catch-all)."""
+    from .models import UserBrokerAccount, ExecutionOrderQueue, TradeRecord
+    from .execution.ctrader_gateway import CTRADER_AVAILABLE
+    ct_acc = db.query(UserBrokerAccount).filter(
+        (UserBrokerAccount.login == 10124502) | (UserBrokerAccount.ctrader_account_id == 49127263)
+    ).first()
+    pending_orders = db.query(ExecutionOrderQueue).filter(ExecutionOrderQueue.status == "QUEUED").count()
+    active_trades = db.query(TradeRecord).filter(
+        TradeRecord.account_id == (ct_acc.id if ct_acc else 7),
+        TradeRecord.lifecycle_state == "ACTIVE"
+    ).count()
+    return {
+        "bridge_state": _ctrader_bridge_state,
+        "ctrader_library_available": CTRADER_AVAILABLE,
+        "account_id": ct_acc.id if ct_acc else None,
+        "ctrader_account_id": ct_acc.ctrader_account_id if ct_acc else None,
+        "balance": ct_acc.balance if ct_acc else None,
+        "equity": ct_acc.equity if ct_acc else None,
+        "last_heartbeat": ct_acc.last_heartbeat if ct_acc else None,
+        "auto_execution_enabled": ct_acc.auto_execution_enabled if ct_acc else None,
+        "has_access_token": bool(ct_acc and ct_acc.ctrader_access_token),
+        "pending_queued_orders": pending_orders,
+        "active_trades_count": active_trades
+    }
 
 # Auth & Cloud Execution Routers
 from .routers.auth_router import router as auth_router
@@ -2025,27 +2066,3 @@ if os.path.isdir(_DIST):
 
         return HTMLResponse(content=NOT_FOUND_HTML, status_code=404)
 
-
-@app.get("/api/v1/ctrader/status")
-def get_ctrader_bridge_diagnostic(db: Session = Depends(get_db)):
-    """Returns cTrader account status and bridge diagnostic info."""
-    from .models import UserBrokerAccount, ExecutionOrderQueue, TradeRecord
-    ct_acc = db.query(UserBrokerAccount).filter(
-        (UserBrokerAccount.login == 10124502) | (UserBrokerAccount.ctrader_account_id == 49127263)
-    ).first()
-    pending_orders = db.query(ExecutionOrderQueue).filter(ExecutionOrderQueue.status == "QUEUED").count()
-    active_trades = db.query(TradeRecord).filter(
-        TradeRecord.account_id == (ct_acc.id if ct_acc else 7),
-        TradeRecord.lifecycle_state == "ACTIVE"
-    ).count()
-    return {
-        "account_id": ct_acc.id if ct_acc else None,
-        "ctrader_account_id": ct_acc.ctrader_account_id if ct_acc else None,
-        "balance": ct_acc.balance if ct_acc else None,
-        "equity": ct_acc.equity if ct_acc else None,
-        "last_heartbeat": ct_acc.last_heartbeat if ct_acc else None,
-        "auto_execution_enabled": ct_acc.auto_execution_enabled if ct_acc else None,
-        "has_access_token": bool(ct_acc and ct_acc.ctrader_access_token),
-        "pending_queued_orders": pending_orders,
-        "active_trades_count": active_trades
-    }
