@@ -81,6 +81,19 @@ def get_available_tiers(db: Session = Depends(get_db)):
     ]
 
 
+@router.post("/admin/migrate-ngn-prices", include_in_schema=False)
+def admin_migrate_ngn_prices(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Admin-only: backfill NGN prices for existing subscription tiers."""
+    if not getattr(current_user, 'is_admin', False):
+        raise HTTPException(status_code=403, detail="Admin only")
+    StripeService.migrate_ngn_prices(db)
+    tiers = db.query(SubscriptionTier).all()
+    return {"ok": True, "tiers": [{"name": t.name, "price_monthly_ngn": t.price_monthly_ngn} for t in tiers]}
+
+
 @router.get("/current", response_model=UserSubscriptionInfo)
 def get_current_subscription(
     current_user: User = Depends(get_current_user),
