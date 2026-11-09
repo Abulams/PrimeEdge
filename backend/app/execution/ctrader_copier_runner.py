@@ -138,9 +138,23 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
                         ).all()
                         for tr in active_trades:
                             if tr.broker_ticket not in open_pos_ids:
-                                logger.info("Position %s closed on cTrader broker side. Finalizing trade #%s", tr.broker_ticket, tr.id)
+                                # Attempt to extract closing execution price from recent cTrader deals
+                                exit_p = None
+                                try:
+                                    recent_deals = await gw.get_deals(master_account_id, max_rows=20)
+                                    for d in recent_deals:
+                                        if d.get("position_id") == str(tr.broker_ticket):
+                                            exit_p = d.get("execution_price")
+                                            break
+                                except Exception as ge:
+                                    logger.debug("Could not fetch deal details for pos %s: %s", tr.broker_ticket, ge)
+
+                                if not exit_p or exit_p <= 0:
+                                    exit_p = tr.actual_tp if (tr.max_mfe_pips and tr.max_mfe_pips >= 10.0) else (tr.actual_sl or tr.actual_entry)
+
+                                logger.info("Position %s closed on cTrader broker side (exit_price=%.5f). Finalizing trade #%s", tr.broker_ticket, exit_p or 0.0, tr.id)
                                 from app.journal_service import JournalService
-                                JournalService._finalize_trade(tr, tr.actual_entry, "BROKER_CLOSE")
+                                JournalService._finalize_trade(tr, exit_p, "BROKER_CLOSE")
                                 db_sync.commit()
 
                 except Exception as sync_exc:

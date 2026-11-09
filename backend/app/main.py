@@ -675,21 +675,25 @@ def close_trade(req: CloseTradeRequest, db: Session = Depends(get_db)):
 
 @app.get("/api/v1/journal/active", response_model=List[TradeRecordResponse])
 def get_active_trades(
+    account_id: Optional[int] = None,
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """Returns all currently ACTIVE trades specifically for the authenticated user."""
+    """Returns all currently ACTIVE trades specifically for the authenticated user and optional account."""
     q = db.query(TradeRecord).filter(TradeRecord.lifecycle_state == "ACTIVE")
     if current_user:
         q = q.filter(TradeRecord.user_id == current_user.id)
+    if account_id:
+        q = q.filter(TradeRecord.account_id == account_id)
     return q.order_by(TradeRecord.created_at.desc()).all()
 
 @app.get("/api/v1/journal/history", response_model=List[TradeRecordResponse])
 def get_trade_history(
+    account_id: Optional[int] = None,
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """Returns all genuine CLOSED trades specifically for the authenticated user."""
+    """Returns all genuine CLOSED trades specifically for the authenticated user and optional account."""
     q = db.query(TradeRecord).filter(
         TradeRecord.lifecycle_state == "CLOSED",
         TradeRecord.outcome.in_(["WIN", "LOSS", "BREAKEVEN"]),
@@ -697,14 +701,17 @@ def get_trade_history(
     )
     if current_user:
         q = q.filter(TradeRecord.user_id == current_user.id)
+    if account_id:
+        q = q.filter(TradeRecord.account_id == account_id)
     return q.order_by(TradeRecord.exit_timestamp.desc(), TradeRecord.id.desc()).all()
 
 @app.get("/api/v1/journal/passed", response_model=List[TradeRecordResponse])
 def get_passed_setups(
+    account_id: Optional[int] = None,
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """Returns all PASSED or REJECTED/UNFILLED setups for the authenticated user."""
+    """Returns all PASSED or REJECTED/UNFILLED setups for the authenticated user and optional account."""
     from sqlalchemy import or_
     q = db.query(TradeRecord).filter(
         or_(
@@ -714,16 +721,19 @@ def get_passed_setups(
     )
     if current_user:
         q = q.filter(TradeRecord.user_id == current_user.id)
+    if account_id:
+        q = q.filter(TradeRecord.account_id == account_id)
     return q.order_by(TradeRecord.created_at.desc(), TradeRecord.id.desc()).all()
 
 @app.get("/api/v1/journal/performance", response_model=AutoJournalPerformanceResponse)
 def get_journal_performance(
+    account_id: Optional[int] = None,
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """Returns aggregated performance summary specifically for the authenticated user."""
+    """Returns aggregated performance summary specifically for the authenticated user and optional account."""
     uid = current_user.id if current_user else None
-    return JournalService.get_performance_summary(db, user_id=uid)
+    return JournalService.get_performance_summary(db, user_id=uid, account_id=account_id)
 
 # 5c. Historical Replay / Simulation Environment Endpoints
 @app.post("/api/v1/replay/run", response_model=ReplayBatchResponse)

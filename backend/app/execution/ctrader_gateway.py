@@ -234,6 +234,8 @@ class CTraderGateway:
             elif payload_type in (
                 ProtoOAPayloadType.Value("PROTO_OA_SYMBOLS_LIST_RES"),
                 ProtoOAPayloadType.Value("PROTO_OA_SYMBOL_BY_ID_RES"),
+                ProtoOAPayloadType.Value("PROTO_OA_DEAL_LIST_RES"),
+                ProtoOAPayloadType.Value("PROTO_OA_ORDER_LIST_RES"),
             ):
                 self._loop.call_soon_threadsafe(
                     self._resolve_future, msg_id, extracted
@@ -840,6 +842,47 @@ class CTraderGateway:
                 }
             )
         return positions
+
+    async def get_deals(
+        self, account_id: int, from_timestamp: Optional[int] = None, to_timestamp: Optional[int] = None, max_rows: int = 50
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch historical closed deals for account_id via ProtoOADealListReq.
+        """
+        from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOADealListReq
+        import time
+        msg_id = self._next_msg_id()
+        req = ProtoOADealListReq()
+        req.ctidTraderAccountId = account_id
+        if from_timestamp is not None:
+            req.fromTimestamp = from_timestamp
+        else:
+            req.fromTimestamp = int((time.time() - 30 * 86400) * 1000)
+        if to_timestamp is not None:
+            req.toTimestamp = to_timestamp
+        else:
+            req.toTimestamp = int((time.time() + 86400) * 1000)
+        req.maxRows = max_rows
+
+        fut = self._register_future(msg_id)
+        self._send(req, clientMsgId=msg_id)
+        res = await asyncio.wait_for(fut, timeout=15)
+
+        deals = []
+        for d in getattr(res, "deal", []):
+            if d.HasField("closePositionDetail"):
+                gross = d.closePositionDetail.grossProfit / 100.0
+                deals.append({
+                    "deal_id": d.dealId,
+                    "position_id": str(d.positionId),
+                    "symbol_id": getattr(d, "symbolId", None),
+                    "volume": d.volume,
+                    "execution_price": getattr(d, "executionPrice", None),
+                    "entry_price": getattr(d.closePositionDetail, "entryPrice", None),
+                    "gross_profit": gross,
+                    "timestamp": getattr(d, "executionTimestamp", None),
+                })
+        return deals
 
     async def get_accounts_by_access_token(
         self, access_token: str

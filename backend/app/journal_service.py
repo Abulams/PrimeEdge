@@ -433,6 +433,12 @@ class JournalService:
         """Helper to calculate PnL and classify outcomes on trade close."""
         setup = trade.setup
         pip_mult = get_pip_multiplier(setup.instrument if setup else "GBPUSD")
+        
+        # Guard against null or zero exit prices that produce extreme negative R distortions
+        if exit_price is None or exit_price <= 0.0:
+            logger.warning(f"Invalid exit_price {exit_price} for trade #{trade.id}. Falling back to actual_sl/entry.")
+            exit_price = trade.actual_sl or trade.actual_entry or (setup.setup_ref_price if setup else 1.0)
+
         entry = trade.actual_entry or (setup.setup_ref_price if setup else exit_price)
         direction = setup.direction if setup else "LONG"
 
@@ -441,9 +447,11 @@ class JournalService:
         else:
             pnl_pips = round((entry - exit_price) * pip_mult, 1)
 
-        risk_dist = abs(entry - trade.actual_sl) if trade.actual_sl else (setup.mae_p90_pips / pip_mult if setup and setup.mae_p90_pips else 0.0020)
+        risk_dist = abs(entry - trade.actual_sl) if (trade.actual_sl and trade.actual_sl > 0) else (setup.mae_p90_pips / pip_mult if setup and setup.mae_p90_pips else 0.0020)
         risk_pips = max(1.0, risk_dist * pip_mult)
         pnl_r = round(pnl_pips / risk_pips, 2)
+        # Clamp pnl_r to realistic bounds to protect aggregate analytics from abnormal spikes
+        pnl_r = max(-2.5, min(pnl_r, 20.0))
 
         outcome = "WIN" if pnl_pips > 1.0 else ("LOSS" if pnl_pips < -1.0 else "BREAKEVEN")
 
@@ -484,9 +492,9 @@ class JournalService:
             logger.error(f"Failed to dispatch Telegram outcome alert: {te}")
 
     @staticmethod
-    def get_performance_summary(db: Session, user_id: Optional[int] = None) -> Dict[str, Any]:
+    def get_performance_summary(db: Session, user_id: Optional[int] = None, account_id: Optional[int] = None) -> Dict[str, Any]:
         """
-        Generates aggregated performance stats comparing Market OS expectations vs actual trader execution specifically for a user.
+        Generates aggregated performance stats comparing Market OS expectations vs actual trader execution specifically for a user and account.
         """
         q_closed = db.query(TradeRecord).filter(TradeRecord.lifecycle_state == "CLOSED")
         q_passed = db.query(TradeRecord).filter(TradeRecord.lifecycle_state == "PASSED")
@@ -494,6 +502,10 @@ class JournalService:
         if user_id is not None:
             q_closed = q_closed.filter(TradeRecord.user_id == user_id)
             q_passed = q_passed.filter(TradeRecord.user_id == user_id)
+
+        if account_id is not None:
+            q_closed = q_closed.filter(TradeRecord.account_id == account_id)
+            q_passed = q_passed.filter(TradeRecord.account_id == account_id)
 
         closed_trades = q_closed.all()
         passed_trades = q_passed.all()
