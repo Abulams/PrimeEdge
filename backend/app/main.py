@@ -84,6 +84,8 @@ async def lifespan(app: FastAPI):
         from .database import SessionLocal
         db = SessionLocal()
         StripeService.initialize_default_tiers(db)
+        # Backfill NGN prices for tiers seeded before NGN pricing was added
+        StripeService.migrate_ngn_prices(db)
         db.close()
     except Exception as e:
         print(f"Warning: Could not initialize subscription tiers: {e}")

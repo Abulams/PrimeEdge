@@ -44,6 +44,7 @@ class StripeService:
                 "description": "Essential market intelligence for manual traders",
                 "price_monthly": 29.0,
                 "price_yearly": 290.0,
+                "price_monthly_ngn": 22500.0,
                 "features": [
                     "Real-time market signals",
                     "Basic opportunity radar",
@@ -61,6 +62,7 @@ class StripeService:
                 "description": "Advanced tools for serious systematic traders",
                 "price_monthly": 99.0,
                 "price_yearly": 990.0,
+                "price_monthly_ngn": 49500.0,
                 "features": [
                     "All Starter features",
                     "Advanced market analysis",
@@ -79,6 +81,7 @@ class StripeService:
                 "description": "Full institutional-grade platform with auto-execution",
                 "price_monthly": 299.0,
                 "price_yearly": 2990.0,
+                "price_monthly_ngn": 149500.0,
                 "features": [
                     "All Pro features",
                     "Fully automated execution",
@@ -100,6 +103,23 @@ class StripeService:
 
         db.commit()
         logger.info(f"Initialized {len(tiers)} default subscription tiers")
+
+    @staticmethod
+    def migrate_ngn_prices(db) -> None:
+        """Backfill price_monthly_ngn for existing tiers seeded before NGN pricing.
+        Starter N22500 | Pro N49500 | Premium N149500. Skips if already set.
+        """
+        ngn_prices = {"starter": 22500.0, "pro": 49500.0, "premium": 149500.0}
+        updated = 0
+        for tier_name, ngn_price in ngn_prices.items():
+            tier = db.query(SubscriptionTier).filter(SubscriptionTier.name == tier_name).first()
+            if tier and (not tier.price_monthly_ngn or tier.price_monthly_ngn == 0.0):
+                tier.price_monthly_ngn = ngn_price
+                updated += 1
+                logger.info("[NGN Migration] %s -> %.1f" % (tier_name, ngn_price))
+        if updated:
+            db.commit()
+            logger.info("[NGN Migration] Updated %d tier(s)" % updated)
 
     @staticmethod
     def create_checkout_session(
