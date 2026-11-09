@@ -213,25 +213,39 @@ class RealtimeService:
                 from .journal_service import JournalService
                 from .telegram_service import TelegramService
 
-                # Maintain an in-memory set of alerted snapshot IDs on the realtime service
+                # Maintain alerted snapshots and strict 2-hour per-instrument cooldown
                 if not hasattr(self, "_alerted_snapshot_ids"):
-                    from datetime import timedelta
-                    cutoff = datetime.utcnow() - timedelta(minutes=15)
                     try:
-                        older_snaps = db.query(SetupSnapshot.id).filter(
-                            SetupSnapshot.date == today,
-                            SetupSnapshot.created_at < cutoff
+                        # Load ALL existing snapshots for today so restarts NEVER re-alert old signals
+                        all_today_snaps = db.query(SetupSnapshot.id).filter(
+                            SetupSnapshot.date == today
                         ).all()
-                        self._alerted_snapshot_ids = {s[0] for s in older_snaps}
+                        self._alerted_snapshot_ids = {s[0] for s in all_today_snaps}
                     except Exception:
                         self._alerted_snapshot_ids = set()
+
+                if not hasattr(self, "_last_telegram_alert_by_inst"):
+                    self._last_telegram_alert_by_inst = {}
 
                 def _dispatch_telegram_alert(snap):
                     if not snap or not getattr(snap, "id", None):
                         return
                     if snap.id in self._alerted_snapshot_ids:
                         return
+
+                    # Strict 2-hour cooldown per (instrument, direction) to eliminate alert spam
+                    inst_dir_key = (snap.instrument, snap.direction)
+                    now_utc = datetime.utcnow()
+                    last_alert_time = self._last_telegram_alert_by_inst.get(inst_dir_key)
+                    if last_alert_time:
+                        elapsed_mins = (now_utc - last_alert_time).total_seconds() / 60.0
+                        if elapsed_mins < 120.0:
+                            logger.info(f"[Telegram Throttle] Skipping alert for {snap.instrument} {snap.direction} (last sent {elapsed_mins:.1f}m ago, cooldown 120m)")
+                            self._alerted_snapshot_ids.add(snap.id)
+                            return
+
                     self._alerted_snapshot_ids.add(snap.id)
+                    self._last_telegram_alert_by_inst[inst_dir_key] = now_utc
 
                     # Capture exact live tick quote price from memory
                     inst_quote = self.current_quotes.get(snap.instrument)
@@ -240,7 +254,7 @@ class RealtimeService:
                         live_tick = inst_quote.get("price")
 
                     TelegramService.send_setup_alert(snap, current_live_price=live_tick)
-                    logger.info(f"ðŸ“£ [Telegram Alert] Dispatched READY signal #{snap.id} ({snap.instrument} {snap.direction}) with live tick {live_tick}")
+                    logger.info(f"[Telegram Alert] Dispatched READY signal #{snap.id} ({snap.instrument} {snap.direction}) with live tick {live_tick}")
 
                 auto_accounts = db.query(UserBrokerAccount).filter(
                     UserBrokerAccount.is_active == True,
@@ -421,26 +435,15 @@ class RealtimeService:
                                 ).order_by(SetupSnapshot.id.desc()).first()
 
                                 if not existing_snap:
-                                    logger.info(f"ðŸš€ [Quant Engine] New READY signal detected for {inst} ({direction}) score {prof_data.get('confidence_score')} â€” creating snapshot and alerting")
+                                    logger.info(f"[Quant Engine] New READY signal detected for {inst} ({direction}) score {prof_data.get('confidence_score')} — creating snapshot and alerting")
                                     new_snap = JournalService.create_setup_snapshot(db, inst, source="AUTONOMOUS_CLOUD_ENGINE", direction=direction)
                                     _dispatch_telegram_alert(new_snap)
                                     _dispatch_snap_to_auto_accounts(new_snap)
                                 else:
-                                    _dispatch_telegram_alert(existing_snap)
+                                    # Signal already alerted on creation; only evaluate account dispatch
                                     _dispatch_snap_to_auto_accounts(existing_snap)
                     except Exception as eng_err:
                         logger.error(f"[Quant Engine] Engine scan error for {inst}: {eng_err}")
-
-                # 2. Also sweep any existing READY snaps for today
-                ready_snaps = db.query(SetupSnapshot).filter(
-                    SetupSnapshot.date == today,
-                    SetupSnapshot.status_at_snapshot == "READY",
-                    SetupSnapshot.snapshot_source == "AUTONOMOUS_CLOUD_ENGINE"
-                ).all()
-
-                for snap in ready_snaps:
-                    _dispatch_telegram_alert(snap)
-                    _dispatch_snap_to_auto_accounts(snap)
             except Exception as auto_err:
                 logger.error(f"Error in autonomous execution scanner: {auto_err}", exc_info=True)
 

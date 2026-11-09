@@ -251,7 +251,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
           >
             <Sparkles size={15} color="#fbbf24" />
             <span style={{ fontSize: '13px', fontWeight: 800, color: '#fbbf24' }}>
-              Ã°Å¸Å½"° 50% OFF ALL PLANS — Limited-Time Launch Offer
+              50% OFF ALL PLANS — Limited-Time Launch Offer
             </span>
             <ArrowRight size={13} color="#fbbf24" />
           </div>
@@ -414,7 +414,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                 <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ef4444' }} />
                 <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#f59e0b' }} />
                 <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#10b981' }} />
-                <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '12px', fontFamily: 'monospace' }}>PrimeEdge Terminal v2.4 Ã‚Â· London Core</span>
+                <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '12px', fontFamily: 'monospace' }}>PrimeEdge Terminal v2.4 · London Core</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#10b981' }}>
                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }} />
@@ -1090,15 +1090,15 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                 </div>
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '14px', color: '#cbd5e1' }}>
                   <li style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                    <span style={{ color: '#10b981', fontWeight: 800 }}>Ã¢Å“"</span>
+                    <span style={{ color: '#10b981', fontWeight: 800 }}>✓</span>
                     <span><strong>Systematic Intraday Traders:</strong> Traders operating London and New York sessions who value empirical discipline over hunches.</span>
                   </li>
                   <li style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                    <span style={{ color: '#10b981', fontWeight: 800 }}>Ã¢Å“"</span>
+                    <span style={{ color: '#10b981', fontWeight: 800 }}>✓</span>
                     <span><strong>Prop Firm & Account Scalers:</strong> Traders with strict daily drawdown limits who require verified P90 adverse excursion boundaries.</span>
                   </li>
                   <li style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                    <span style={{ color: '#10b981', fontWeight: 800 }}>Ã¢Å“"</span>
+                    <span style={{ color: '#10b981', fontWeight: 800 }}>✓</span>
                     <span><strong>Evidence-Driven Operators:</strong> Traders tired of discretionary second-guessing who want cold, hard probability tables and auto-journal telemetry.</span>
                   </li>
                 </ul>
@@ -1117,15 +1117,15 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                 </div>
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '14px', color: '#cbd5e1' }}>
                   <li style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                    <span style={{ color: '#ef4444', fontWeight: 800 }}>Ã¢Å“"¢</span>
+                    <span style={{ color: '#ef4444', fontWeight: 800 }}>✕</span>
                     <span><strong>Get-Rich-Quick Seekers:</strong> We do not offer 95% win-rate promises, automated passive riches, or magical compounding calculators.</span>
                   </li>
                   <li style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                    <span style={{ color: '#ef4444', fontWeight: 800 }}>Ã¢Å“"¢</span>
+                    <span style={{ color: '#ef4444', fontWeight: 800 }}>✕</span>
                     <span><strong>Passive Copy-Traders:</strong> If you want to click a button and walk away without understanding your risk parameters, PrimeEdge is not for you.</span>
                   </li>
                   <li style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                    <span style={{ color: '#ef4444', fontWeight: 800 }}>Ã¢Å“"¢</span>
+                    <span style={{ color: '#ef4444', fontWeight: 800 }}>✕</span>
                     <span><strong>Crypto Degens & Moonshot Traders:</strong> PrimeEdge focuses strictly on institutional FX majors and gold (XAUUSD) where liquidity and microstructure allow genuine statistical edge.</span>
                   </li>
                 </ul>
@@ -1371,7 +1371,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                 <strong>REGULATORY & RISK DISCLOSURE:</strong> PrimeEdge provides trading decision support software and statistical analytical models. PrimeEdge is not a registered broker-dealer, commodity trading advisor (CTA), or financial advisory firm. All trading models, Market Signature Scores (MSS), and empirical distributions are provided strictly for educational and analytical purposes. Past performance and statistical analogies do not guarantee future results. Trading foreign exchange and leveraged financial contracts carries significant risk of capital loss and is not suitable for all investors.
               </p>
               <p>
-                Ã‚Â© {new Date().getFullYear()} PrimeEdge. All rights reserved. Encrypted institutional infrastructure.
+                © {new Date().getFullYear()} PrimeEdge. All rights reserved. Encrypted institutional infrastructure.
               </p>
             </div>
           </div>

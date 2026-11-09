@@ -141,7 +141,7 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
                                 # Attempt to extract closing execution price from recent cTrader deals
                                 exit_p = None
                                 try:
-                                    recent_deals = await gw.get_deals(master_account_id, max_rows=20)
+                                    recent_deals = await gateway.get_deals(master_account_id, max_rows=20)
                                     for d in recent_deals:
                                         if d.get("position_id") == str(tr.broker_ticket):
                                             exit_p = d.get("execution_price")
