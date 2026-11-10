@@ -33,7 +33,7 @@ from .models import (
     DailyMarketRegime, TradingJournal, InstrumentDailyProfile, TradePlannerLog,
     MarketSignature, PriceCache, SetupSnapshot, TradeRecord,
     ReplayBatch, ReplaySetupSnapshot, ReplayTradeRecord, User, UserBrokerAccount,
-    SubscriptionTier, UserSubscription
+    SubscriptionTier, UserSubscription, ExecutionOrderQueue
 )
 from .auth import get_current_user_optional
 from .schemas import (
@@ -52,6 +52,9 @@ from .data_fetcher import ALL_INSTRUMENTS, TICKER_MAP, fetch_realtime_quotes, ge
 from . import analyst_engine
 
 from .realtime import realtime_service
+
+import logging
+logger = logging.getLogger("marketos.main")
 
 _ctrader_bridge_state = {"status": "initializing", "connected": False, "last_error": None, "last_connect_time": None}
 
@@ -208,6 +211,18 @@ async def lifespan(app: FastAPI):
                 st.exit_timestamp = datetime.datetime.utcnow()
                 st.outcome = "CANCELLED"
             db_init.commit()
+
+            # Startup cleanup: Expire all stale QUEUED orders so they don't block execution
+            stale_queued = db_init.query(ExecutionOrderQueue).filter(
+                ExecutionOrderQueue.status == "QUEUED"
+            ).all()
+            for sq in stale_queued:
+                logger.info(f"[Startup Cleanup] Expiring stale QUEUED order #{sq.id} ({sq.instrument} {sq.direction})")
+                sq.status = "EXPIRED"
+                sq.error_comment = "STARTUP_CLEANUP: auto-expired on restart"
+            if stale_queued:
+                db_init.commit()
+                logger.info(f"[Startup Cleanup] Expired {len(stale_queued)} stale QUEUED orders")
 
             account = db_init.query(UserBrokerAccount).filter(UserBrokerAccount.user_id == first_user.id).first()
             if not account:
