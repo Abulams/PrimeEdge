@@ -76,6 +76,18 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
     # Symbol name -> cTrader symbol_id cache
     symbol_cache: dict = {}
 
+    ALIASES = {
+        "US100": ["USTEC", "NAS100", "US100", "NDX", "TECH100"],
+        "XAUUSD": ["XAUUSD", "GOLD", "XAUUSD-24_7"],
+        "EURUSD": ["EURUSD", "EURUSD.", "EURUSDt"],
+        "GBPUSD": ["GBPUSD", "GBPUSD."],
+        "USDJPY": ["USDJPY", "USDJPY."],
+        "USDCHF": ["USDCHF", "USDCHF."],
+        "AUDUSD": ["AUDUSD", "AUDUSD."],
+        "US30": ["US30", "DJ30", "WS30"],
+        "SPX500": ["US500", "SPX500", "SP500"]
+    }
+
     async def resolve_symbol_id(instrument: str):
         cache_key = instrument.upper()
         if cache_key in symbol_cache:
@@ -84,7 +96,24 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
             symbols = await gateway.get_symbols(master_account_id)
             for sym in symbols:
                 symbol_cache[sym["name"].upper()] = sym["id"]
-            return symbol_cache.get(cache_key)
+
+            if cache_key in symbol_cache:
+                return symbol_cache[cache_key]
+
+            # Try broker aliases (e.g. US100 -> USTEC on IC Markets)
+            for alias in ALIASES.get(cache_key, []):
+                if alias.upper() in symbol_cache:
+                    symbol_cache[cache_key] = symbol_cache[alias.upper()]
+                    logger.info("Mapped instrument %s -> cTrader broker symbol %s (ID: %s)", cache_key, alias, symbol_cache[cache_key])
+                    return symbol_cache[cache_key]
+
+            # Fuzzy match
+            for sym_name, sym_id in symbol_cache.items():
+                if cache_key in sym_name:
+                    symbol_cache[cache_key] = sym_id
+                    return sym_id
+
+            return None
         except Exception as exc:
             logger.error("Failed to resolve symbol %s: %s", instrument, exc)
             return None
@@ -283,6 +312,22 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
                             order.signal_id, result.get("position_id"),
                             order.instrument, ct_direction,
                         )
+
+                        # DISPATCH TELEGRAM ALERT STRICTLY POST-EXECUTION (Only if trade genuinely executed on cTrader)
+                        try:
+                            if order.trade_id:
+                                with SessionLocal() as db_tg:
+                                    from ..models import TradeRecord, SetupSnapshot
+                                    tr = db_tg.query(TradeRecord).filter(TradeRecord.id == order.trade_id).first()
+                                    if tr and tr.setup_snapshot_id:
+                                        snap = db_tg.query(SetupSnapshot).filter(SetupSnapshot.id == tr.setup_snapshot_id).first()
+                                        if snap:
+                                            from ..telegram_service import TelegramService
+                                            fill_p = result.get("fill_price") or order.entry_reference_price
+                                            TelegramService.send_setup_alert(snap, current_live_price=fill_p)
+                                            logger.info(f"[Telegram Post-Execution] Dispatched alert for cTrader filled trade #{tr.id} (Ticket {ticket_str})")
+                        except Exception as tg_err:
+                            logger.error("Failed to dispatch post-execution telegram alert: %s", tg_err)
 
                     except Exception as exc:
                         logger.error("Failed to execute signal %s: %s", order.signal_id, exc)

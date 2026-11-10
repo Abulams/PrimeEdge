@@ -441,7 +441,7 @@ class RealtimeService:
                                 if not existing_snap:
                                     logger.info(f"[Quant Engine] New READY signal detected for {inst} ({direction}) score {prof_data.get('confidence_score')} — creating snapshot and alerting")
                                     new_snap = JournalService.create_setup_snapshot(db, inst, source="AUTONOMOUS_CLOUD_ENGINE", direction=direction)
-                                    _dispatch_telegram_alert(new_snap)
+                                    # Telegram alert is strictly dispatched post-execution on cTrader inside poll_signal_queue
                                     _dispatch_snap_to_auto_accounts(new_snap)
                                 else:
                                     # Signal already alerted on creation; only evaluate account dispatch
