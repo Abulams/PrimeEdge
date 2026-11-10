@@ -244,13 +244,7 @@ export default function PricingPage() {
 
     try {
 
-      const endpoint = currency === 'NGN'
-
-        ? '/api/v1/subscription/paystack/checkout'
-
-        : '/api/v1/subscription/flutterwave/checkout';
-
-
+      const endpoint = '/api/v1/subscription/flutterwave/checkout';
 
       const response = await apiFetch(endpoint, {
 
@@ -260,7 +254,9 @@ export default function PricingPage() {
 
           tier_name: tierName,
 
-          billing_interval: billingInterval
+          billing_interval: billingInterval,
+
+          currency: currency
 
         })
 
@@ -1142,7 +1138,7 @@ export default function PricingPage() {
 
             }}>
 
-              <span>Instant Card, Bank & USSD Activation (Paystack)</span>
+              <span>Instant Card, Bank & USSD Activation (Flutterwave)</span>
 
             </div>
 
@@ -1782,7 +1778,7 @@ export default function PricingPage() {
 
                     <>
 
-                      Get Started with {tier.display_name} (Paystack)
+                      Get Started with {tier.display_name}
 
                       <ChevronRight size={16} />
 

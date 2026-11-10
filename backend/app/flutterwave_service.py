@@ -27,8 +27,8 @@ class FlutterwaveService:
     @staticmethod
     def get_public_config() -> Dict[str, Any]:
         """Returns public Flutterwave configuration for the frontend."""
-        public_key = os.getenv("FLUTTERWAVE_PUBLIC_KEY", "")
-        secret_key = os.getenv("FLUTTERWAVE_SECRET_KEY", "")
+        public_key = os.getenv("FLUTTERWAVE_PUBLIC_KEY", "FLWPUBK-c2f3d3766bdfbacc00eee7f4bf951ece-X")
+        secret_key = os.getenv("FLUTTERWAVE_SECRET_KEY", "FLWSECK-ce4c3f22e8e4b8f70b2c21f116fdf9c9-1a1c3160d76vt-X")
         return {
             "flutterwave_public_key": public_key,
             "enabled": bool(secret_key)
@@ -46,7 +46,7 @@ class FlutterwaveService:
         Initializes a Flutterwave standard checkout payment link for a subscription.
         Default currency is USD for international cards.
         """
-        secret_key = os.getenv("FLUTTERWAVE_SECRET_KEY")
+        secret_key = os.getenv("FLUTTERWAVE_SECRET_KEY", "FLWSECK-ce4c3f22e8e4b8f70b2c21f116fdf9c9-1a1c3160d76vt-X")
         if not secret_key:
             raise ValueError("FLUTTERWAVE_SECRET_KEY is not configured on the server")
 
@@ -131,7 +131,7 @@ class FlutterwaveService:
         """
         Verify a Flutterwave transaction using tx_ref or transaction_id and activate subscription.
         """
-        secret_key = os.getenv("FLUTTERWAVE_SECRET_KEY")
+        secret_key = os.getenv("FLUTTERWAVE_SECRET_KEY", "FLWSECK-ce4c3f22e8e4b8f70b2c21f116fdf9c9-1a1c3160d76vt-X")
         if not secret_key:
             raise ValueError("FLUTTERWAVE_SECRET_KEY is not configured on the server")
 
@@ -241,7 +241,7 @@ class FlutterwaveService:
         Verify and process Flutterwave webhook event.
         Flutterwave sends the hash configured in dashboard in 'verif-hash' header.
         """
-        secret_hash = os.getenv("FLUTTERWAVE_WEBHOOK_HASH")
+        secret_hash = os.getenv("FLUTTERWAVE_WEBHOOK_HASH", "Lamido556@")
         if secret_hash and signature_header != secret_hash:
             logger.warning("Flutterwave webhook signature mismatch")
             raise ValueError("Invalid webhook signature")
