@@ -417,7 +417,7 @@ class UserBrokerAccount(Base):
     ping_ms = Column(Float, default=4.0)
 
     # Risk & Asset Sizing Preferences (Prop Desk Model)
-    risk_mode = Column(String, default="FIXED_LOT", nullable=False)  # "FIXED_LOT" or "DYNAMIC_RISK_PCT"
+    risk_mode = Column(String, default="DYNAMIC_RISK_PCT", nullable=False)  # "FIXED_LOT" or "DYNAMIC_RISK_PCT"
     risk_pct = Column(Float, default=1.0, nullable=False)  # 0.25 to 2.0%
     fixed_lot_size = Column(Float, default=0.01, nullable=False)  # 0.01 to 2.0 lots
     allowed_instruments = Column(JSON, default=lambda: ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "US100", "USDCHF"], nullable=False)

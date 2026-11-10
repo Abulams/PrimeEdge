@@ -173,6 +173,8 @@ async def lifespan(app: FastAPI):
                     is_active=True,
                     auto_execution_enabled=True,
                     is_copier_active=True,
+                    risk_mode="DYNAMIC_RISK_PCT",
+                    risk_pct=1.0,
                     balance=11068.31,
                     equity=11068.31,
                     currency="USD",
@@ -187,6 +189,8 @@ async def lifespan(app: FastAPI):
                 ct_acc.auto_execution_enabled = True
                 ct_acc.is_copier_active = True
                 ct_acc.ctrader_account_id = 49127263
+                ct_acc.risk_mode = "DYNAMIC_RISK_PCT"
+                ct_acc.risk_pct = 1.0
                 if not ct_acc.ctrader_access_token or len(str(ct_acc.ctrader_access_token)) < 10:
                     ct_acc.ctrader_access_token = default_ctrader_tok
                 db_init.commit()

@@ -376,7 +376,7 @@ class RealtimeService:
                             actual_tp = round(actual_entry + (dir_sign * mfe_target_pips / pip_mult), 5)
 
                             # Calculate position size based on user's configured risk mode
-                            risk_mode = getattr(acc, "risk_mode", "FIXED_LOT") or "FIXED_LOT"
+                            risk_mode = getattr(acc, "risk_mode", "DYNAMIC_RISK_PCT") or "DYNAMIC_RISK_PCT"
                             if risk_mode == "DYNAMIC_RISK_PCT":
                                 risk_dist = abs(actual_entry - actual_sl)
                                 risk_pips = round(risk_dist * pip_mult, 1)
@@ -384,14 +384,20 @@ class RealtimeService:
 
                                 if "JPY" in inst:
                                     pip_val_usd = 6.5
-                                elif "US100" in inst:
-                                    pip_val_usd = 20.0
+                                elif "US100" in inst or "USTEC" in inst or "NAS100" in inst or "US30" in inst:
+                                    pip_val_usd = 1.0  # 1 pt move = $1.00 USD per 1.0 lot on cTrader index CFD
+                                elif "XAU" in inst or "GOLD" in inst:
+                                    pip_val_usd = 10.0 # 1 pip ($0.10) * 100 oz = $10.00 USD per 1.0 lot
                                 else:
-                                    pip_val_usd = 10.0
+                                    pip_val_usd = 10.0 # Standard 100k FX lot: 1 pip (0.0001) = $10.00 USD
 
                                 if risk_pips > 0 and pip_val_usd > 0:
                                     calc_lots = round(risk_amount_usd / (risk_pips * pip_val_usd), 2)
-                                    size_lots = max(0.01, min(calc_lots, 50.0))
+                                    if "US100" in inst or "USTEC" in inst or "NAS100" in inst or "US30" in inst:
+                                        size_lots = max(0.1, min(calc_lots, 50.0))
+                                        size_lots = round(round(size_lots * 10) / 10, 1)
+                                    else:
+                                        size_lots = max(0.01, min(calc_lots, 50.0))
                                 else:
                                     size_lots = 0.01
                                 logger.info(f"ðŸ“Š [Auto-Execution Sizing] Account #{acc.login} DYNAMIC_RISK_PCT: balance=${acc_balance:.2f}, risk={risk_percentage}%, risk_amount=${risk_amount_usd:.2f}, risk_pips={risk_pips:.1f} -> lots={size_lots}")

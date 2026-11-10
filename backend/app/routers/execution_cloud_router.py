@@ -259,7 +259,7 @@ def disconnect_cloud_account(
 
 
 class UpdatePreferencesRequest(BaseModel):
-    risk_mode: Optional[str] = "FIXED_LOT"  # "FIXED_LOT" or "DYNAMIC_RISK_PCT"
+    risk_mode: Optional[str] = "DYNAMIC_RISK_PCT"  # "FIXED_LOT" or "DYNAMIC_RISK_PCT"
     risk_pct: Optional[float] = 1.0
     fixed_lot_size: Optional[float] = 0.01
     allowed_instruments: Optional[List[str]] = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "US100", "USDCHF"]
@@ -275,7 +275,7 @@ def get_user_execution_preferences(
     account = get_primary_user_account(db, current_user.id)
     if not account:
         return {
-            "risk_mode": "FIXED_LOT",
+            "risk_mode": "DYNAMIC_RISK_PCT",
             "risk_pct": 1.0,
             "fixed_lot_size": 0.01,
             "allowed_instruments": ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "US100", "USDCHF"],
@@ -284,7 +284,7 @@ def get_user_execution_preferences(
         }
 
     return {
-        "risk_mode": account.risk_mode or "FIXED_LOT",
+        "risk_mode": account.risk_mode or "DYNAMIC_RISK_PCT",
         "risk_pct": account.risk_pct or 1.0,
         "fixed_lot_size": account.fixed_lot_size or 0.01,
         "allowed_instruments": account.allowed_instruments if isinstance(account.allowed_instruments, list) else ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "US100", "USDCHF"],
@@ -551,7 +551,7 @@ def get_assigned_accounts_for_worker(
             "password": decrypted_pw,
             "server": acc.broker_server,
             "auto_execution_enabled": acc.auto_execution_enabled and cloud_router.is_execution_allowed(acc.id),
-            "risk_mode": acc.risk_mode or "FIXED_LOT",
+            "risk_mode": acc.risk_mode or "DYNAMIC_RISK_PCT",
             "risk_pct": acc.risk_pct or 1.0,
             "fixed_lot_size": acc.fixed_lot_size or 0.01,
             "allowed_instruments": acc.allowed_instruments if isinstance(acc.allowed_instruments, list) else ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "US100", "USDCHF"],
