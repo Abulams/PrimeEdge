@@ -92,7 +92,7 @@ export default function PricingPage() {
 
   const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
 
-  const [currency, setCurrency] = useState<'NGN' | 'USD'>('NGN');
+  const currency = 'USD';
 
   const [processingTier, setProcessingTier] = useState<string | null>(null);
 
@@ -1138,7 +1138,7 @@ export default function PricingPage() {
 
             }}>
 
-              <span>Instant Card, Bank & USSD Activation (Flutterwave)</span>
+              <span>Instant Card, Apple Pay, Google Pay & Global Bank Transfer (Flutterwave)</span>
 
             </div>
 
@@ -1528,7 +1528,7 @@ export default function PricingPage() {
 
                     <span style={{ fontSize: '38px', fontWeight: 900, color: '#fff', letterSpacing: '-1px' }}>
 
-                      {tier.price_monthly === 0 ? '$0' : currency === 'NGN' ? `₦${(billingInterval === 'month' ? (tier.price_monthly_ngn || (tier.name === 'premium' ? 149500 : tier.name === 'pro' ? 49500 : 22500)) : (tier.price_monthly_ngn || (tier.name === 'premium' ? 149500 : tier.name === 'pro' ? 49500 : 22500)) * 10).toLocaleString()}` : `$${price}`}
+                      ${tier.price_monthly === 0 ? '0' : price}
 
                     </span>
 
@@ -1542,11 +1542,7 @@ export default function PricingPage() {
 
                       <span style={{ fontSize: '17px', color: '#94a3b8', fontWeight: 600, textDecoration: 'line-through' }}>
 
-                        {currency === 'NGN'
-
-                          ? `₦${(billingInterval === 'month' ? (tier.price_monthly_ngn || (tier.name === 'premium' ? 149500 : tier.name === 'pro' ? 49500 : 22500)) * 2 : (tier.price_monthly_ngn || (tier.name === 'premium' ? 149500 : tier.name === 'pro' ? 49500 : 22500)) * 20).toLocaleString()}`
-
-                          : `$${billingInterval === 'month' ? (tier.price_monthly * 2).toFixed(2) : ((tier.price_yearly || tier.price_monthly * 10) * 2).toFixed(2)}`}
+                        ${billingInterval === 'month' ? Math.round(tier.price_monthly * 2) : Math.round((tier.price_yearly || tier.price_monthly * 10) * 2)}
 
                       </span>
 
@@ -1564,15 +1560,7 @@ export default function PricingPage() {
 
                   )}
 
-                  {currency === 'NGN' && (
-
-                    <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
-
-                      Instant activation via Cards, USSD, or Bank Transfer
-
-                    </div>
-
-                  )}
+                  
 
                 </div>
 
