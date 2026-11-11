@@ -29,6 +29,10 @@ VALID_SPA_ROUTES = {
     "/replay",
     "/settings",
     "/subscription",
+    "/forgot-password",
+    "/reset-password",
+    "/forgot",
+    "/reset",
 }
 
 # ---------------------------------------------------------------------------

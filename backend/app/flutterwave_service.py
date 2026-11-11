@@ -77,7 +77,6 @@ class FlutterwaveService:
             "amount": float(amount),
             "currency": currency.upper(),
             "redirect_url": redirect_url,
-            "payment_options": "card,mobilemoney,ussd,banktransfer,account,googlepay,applepay",
             "customer": {
                 "email": user.email,
                 "name": getattr(user, "full_name", None) or getattr(user, "username", "PrimeEdge Trader")

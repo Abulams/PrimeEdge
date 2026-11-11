@@ -47,6 +47,8 @@ import LandingPage from './LandingPage';
 import ActivatePage from './ActivatePage';
 import PricingPage from './PricingPage';
 import ResearchLimitVsMarket from './ResearchLimitVsMarket';
+import ResearchStopHunting from './ResearchStopHunting';
+import ResearchFirstMilestone from './ResearchFirstMilestone';
 import FeedbackModal from './FeedbackModal';
 import { notificationService } from './NotificationService';
 import { Bell, BellOff, Volume2, VolumeX } from 'lucide-react';
@@ -928,6 +930,14 @@ function App() {
     return <ResearchLimitVsMarket />;
   }
 
+  if (currentPath === '/research/stop-hunting') {
+    return <ResearchStopHunting />;
+  }
+
+  if (currentPath === '/research/first-milestone') {
+    return <ResearchFirstMilestone />;
+  }
+
   if (currentPath === '/login') {
     if (isAuthenticated) {
       navigateTo('/');
@@ -941,6 +951,22 @@ function App() {
       navigateTo('/');
     } else {
       return <LoginPage initialMode="register" />;
+    }
+  }
+
+  if (currentPath === '/forgot-password' || currentPath === '/forgot') {
+    if (isAuthenticated) {
+      navigateTo('/');
+    } else {
+      return <LoginPage initialMode="forgot" />;
+    }
+  }
+
+  if (currentPath === '/reset-password' || currentPath === '/reset') {
+    if (isAuthenticated) {
+      navigateTo('/');
+    } else {
+      return <LoginPage initialMode="reset" />;
     }
   }
 

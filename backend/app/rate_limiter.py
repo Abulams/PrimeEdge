@@ -2,9 +2,9 @@
 Market-OS In-Memory Sliding Window Rate Limiter
 ===============================================
 Zero-dependency, thread-safe rate limiter protecting sensitive public endpoints:
-  - /api/v1/auth/login (5 req/min)
-  - /api/v1/waitlist (3 req/min)
-  - /api/v1/chat (20 req/min)
+  - /api/v1/auth/login (25 req/min)
+  - /api/v1/waitlist (10 req/min)
+  - /api/v1/chat (30 req/min)
 """
 
 import time
@@ -20,7 +20,12 @@ class SlidingWindowRateLimiter:
         self.lock = threading.Lock()
 
     def check(self, request: Request):
-        client_ip = request.client.host if request.client else "unknown"
+        # Resolve real client IP behind Cloudflare or Render reverse proxy
+        client_ip = (
+            request.headers.get("cf-connecting-ip")
+            or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+            or (request.client.host if request.client else "unknown")
+        )
         now = time.time()
 
         with self.lock:
@@ -41,6 +46,6 @@ class SlidingWindowRateLimiter:
 
 
 # Pre-configured instances
-login_rate_limiter = SlidingWindowRateLimiter(max_requests=5, window_seconds=60)
-waitlist_rate_limiter = SlidingWindowRateLimiter(max_requests=3, window_seconds=60)
-ai_rate_limiter = SlidingWindowRateLimiter(max_requests=20, window_seconds=60)
+login_rate_limiter = SlidingWindowRateLimiter(max_requests=25, window_seconds=60)
+waitlist_rate_limiter = SlidingWindowRateLimiter(max_requests=10, window_seconds=60)
+ai_rate_limiter = SlidingWindowRateLimiter(max_requests=30, window_seconds=60)

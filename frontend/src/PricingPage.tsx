@@ -272,7 +272,7 @@ export default function PricingPage() {
 
           // If simulation callback
 
-          if (data.checkout_url.includes('activated=') && !data.checkout_url.includes('paystack.com') && !data.checkout_url.includes('stripe.com')) {
+          if (data.checkout_url.includes('activated=') && !data.checkout_url.includes('paystack.com') && !data.checkout_url.includes('stripe.com') && !data.checkout_url.includes('flutterwave.com')) {
 
             await fetchCurrentSubscription();
 

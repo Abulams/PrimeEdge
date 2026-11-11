@@ -155,6 +155,28 @@ async def lifespan(app: FastAPI):
             db_init.add(admin_user)
             db_init.commit()
 
+        # Guarantee active Premium subscription for abu1@gmail.com and admin users
+        premium_tier = db_init.query(SubscriptionTier).filter(SubscriptionTier.name == "premium").first()
+        if premium_tier:
+            for admin_email in ["lamido665@gmail.com", "abulamido665@gmail.com", "abu1@gmail.com"]:
+                u = db_init.query(User).filter(User.email == admin_email).first()
+                if u:
+                    sub = db_init.query(UserSubscription).filter(UserSubscription.user_id == u.id).first()
+                    if not sub:
+                        sub = UserSubscription(
+                            user_id=u.id,
+                            tier_id=premium_tier.id,
+                            status="active",
+                            current_period_start=datetime.datetime.utcnow(),
+                            current_period_end=datetime.datetime.utcnow() + datetime.timedelta(days=365)
+                        )
+                        db_init.add(sub)
+                    else:
+                        sub.tier_id = premium_tier.id
+                        sub.status = "active"
+                        sub.current_period_end = datetime.datetime.utcnow() + datetime.timedelta(days=365)
+                    db_init.commit()
+
         # 2. Seed connected Demo Broker Account for primary user
         first_user = db_init.query(User).filter(User.email == "abu1@gmail.com").first() or db_init.query(User).first()
         if first_user:
