@@ -149,7 +149,7 @@ HOMEPAGE_CRAWLER_HTML = """
       </p>
       <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 3.5rem;">
         <a href="/pricing" style="display: inline-block; background: #00e5ff; color: #07090e; font-weight: 700; padding: 0.9rem 1.8rem; border-radius: 6px; text-decoration: none; font-size: 1rem;">View Plans &amp; Pricing</a>
-        <a href="/register" style="display: inline-block; background: rgba(255,255,255,0.06); color: #ffffff; font-weight: 600; padding: 0.9rem 1.8rem; border-radius: 6px; text-decoration: none; font-size: 1rem; border: 1px solid rgba(255,255,255,0.12);">Start Free</a>
+        <a href="/register" style="display: inline-block; background: rgba(255,255,255,0.06); color: #ffffff; font-weight: 600; padding: 0.9rem 1.8rem; border-radius: 6px; text-decoration: none; font-size: 1rem; border: 1px solid rgba(255,255,255,0.12);">Get Started with Starter</a>
       </div>
     </div>
 
@@ -233,42 +233,47 @@ PRICING_CRAWLER_HTML = """
     <section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
       <article style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 2.5rem; display: flex; flex-direction: column;">
         <h2 style="font-size: 1.4rem; font-weight: 700; color: #ffffff; margin: 0 0 0.5rem 0;">Starter</h2>
-        <p style="color: #94a3b8; font-size: 0.95rem; margin-bottom: 1.5rem;">For traders exploring quantitative setup evaluation.</p>
-        <div style="font-size: 2.5rem; font-weight: 800; color: #ffffff; margin-bottom: 1.5rem;">$0 <span style="font-size: 1rem; color: #64748b; font-weight: normal;">/ forever</span></div>
+        <p style="color: #94a3b8; font-size: 0.95rem; margin-bottom: 1.5rem;">Essential market intelligence for manual traders.</p>
+        <div style="font-size: 2.5rem; font-weight: 800; color: #ffffff; margin-bottom: 1.5rem;">$29 <span style="font-size: 1rem; color: #64748b; font-weight: normal;">/ month</span></div>
         <ul style="list-style: none; padding: 0; margin: 0 0 2rem 0; color: #cbd5e1; font-size: 0.95rem; line-height: 2;">
-          <li>&#10003; Real-time Watchlist &amp; Setup Discovery</li>
-          <li>&#10003; Macro Regime &amp; MSS Decomposition</li>
-          <li>&#10003; Empirical P25–P75 Retracement Corridor</li>
-          <li>&#10003; Historical Evidence Distributions</li>
+          <li>&#10003; Real-time market signals (EURUSD, GBPUSD, USDJPY, XAUUSD, US100)</li>
+          <li>&#10003; Decision Intelligence &amp; Market Regime Radar</li>
+          <li>&#10003; Manual trade journaling &amp; execution logs</li>
+          <li>&#10003; Evidence-based setup scoring &amp; risk matrix</li>
+          <li>&#10003; Community access &amp; Telegram channel alerts</li>
         </ul>
-        <a href="/register" style="margin-top: auto; display: block; text-align: center; background: rgba(255,255,255,0.06); color: #ffffff; font-weight: 600; padding: 0.85rem; border-radius: 6px; text-decoration: none; border: 1px solid rgba(255,255,255,0.12);">Start Free</a>
+        <a href="/register" style="margin-top: auto; display: block; text-align: center; background: rgba(255,255,255,0.06); color: #ffffff; font-weight: 600; padding: 0.85rem; border-radius: 6px; text-decoration: none; border: 1px solid rgba(255,255,255,0.12);">Get Started with Starter</a>
       </article>
 
       <article style="background: rgba(0,229,255,0.03); border: 2px solid #00e5ff; border-radius: 12px; padding: 2.5rem; display: flex; flex-direction: column; position: relative;">
         <div style="position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: #00e5ff; color: #07090e; font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.75rem; border-radius: 9999px; text-transform: uppercase;">Most Popular</div>
         <h2 style="font-size: 1.4rem; font-weight: 700; color: #ffffff; margin: 0 0 0.5rem 0;">Pro</h2>
-        <p style="color: #94a3b8; font-size: 0.95rem; margin-bottom: 1.5rem;">Complete decision support, replay &amp; trade journal.</p>
-        <div style="font-size: 2.5rem; font-weight: 800; color: #ffffff; margin-bottom: 1.5rem;">$79 <span style="font-size: 1rem; color: #64748b; font-weight: normal;">/ month</span></div>
+        <p style="color: #94a3b8; font-size: 0.95rem; margin-bottom: 1.5rem;">Advanced tools for serious systematic traders.</p>
+        <div style="font-size: 2.5rem; font-weight: 800; color: #ffffff; margin-bottom: 1.5rem;">$99 <span style="font-size: 1rem; color: #64748b; font-weight: normal;">/ month</span></div>
         <ul style="list-style: none; padding: 0; margin: 0 0 2rem 0; color: #cbd5e1; font-size: 0.95rem; line-height: 2;">
-          <li>&#10003; Everything in Starter</li>
-          <li>&#10003; Interactive Trade Planner &amp; Option A/B Analysis</li>
-          <li>&#10003; Historical Replay Engine (Tick-by-Tick)</li>
-          <li>&#10003; Automated Execution Journal &amp; Deviation Metrics</li>
-          <li>&#10003; -0.35R Early Invalidation Guardrails</li>
+          <li>&#10003; All Starter features included</li>
+          <li>&#10003; Advanced multi-timeframe regime analysis</li>
+          <li>&#10003; Historical performance &amp; MAE/MFE statistical distributions</li>
+          <li>&#10003; Automated trade journaling &amp; historical replay simulator</li>
+          <li>&#10003; Priority support &amp; dedicated notifications</li>
+          <li>&#10003; API access (read-only)</li>
         </ul>
         <a href="/register?plan=pro" style="margin-top: auto; display: block; text-align: center; background: #00e5ff; color: #07090e; font-weight: 700; padding: 0.85rem; border-radius: 6px; text-decoration: none;">Get Started with Pro</a>
       </article>
 
       <article style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 2.5rem; display: flex; flex-direction: column;">
         <h2 style="font-size: 1.4rem; font-weight: 700; color: #ffffff; margin: 0 0 0.5rem 0;">Premium</h2>
-        <p style="color: #94a3b8; font-size: 0.95rem; margin-bottom: 1.5rem;">Automated broker execution &amp; multi-account bridge.</p>
-        <div style="font-size: 2.5rem; font-weight: 800; color: #ffffff; margin-bottom: 1.5rem;">$199 <span style="font-size: 1rem; color: #64748b; font-weight: normal;">/ month</span></div>
+        <p style="color: #94a3b8; font-size: 0.95rem; margin-bottom: 1.5rem;">Full institutional-grade platform with auto-execution.</p>
+        <div style="font-size: 2.5rem; font-weight: 800; color: #ffffff; margin-bottom: 1.5rem;">$299 <span style="font-size: 1rem; color: #64748b; font-weight: normal;">/ month</span></div>
         <ul style="list-style: none; padding: 0; margin: 0 0 2rem 0; color: #cbd5e1; font-size: 0.95rem; line-height: 2;">
-          <li>&#10003; Everything in Pro</li>
-          <li>&#10003; Cloud cTrader Automated Execution Copier (MT5 Coming Soon)</li>
-          <li>&#10003; Up to 5 Connected Broker Accounts</li>
-          <li>&#10003; Max Daily Drawdown &amp; Spread Protection Gates</li>
-          <li>&#10003; Priority WebSocket Infrastructure &amp; Support</li>
+          <li>&#10003; All Pro features included</li>
+          <li>&#10003; Autonomous Cloud cTrader Auto-Execution</li>
+          <li>&#10003; Dynamic 1% risk position sizing engine</li>
+          <li>&#10003; Connected cTrader broker accounts (demo &amp; live)</li>
+          <li>&#10003; Prop desk daily loss &amp; drawdown risk guardrails</li>
+          <li>&#10003; Custom strategy backtesting &amp; scenario simulator</li>
+          <li>&#10003; Full API access (read/write) &amp; webhook routing</li>
+          <li>&#10003; Dedicated 1-on-1 priority support</li>
         </ul>
         <a href="/register?plan=premium" style="margin-top: auto; display: block; text-align: center; background: rgba(255,255,255,0.06); color: #ffffff; font-weight: 600; padding: 0.85rem; border-radius: 6px; text-decoration: none; border: 1px solid rgba(255,255,255,0.12);">Get Started with Premium</a>
       </article>
@@ -282,7 +287,7 @@ PRICING_CRAWLER_HTML = """
       </div>
       <div style="border-bottom: 1px solid rgba(255,255,255,0.08); padding: 1.5rem 0;">
         <h3 style="font-size: 1.1rem; color: #00e5ff; margin: 0 0 0.5rem 0;">Which brokers and platforms are supported?</h3>
-        <p style="color: #94a3b8; font-size: 0.95rem; margin: 0;">PrimeEdge executes via cTrader OpenAPI with isolated execution guardrails, supporting leading cTrader brokers. MetaTrader 5 (MT5) integration is in active development and coming soon.</p>
+        <p style="color: #94a3b8; font-size: 0.95rem; margin: 0;">PrimeEdge executes via cTrader OpenAPI with isolated execution guardrails, supporting all leading cTrader brokers including IC Markets, Pepperstone, and FP Markets.</p>
       </div>
       <div style="border-bottom: 1px solid rgba(255,255,255,0.08); padding: 1.5rem 0;">
         <h3 style="font-size: 1.1rem; color: #00e5ff; margin: 0 0 0.5rem 0;">Can I cancel or switch plans at any time?</h3>
