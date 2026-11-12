@@ -207,65 +207,29 @@ class RealtimeService:
             except Exception as je:
                 logger.error(f"Error updating active trade journal: {je}")
 
-            # 3. Autonomous Execution Scanner & Telegram Signal Dispatcher
+            # 3. Autonomous Execution Scanner (Zero Duplicate Guardrails & Genuine cTrader Accounts Only)
             try:
-                from .models import UserBrokerAccount, TradeRecord, SetupSnapshot
+                from .models import UserBrokerAccount, TradeRecord, SetupSnapshot, ExecutionOrderQueue
                 from .journal_service import JournalService
-                from .telegram_service import TelegramService
+                from datetime import timedelta
 
-                # Maintain alerted snapshots and strict 2-hour per-instrument cooldown
-                if not hasattr(self, "_alerted_snapshot_ids"):
-                    try:
-                        # Load ALL existing snapshots for today so restarts NEVER re-alert old signals
-                        all_today_snaps = db.query(SetupSnapshot.id).filter(
-                            SetupSnapshot.date == today
-                        ).all()
-                        self._alerted_snapshot_ids = {s[0] for s in all_today_snaps}
-                    except Exception:
-                        self._alerted_snapshot_ids = set()
-
-                if not hasattr(self, "_last_telegram_alert_by_inst"):
-                    self._last_telegram_alert_by_inst = {}
-
-                def _dispatch_telegram_alert(snap):
-                    if not snap or not getattr(snap, "id", None):
-                        return
-                    if snap.id in self._alerted_snapshot_ids:
-                        return
-
-                    # Strict 2-hour cooldown per (instrument, direction) to eliminate alert spam
-                    inst_dir_key = (snap.instrument, snap.direction)
-                    now_utc = datetime.utcnow()
-                    last_alert_time = self._last_telegram_alert_by_inst.get(inst_dir_key)
-                    if last_alert_time:
-                        elapsed_mins = (now_utc - last_alert_time).total_seconds() / 60.0
-                        if elapsed_mins < 120.0:
-                            logger.info(f"[Telegram Throttle] Skipping alert for {snap.instrument} {snap.direction} (last sent {elapsed_mins:.1f}m ago, cooldown 120m)")
-                            self._alerted_snapshot_ids.add(snap.id)
-                            return
-
-                    self._alerted_snapshot_ids.add(snap.id)
-                    self._last_telegram_alert_by_inst[inst_dir_key] = now_utc
-
-                    # Capture exact live tick quote price from memory
-                    inst_quote = self.current_quotes.get(snap.instrument)
-                    live_tick = None
-                    if inst_quote and isinstance(inst_quote, dict):
-                        live_tick = inst_quote.get("price")
-
-                    TelegramService.send_setup_alert(snap, current_live_price=live_tick)
-                    logger.info(f"[Telegram Alert] Dispatched READY signal #{snap.id} ({snap.instrument} {snap.direction}) with live tick {live_tick}")
-
+                # Strict filter: ONLY active cTrader accounts with connected cTrader account IDs
                 auto_accounts = db.query(UserBrokerAccount).filter(
+                    UserBrokerAccount.platform == "ctrader",
                     UserBrokerAccount.is_active == True,
-                    UserBrokerAccount.auto_execution_enabled == True
+                    UserBrokerAccount.auto_execution_enabled == True,
+                    UserBrokerAccount.ctrader_account_id != None
                 ).all()
 
                 def _dispatch_snap_to_auto_accounts(snap):
                     if not auto_accounts:
                         return
                     inst = snap.instrument
+                    inst_upper = (inst or "").upper()
                     direction = snap.direction or "LONG"
+                    is_index = any(idx in inst_upper for idx in ("US100", "NAS100", "USTEC", "NDX", "TECH100", "UK100", "GER40", "SPX", "US30", "AUS200"))
+                    now_utc = datetime.utcnow()
+
                     for acc in auto_accounts:
                         try:
                             # Guard A: Check Allowed Instruments Whitelist
@@ -280,45 +244,56 @@ class RealtimeService:
                                 logger.debug(f"[Auto-Execution] Instrument {inst} not in allowed list for Account #{acc.login}")
                                 continue
 
-                            # Guard B: Check Max Concurrent Open Trades (only genuine broker tickets or fresh in-flight < 2m)
-                            from datetime import timedelta
-                            fresh_order_cutoff = datetime.utcnow() - timedelta(minutes=2)
+                            # Guard B: In-Flight Queue Check ? NEVER queue duplicate if order already pending in ExecutionOrderQueue
+                            in_flight_order = db.query(ExecutionOrderQueue).filter(
+                                ExecutionOrderQueue.account_id == acc.id,
+                                ExecutionOrderQueue.instrument == inst,
+                                ExecutionOrderQueue.status.in_(["QUEUED", "DISPATCHED"])
+                            ).first()
+                            if in_flight_order:
+                                logger.debug(f"[Auto-Execution] Order #{in_flight_order.id} for {inst} already {in_flight_order.status} in queue ? skipping duplicate")
+                                continue
+
+                            # Guard C: Strict Active/Pending Trade Check on same instrument
+                            has_active_or_pending = db.query(TradeRecord).join(
+                                SetupSnapshot, TradeRecord.setup_snapshot_id == SetupSnapshot.id
+                            ).filter(
+                                TradeRecord.account_id == acc.id,
+                                TradeRecord.lifecycle_state.in_(["ACTIVE", "PENDING"]),
+                                TradeRecord.execution_status.in_(["QUEUED", "FILLED", "PENDING"]),
+                                SetupSnapshot.instrument == inst
+                            ).first()
+                            if has_active_or_pending:
+                                logger.debug(f"[Auto-Execution] Account #{acc.login} already has active/pending trade #{has_active_or_pending.id} on {inst} ? skipping duplicate")
+                                continue
+
+                            # Guard D: 30-Minute Cooldown on same instrument to prevent rapid-fire re-entry
+                            cooldown_cutoff = now_utc - timedelta(minutes=30)
+                            recent_trade = db.query(TradeRecord).join(
+                                SetupSnapshot, TradeRecord.setup_snapshot_id == SetupSnapshot.id
+                            ).filter(
+                                TradeRecord.account_id == acc.id,
+                                TradeRecord.entry_timestamp >= cooldown_cutoff,
+                                SetupSnapshot.instrument == inst
+                            ).first()
+                            if recent_trade:
+                                elapsed_mins = (now_utc - recent_trade.entry_timestamp).total_seconds() / 60
+                                logger.debug(f"[Auto-Execution] Cooldown active for {inst} on Account #{acc.login} (last trade #{recent_trade.id} placed {elapsed_mins:.1f}m ago) ? skipping duplicate")
+                                continue
+
+                            # Guard E: Check Max Concurrent Open Trades
                             open_count = db.query(TradeRecord).filter(
                                 TradeRecord.account_id == acc.id,
-                                TradeRecord.lifecycle_state == "ACTIVE",
-                                ((TradeRecord.broker_ticket != None) | (TradeRecord.entry_timestamp > fresh_order_cutoff))
+                                TradeRecord.lifecycle_state.in_(["ACTIVE", "PENDING"]),
+                                TradeRecord.execution_status.in_(["QUEUED", "FILLED", "PENDING"])
                             ).count()
                             max_open = acc.max_concurrent_trades or 5
                             if open_count >= max_open:
                                 logger.debug(f"[Auto-Execution] Account #{acc.login} at max trades ({open_count}/{max_open})")
                                 continue
 
-                            # Guard C: STRICT 1-TRADE PER DISTINCT READY SIGNAL INSTANCE PER ACCOUNT
-                            already_executed_signal = db.query(TradeRecord).filter(
-                                TradeRecord.account_id == acc.id,
-                                TradeRecord.setup_snapshot_id == snap.id
-                            ).first()
-
-                            if already_executed_signal:
-                                continue  # Already executed this signal instance
-
-                            # Guard D: Prevent duplicate active trades on the same instrument (only genuine broker tickets or fresh in-flight < 2m)
-                            has_active_trade = db.query(TradeRecord).join(
-                                SetupSnapshot, TradeRecord.setup_snapshot_id == SetupSnapshot.id
-                            ).filter(
-                                TradeRecord.account_id == acc.id,
-                                TradeRecord.lifecycle_state == "ACTIVE",
-                                ((TradeRecord.broker_ticket != None) | (TradeRecord.entry_timestamp > fresh_order_cutoff)),
-                                SetupSnapshot.instrument == inst
-                            ).first()
-                            if has_active_trade:
-                                logger.debug(f"[Auto-Execution] Account #{acc.login} already has active trade #{has_active_trade.id} on {inst} - skipping duplicate")
-                                continue
-
-                            # Guard E: Block opposite-direction trade on same instrument within same session
-                            # A "session" = last 4 hours. Prevents noise-chasing by flipping direction.
-                            from datetime import timedelta
-                            session_cutoff = datetime.utcnow() - timedelta(hours=4)
+                            # Guard F: Block opposite-direction trade on same instrument within same 4-hour window
+                            session_cutoff = now_utc - timedelta(hours=4)
                             recent_opposite = db.query(TradeRecord).join(
                                 SetupSnapshot, TradeRecord.setup_snapshot_id == SetupSnapshot.id
                             ).filter(
@@ -329,83 +304,81 @@ class RealtimeService:
                                 SetupSnapshot.direction != direction
                             ).first()
                             if recent_opposite:
-                                mins_ago = (datetime.utcnow() - recent_opposite.exit_timestamp).total_seconds() / 60
-                                logger.info(
-                                    f"[Auto-Execution] BLOCKING {direction} on {inst} -- "
-                                    f"opposite direction closed {mins_ago:.0f}min ago. No same-session direction flip."
-                                )
+                                logger.info(f"[Auto-Execution] Blocking {direction} on {inst} ? opposite direction closed recently")
                                 continue
 
-                            # Guard F: Cooldown after early invalidation (30 min minimum before re-entry)
-                            recent_early_inval = db.query(TradeRecord).join(
-                                SetupSnapshot, TradeRecord.setup_snapshot_id == SetupSnapshot.id
-                            ).filter(
-                                TradeRecord.account_id == acc.id,
-                                TradeRecord.lifecycle_state == "CLOSED",
-                                TradeRecord.exit_reason == "EARLY_INVALIDATION_MAE",
-                                TradeRecord.exit_timestamp >= datetime.utcnow() - timedelta(minutes=30),
-                                SetupSnapshot.instrument == inst
-                            ).first()
-                            if recent_early_inval:
-                                elapsed = (datetime.utcnow() - recent_early_inval.exit_timestamp).total_seconds() / 60
-                                logger.info(
-                                    f"[Auto-Execution] COOLDOWN active for {inst} -- "
-                                    f"early invalidation {elapsed:.0f}min ago. Skipping new entry."
-                                )
-                                continue
-
-                            # Determine lot size & risk from user preferences
+                            # Determine lot size & risk geometry
                             risk_percentage = acc.risk_pct or 1.0
                             acc_balance = acc.balance if (acc.balance and acc.balance > 0) else 10000.0
 
-                            # pip_mult: per-instrument correct values
-                            # Indices (US100, NAS100, USTEC, etc.) trade in index points, not pip fractions
-                            if "JPY" in inst:
+                            # Pips / points multiplier
+                            if "JPY" in inst_upper:
                                 pip_mult = 100.0
-                            elif "XAU" in inst or "GOLD" in inst:
+                            elif "XAU" in inst_upper or "GOLD" in inst_upper:
                                 pip_mult = 10.0
-                            elif any(idx in inst for idx in ("US100", "NAS100", "USTEC", "UK100", "GER40", "SPX", "US30", "AUS200")):
-                                pip_mult = 1.0  # Index points -- TP/SL in raw price units
+                            elif is_index:
+                                pip_mult = 1.0  # Index points ? raw price units
                             else:
-                                pip_mult = 10000.0  # Standard FX (4-decimal pairs)
+                                pip_mult = 10000.0  # Standard FX
+
                             dir_sign = 1.0 if direction == "LONG" else -1.0
-                            mfe_target_pips = snap.mfe_p75_pips or snap.mfe_p50_pips or 30.0
+                            default_sl_pts = 150.0 if is_index else (40.0 if ("XAU" in inst_upper or "GOLD" in inst_upper) else 25.0)
+                            default_tp_pts = default_sl_pts * 1.5
 
                             actual_entry = snap.corridor_p25_price or snap.setup_ref_price or 1.0
-                            actual_sl = snap.p90_invalidation or round(actual_entry - (dir_sign * 25.0 / pip_mult), 5)
+                            if actual_entry <= 0:
+                                actual_entry = 1.0
+
+                            # Strict Geometry Verification:
+                            # For LONG: SL must be strictly below entry
+                            # For SHORT: SL must be strictly above entry
+                            if snap.p90_invalidation and (
+                                (direction == "LONG" and snap.p90_invalidation < actual_entry) or
+                                (direction == "SHORT" and snap.p90_invalidation > actual_entry)
+                            ):
+                                actual_sl = snap.p90_invalidation
+                            else:
+                                actual_sl = round(actual_entry - (dir_sign * default_sl_pts / pip_mult), 5)
+
+                            # Enforce minimum safe SL distance to prevent instant liquidation by spread
+                            min_sl_dist = 25.0 if is_index else (1.5 if ("XAU" in inst_upper or "GOLD" in inst_upper) else 0.0008)
+                            if abs(actual_entry - actual_sl) < min_sl_dist:
+                                actual_sl = round(actual_entry - (dir_sign * min_sl_dist), 5)
+
+                            mfe_target_pips = snap.mfe_p75_pips or snap.mfe_p50_pips or default_tp_pts
                             actual_tp = round(actual_entry + (dir_sign * mfe_target_pips / pip_mult), 5)
 
-                            # Calculate position size based on user's configured risk mode
+                            # Calculate position size
                             risk_mode = getattr(acc, "risk_mode", "DYNAMIC_RISK_PCT") or "DYNAMIC_RISK_PCT"
                             if risk_mode == "DYNAMIC_RISK_PCT":
                                 risk_dist = abs(actual_entry - actual_sl)
                                 risk_pips = round(risk_dist * pip_mult, 1)
                                 risk_amount_usd = acc_balance * (risk_percentage / 100.0)
 
-                                if "JPY" in inst:
+                                if "JPY" in inst_upper:
                                     pip_val_usd = 6.5
-                                elif "US100" in inst or "USTEC" in inst or "NAS100" in inst or "US30" in inst:
+                                elif is_index:
                                     pip_val_usd = 1.0  # 1 pt move = $1.00 USD per 1.0 lot on cTrader index CFD
-                                elif "XAU" in inst or "GOLD" in inst:
-                                    pip_val_usd = 10.0 # 1 pip ($0.10) * 100 oz = $10.00 USD per 1.0 lot
+                                elif "XAU" in inst_upper or "GOLD" in inst_upper:
+                                    pip_val_usd = 10.0
                                 else:
-                                    pip_val_usd = 10.0 # Standard 100k FX lot: 1 pip (0.0001) = $10.00 USD
+                                    pip_val_usd = 10.0
 
                                 if risk_pips > 0 and pip_val_usd > 0:
                                     calc_lots = round(risk_amount_usd / (risk_pips * pip_val_usd), 2)
-                                    if "US100" in inst or "USTEC" in inst or "NAS100" in inst or "US30" in inst:
-                                        size_lots = max(0.1, min(calc_lots, 50.0))
+                                    if is_index:
+                                        size_lots = max(0.1, min(calc_lots, 5.0))
                                         size_lots = round(round(size_lots * 10) / 10, 1)
                                     else:
-                                        size_lots = max(0.01, min(calc_lots, 50.0))
+                                        size_lots = max(0.01, min(calc_lots, 10.0))
                                 else:
-                                    size_lots = 0.01
-                                logger.info(f"ðŸ“Š [Auto-Execution Sizing] Account #{acc.login} DYNAMIC_RISK_PCT: balance=${acc_balance:.2f}, risk={risk_percentage}%, risk_amount=${risk_amount_usd:.2f}, risk_pips={risk_pips:.1f} -> lots={size_lots}")
+                                    size_lots = 0.1 if is_index else 0.01
+                                logger.info(f"?? [Auto-Execution Sizing] Account #{acc.login} DYNAMIC_RISK_PCT: balance=${acc_balance:.2f}, risk={risk_percentage}%, risk_amount=${risk_amount_usd:.2f}, risk_pips={risk_pips:.1f} -> lots={size_lots}")
                             else:
-                                size_lots = acc.fixed_lot_size or 0.01
-                                logger.info(f"ðŸ“Š [Auto-Execution Sizing] Account #{acc.login} FIXED_LOT: lots={size_lots}")
+                                size_lots = acc.fixed_lot_size or (0.1 if is_index else 0.01)
+                                logger.info(f"?? [Auto-Execution Sizing] Account #{acc.login} FIXED_LOT: lots={size_lots}")
 
-                            # Accept trade tied to user and account
+                            # Queue trade ? Telegram alert is dispatched strictly post-execution on cTrader
                             JournalService.accept_setup(
                                 db=db,
                                 snapshot_id=snap.id,
@@ -415,17 +388,17 @@ class RealtimeService:
                                 position_size_lots=size_lots,
                                 risk_pct=risk_percentage,
                                 account_balance=acc_balance,
-                                notes=f"Market OS Autonomous Execution Engine (Signal #{snap.id})",
+                                notes=f"PrimeEdge Autonomous cTrader Execution Engine (Signal #{snap.id})",
                                 account_id=acc.id,
                                 user_id=acc.user_id
                             )
-                            logger.info(f"ðŸ¤– [Auto-Execution] Queued READY signal #{snap.id} ({inst} {direction}) for Account #{acc.login} (Acc ID {acc.id})")
+                            logger.info(f"?? [Auto-Execution] Queued READY signal #{snap.id} ({inst} {direction}) for cTrader Account #{acc.login} (lots={size_lots})")
                         except Exception as acc_exec_err:
-                            logger.error(f"âŒ [Auto-Execution] Error executing signal #{snap.id} for Account #{acc.id}: {acc_exec_err}", exc_info=True)
+                            logger.error(f"? [Auto-Execution] Error executing signal #{snap.id} for Account #{acc.id}: {acc_exec_err}", exc_info=True)
                             db.rollback()
                             continue
 
-                # 1. Run DUAL-HORIZON engine scan across key instruments to detect ANY NEW READY setups and dispatch IMMEDIATELY
+                # Run DUAL-HORIZON engine scan across key instruments
                 instruments_to_scan = ["XAUUSD", "US100", "EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "AUDJPY"]
                 for inst in instruments_to_scan:
                     try:
@@ -445,12 +418,10 @@ class RealtimeService:
                                 ).order_by(SetupSnapshot.id.desc()).first()
 
                                 if not existing_snap:
-                                    logger.info(f"[Quant Engine] New READY signal detected for {inst} ({direction}) score {prof_data.get('confidence_score')} — creating snapshot and alerting")
+                                    logger.info(f"[Quant Engine] New READY signal detected for {inst} ({direction}) score {prof_data.get('confidence_score')}")
                                     new_snap = JournalService.create_setup_snapshot(db, inst, source="AUTONOMOUS_CLOUD_ENGINE", direction=direction)
-                                    # Telegram alert is strictly dispatched post-execution on cTrader inside poll_signal_queue
                                     _dispatch_snap_to_auto_accounts(new_snap)
                                 else:
-                                    # Signal already alerted on creation; only evaluate account dispatch
                                     _dispatch_snap_to_auto_accounts(existing_snap)
                     except Exception as eng_err:
                         logger.error(f"[Quant Engine] Engine scan error for {inst}: {eng_err}")

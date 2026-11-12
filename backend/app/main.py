@@ -96,6 +96,22 @@ async def lifespan(app: FastAPI):
         db.close()
     except Exception as e:
         print(f"Warning: Could not initialize subscription tiers: {e}")
+
+    # Sanitize auto-execution broker accounts: disable auto-execution on all non-cTrader accounts
+    try:
+        from .models import UserBrokerAccount
+        from .database import SessionLocal
+        db_acc = SessionLocal()
+        legacy_accs = db_acc.query(UserBrokerAccount).filter(
+            (UserBrokerAccount.platform != "ctrader") | (UserBrokerAccount.platform == None)
+        ).all()
+        for la in legacy_accs:
+            la.auto_execution_enabled = False
+            la.is_active = False
+        db_acc.commit()
+        db_acc.close()
+    except Exception as ae:
+        print(f"Warning: Could not sanitize legacy broker accounts: {ae}")
     
     # Auto-seed London Cloud Execution Worker Node
     try:
@@ -707,12 +723,7 @@ def create_setup_snapshot(
     try:
         uid = current_user.id if current_user else None
         snap = JournalService.create_setup_snapshot(db, req.instrument, source=req.source or "MANUAL", user_id=uid, direction=req.direction)
-        if snap.status_at_snapshot == "READY":
-            try:
-                from .telegram_service import TelegramService
-                TelegramService.send_setup_alert(snap, current_live_price=snap.live_price_at_snap)
-            except Exception as te:
-                logger.error(f"Error alerting telegram on snapshot: {te}")
+        # Commercial channel policy: only verified cTrader fills trigger Telegram alerts
         return snap
     except ValueError as ve:
         raise HTTPException(status_code=404, detail=str(ve))

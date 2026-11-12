@@ -208,8 +208,10 @@ class CTraderCopierService:
                             sl_distance = copy_item.get("sl_pips")
                             if not sl_distance or sl_distance <= 0:
                                 pip_size = matching_pos.get("pip_size", 0.0001)
-                                # Index CFD: pip_size >= 1 point (e.g. US100 = 1.0)
-                                sl_distance = 150.0 if pip_size >= 1.0 else 35.0
+                                sym_hint = str(copy_item.get("symbol", "")).upper()
+                                is_idx = any(k in sym_hint for k in ["100", "NAS", "TEC", "US30", "SPX"]) or pip_size >= 1.0
+                                # Index CFD: minimum 150 points to prevent instant liquidation
+                                sl_distance = 150.0 if is_idx else 35.0
 
                             mae_threshold_pips = mae_threshold_r * sl_distance
 
@@ -435,12 +437,11 @@ class CTraderCopierService:
         try:
             pip_position = sym_details.get("pip_position", 4)
             pip_size = 10 ** (-pip_position) if pip_position >= 0 else 1.0
-            # Conservative instrument-type default SL distance (in pips / points).
-            # For index CFDs (pip_size >= 1 point): 150 pts is a safe starting value.
-            # For forex (pip_size < 1): 35 pips.
-            default_sl_pips = 150.0 if pip_size >= 1.0 else 35.0
+            is_idx = any(k in str(symbol_name).upper() for k in ["100", "NAS", "TEC", "US30", "SPX"]) or pip_size >= 1.0
+            default_sl_pips = 150.0 if is_idx else 35.0
         except Exception:
-            default_sl_pips = 35.0
+            is_idx = any(k in str(symbol_name).upper() for k in ["100", "NAS", "TEC", "US30", "SPX"])
+            default_sl_pips = 150.0 if is_idx else 35.0
 
         self.position_map.setdefault(master_position_id, []).append({
             "client_account_id": account_id,

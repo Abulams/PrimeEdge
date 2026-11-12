@@ -484,12 +484,13 @@ class JournalService:
         if setup and setup.mae_p90_pips and setup.mae_p90_pips > 0:
             trade.max_mae_percentile = round(min(1.0, (trade.max_mae_pips or 0.0) / setup.mae_p90_pips) * 90.0, 1)
 
-        # Dispatch instant setup outcome alert to Telegram
-        try:
-            from .telegram_service import TelegramService
-            TelegramService.send_outcome_alert(trade)
-        except Exception as te:
-            logger.error(f"Failed to dispatch Telegram outcome alert: {te}")
+        # Dispatch outcome alert to Telegram strictly for real verified broker fills
+        if trade.broker_ticket and str(trade.broker_ticket).strip() and str(trade.broker_ticket).strip() != "None":
+            try:
+                from .telegram_service import TelegramService
+                TelegramService.send_outcome_alert(trade)
+            except Exception as te:
+                logger.error(f"Failed to dispatch Telegram outcome alert: {te}")
 
     @staticmethod
     def get_performance_summary(db: Session, user_id: Optional[int] = None, account_id: Optional[int] = None) -> Dict[str, Any]:

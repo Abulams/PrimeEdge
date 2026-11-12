@@ -468,7 +468,7 @@ class CTraderGateway:
             fallback = {
                 "id": symbol_id,
                 "digits": 2,
-                "pip_position": 1,
+                "pip_position": 0,
                 "min_volume": 100,
                 "step_volume": 100,
                 "lot_size": 10000,
@@ -546,6 +546,13 @@ class CTraderGateway:
         # Relative Stop Loss
         if stop_loss_price is not None and entry_price is not None:
             diff = round(abs(entry_price - stop_loss_price), digits)
+            # Guard against sub-point/micro-pip SLs causing instant market liquidation
+            sym_str = str(details.get("name", "")).upper()
+            is_idx_sym = any(k in sym_str for k in ["100", "NAS", "TEC", "US30", "SPX", "GER", "DAX"]) or digits <= 2
+            min_safe_diff = 25.0 if is_idx_sym else (1.5 if "XAU" in sym_str else 0.0008)
+            if diff < min_safe_diff:
+                logger.warning("SL diff %.5f too tight (< %.2f) ? expanding to min safe distance to prevent instant liquidation", diff, min_safe_diff)
+                diff = min_safe_diff
             rel_sl = int(round(diff * 100000))
             if tick_step > 0:
                 rel_sl = (rel_sl // tick_step) * tick_step
@@ -792,13 +799,20 @@ class CTraderGateway:
                 details = self._symbol_details_cache.get(f"{account_id}:{symbol_id}", {})
 
             digits = details.get("digits", 5)
-            pip_position = details.get("pip_position", 4)
+            pip_position = details.get("pip_position", None)
+            sym_name = str(self._symbol_name_by_id.get(f"{account_id}:{symbol_id}", "")).upper()
+            is_index_sym = any(k in sym_name for k in ["100", "NAS", "TEC", "US30", "SPX", "GER", "DAX", "DOW"]) or symbol_id == 41
 
-            # pip_size: the price difference that equals 1 pip for this instrument.
-            # For forex 5-digit (EUR/USD): pip_size = 0.0001
-            # For indices like US100 (digits=2, pip_position=0 or 1): pip_size = 1.0
-            # Formula: pip_size = 10 ^ (-pip_position)
-            pip_size = 10 ** (-pip_position) if pip_position >= 0 else 1.0
+            if is_index_sym:
+                pip_size = 1.0
+            elif pip_position is not None and pip_position >= 0:
+                pip_size = 10 ** (-pip_position)
+            elif digits == 3 or "JPY" in sym_name:
+                pip_size = 0.01
+            elif "XAU" in sym_name or "GOLD" in sym_name:
+                pip_size = 0.1
+            else:
+                pip_size = 0.0001
 
             # open_price from ProtoOA is a scaled integer (divide by 100000 to get
             # the actual broker price).  We cannot reliably compute current price

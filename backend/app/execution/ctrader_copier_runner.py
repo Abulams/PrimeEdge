@@ -75,6 +75,7 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
 
     # Symbol name -> cTrader symbol_id cache
     symbol_cache: dict = {}
+    _alerted_tickets: set = set()
 
     ALIASES = {
         "US100": ["USTEC", "NAS100", "US100", "NDX", "TECH100"],
@@ -272,6 +273,37 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
                         # cTrader direction: LONG -> BUY, SHORT -> SELL
                         ct_direction = "BUY" if order.direction.upper() == "LONG" else "SELL"
 
+                        # Guard: Check live broker positions on master account before placing order
+                        # NEVER open duplicate trades of same instrument & direction
+                        try:
+                            live_positions = await gateway.get_open_positions(master_account_id)
+                            existing_pos = next((p for p in live_positions if p.get("symbol_id") == symbol_id), None)
+                            if existing_pos:
+                                existing_dir = existing_pos.get("direction")
+                                logger.warning(
+                                    "Duplicate prevented on cTrader: Account %s already has active position #%s on %s (%s). Rejecting signal %s.",
+                                    master_account_id, existing_pos.get("position_id"), order.instrument, existing_dir, order.signal_id
+                                )
+                                with SessionLocal() as db2:
+                                    db2.query(ExecutionOrderQueue).filter(ExecutionOrderQueue.id == order.id).update({
+                                        "status": "REJECTED",
+                                        "error_comment": f"Duplicate prevented: active position #{existing_pos.get('position_id')} already open on broker for {order.instrument}",
+                                        "completed_at": datetime.datetime.utcnow(),
+                                    })
+                                    if order.trade_id:
+                                        from ..models import TradeRecord
+                                        db2.query(TradeRecord).filter(TradeRecord.id == order.trade_id).update({
+                                            "execution_status": "REJECTED",
+                                            "lifecycle_state": "CLOSED",
+                                            "outcome": "DUPLICATE_PREVENTED",
+                                            "exit_reason": f"DUPLICATE_PREVENTED_POS_{existing_pos.get('position_id')}",
+                                            "exit_timestamp": datetime.datetime.utcnow(),
+                                        })
+                                    db2.commit()
+                                continue
+                        except Exception as pos_check_err:
+                            logger.warning("Could not pre-check open positions for duplicates: %s", pos_check_err)
+
                         result = await gateway.execute_market_order(
                             account_id=master_account_id,
                             symbol_id=symbol_id,
@@ -315,7 +347,8 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
 
                         # DISPATCH TELEGRAM ALERT STRICTLY POST-EXECUTION (Only if trade genuinely executed on cTrader)
                         try:
-                            if order.trade_id:
+                            if order.trade_id and ticket_str and ticket_str not in _alerted_tickets and result.get("position_id"):
+                                _alerted_tickets.add(ticket_str)
                                 with SessionLocal() as db_tg:
                                     from ..models import TradeRecord, SetupSnapshot
                                     tr = db_tg.query(TradeRecord).filter(TradeRecord.id == order.trade_id).first()
@@ -325,7 +358,7 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
                                             from ..telegram_service import TelegramService
                                             fill_p = result.get("fill_price") or order.entry_reference_price
                                             TelegramService.send_setup_alert(snap, current_live_price=fill_p)
-                                            logger.info(f"[Telegram Post-Execution] Dispatched alert for cTrader filled trade #{tr.id} (Ticket {ticket_str})")
+                                            logger.info(f"[Telegram Commercial Channel] Dispatched verified fill alert for cTrader trade #{tr.id} (Ticket {ticket_str})")
                         except Exception as tg_err:
                             logger.error("Failed to dispatch post-execution telegram alert: %s", tg_err)
 
