@@ -1950,13 +1950,13 @@ export default function PricingPage() {
 
                 <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
 
-                  <td style={{ padding: '14px 16px', fontSize: '13px', color: '#cbd5e1' }}>Connected cTrader Accounts (MT5 Coming Soon)</td>
+                  <td style={{ padding: '14px 16px', fontSize: '13px', color: '#cbd5e1' }}>Connected cTrader Accounts</td>
 
                   {tiers.map((t) => (
 
                     <td key={t.id} style={{ padding: '14px 16px', textAlign: 'center', fontSize: '13px', fontWeight: 700, color: '#fff' }}>
 
-                      {t.max_accounts >= 999 ? 'Unlimited' : `${t.max_accounts} Account${t.max_accounts > 1 ? 's' : ''}`}
+                      {t.max_accounts >= 999 ? 'Unlimited' : t.max_accounts === 0 ? '—' : `${t.max_accounts} Account${t.max_accounts > 1 ? 's' : ''}`}
 
                     </td>
 
@@ -2016,7 +2016,7 @@ export default function PricingPage() {
 
                 q: 'Can I upgrade or downgrade my tier later?',
 
-                a: 'Yes. You can upgrade at any time and get instant access to higher-tier features. Billing is prorated automatically through Stripe.'
+                a: 'Yes. You can upgrade at any time and get instant access to higher-tier features. Billing is processed securely via Flutterwave.'
 
               },
 
@@ -2024,7 +2024,7 @@ export default function PricingPage() {
 
                 q: 'How does Cloud cTrader Execution work in Premium?',
 
-                a: 'PrimeEdge connects securely to your cTrader account via OpenAPI with dedicated, sandboxed execution workers for sub-millisecond execution and automated risk guardrails (MT5 support coming soon).'
+                a: 'PrimeEdge connects securely to your cTrader account via OpenAPI with dedicated, sandboxed execution workers for sub-millisecond execution and automated risk guardrails.'
 
               },
 

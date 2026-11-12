@@ -54,7 +54,7 @@ def check_account_limit(
     db: Session = Depends(get_db)
 ):
     """
-    Check if user has reached their MT5 account limit based on tier.
+    Check if user has reached their cTrader account limit based on tier.
     """
     tier_info = StripeService.get_user_tier_info(db, current_user.id)
     
@@ -74,7 +74,7 @@ def check_account_limit(
     if account_count >= max_accounts:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Account limit reached. Your current plan allows {max_accounts} MT5 account(s)."
+            detail=f"Account limit reached. Your current plan allows {max_accounts} cTrader account(s)."
         )
     
     return current_user

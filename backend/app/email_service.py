@@ -211,7 +211,7 @@ def send_applicant_invite_email(
         <!-- Body Content -->
         <div style="padding:28px 32px;font-size:14px;line-height:1.7;color:#cbd5e1;">
           <p style="margin-top:0;">
-            You now have access to PrimeEdge — our proprietary decision intelligence platform with institutional Opportunity Radar scanning, empirical P90 invalidation boundaries, and isolated MT5 process guardrails.
+            You now have access to PrimeEdge — our proprietary decision intelligence platform with institutional Opportunity Radar scanning, empirical P90 invalidation boundaries, and isolated cTrader process guardrails.
           </p>
           <p>
             Please use the secure invitation link below to set your account password and activate your personal trading terminal:

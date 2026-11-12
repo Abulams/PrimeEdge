@@ -91,6 +91,8 @@ async def lifespan(app: FastAPI):
         StripeService.initialize_default_tiers(db)
         # Backfill NGN prices for tiers seeded before NGN pricing was added
         StripeService.migrate_ngn_prices(db)
+        # Synchronize features, remove MT5 references and enforce tier boundaries
+        StripeService.sync_subscription_tier_features(db)
         db.close()
     except Exception as e:
         print(f"Warning: Could not initialize subscription tiers: {e}")

@@ -34,7 +34,8 @@ class StripeService:
         """Initialize default subscription tiers if they don't exist."""
         existing_tiers = db.query(SubscriptionTier).count()
         if existing_tiers > 0:
-            logger.info(f"Found {existing_tiers} existing tiers, skipping initialization")
+            logger.info(f"Found {existing_tiers} existing tiers, updating/syncing features")
+            StripeService.sync_subscription_tier_features(db)
             return
 
         tiers = [
@@ -46,13 +47,13 @@ class StripeService:
                 "price_yearly": 290.0,
                 "price_monthly_ngn": 22500.0,
                 "features": [
-                    "Real-time market signals",
-                    "Basic opportunity radar",
-                    "Manual trade journaling",
-                    "1 MT5 account",
-                    "Community access"
+                    "Real-time market signals (EURUSD, GBPUSD, USDJPY, XAUUSD, US100)",
+                    "Decision Intelligence & Market Regime Radar",
+                    "Manual trade journaling & execution logs",
+                    "Evidence-based setup scoring & risk matrix",
+                    "Community access & Telegram channel alerts"
                 ],
-                "max_accounts": 1,
+                "max_accounts": 0,
                 "auto_execution_enabled": False,
                 "api_access_enabled": False
             },
@@ -64,14 +65,14 @@ class StripeService:
                 "price_yearly": 990.0,
                 "price_monthly_ngn": 49500.0,
                 "features": [
-                    "All Starter features",
-                    "Advanced market analysis",
-                    "Historical performance analytics",
-                    "3 MT5 accounts",
-                    "Priority support",
+                    "All Starter features included",
+                    "Advanced multi-timeframe regime analysis",
+                    "Historical performance & MAE/MFE statistical distributions",
+                    "Automated trade journaling & historical replay simulator",
+                    "Priority support & dedicated notifications",
                     "API access (read-only)"
                 ],
-                "max_accounts": 3,
+                "max_accounts": 0,
                 "auto_execution_enabled": False,
                 "api_access_enabled": True
             },
@@ -83,13 +84,14 @@ class StripeService:
                 "price_yearly": 2990.0,
                 "price_monthly_ngn": 149500.0,
                 "features": [
-                    "All Pro features",
-                    "Fully automated execution",
-                    "Unlimited MT5 accounts",
-                    "Custom strategy backtesting",
-                    "Dedicated support",
-                    "Full API access (read/write)",
-                    "White-label reporting"
+                    "All Pro features included",
+                    "Autonomous Cloud cTrader Auto-Execution",
+                    "Dynamic 1% risk position sizing engine",
+                    "Connected cTrader broker accounts (demo & live)",
+                    "Prop desk daily loss & drawdown risk guardrails",
+                    "Custom strategy backtesting & scenario simulator",
+                    "Full API access (read/write) & webhook routing",
+                    "Dedicated 1-on-1 priority support"
                 ],
                 "max_accounts": 999,
                 "auto_execution_enabled": True,
@@ -103,6 +105,90 @@ class StripeService:
 
         db.commit()
         logger.info(f"Initialized {len(tiers)} default subscription tiers")
+
+    @staticmethod
+    def sync_subscription_tier_features(db: Session) -> None:
+        """
+        Synchronizes existing subscription tiers in the database to remove any MT5 references,
+        modernize capabilities to cTrader, and guarantee strict separation of features:
+        - Starter: Manual signals & trade journaling only (NO auto-execution)
+        - Pro: Advanced market regime analysis & historical replay (NO auto-execution)
+        - Premium: Exclusive autonomous cloud cTrader execution, dynamic 1% risk sizing & connected accounts
+        """
+        tier_updates = {
+            "starter": {
+                "display_name": "Starter",
+                "description": "Essential market intelligence for manual traders",
+                "price_monthly": 29.0,
+                "price_yearly": 290.0,
+                "price_monthly_ngn": 22500.0,
+                "features": [
+                    "Real-time market signals (EURUSD, GBPUSD, USDJPY, XAUUSD, US100)",
+                    "Decision Intelligence & Market Regime Radar",
+                    "Manual trade journaling & execution logs",
+                    "Evidence-based setup scoring & risk matrix",
+                    "Community access & Telegram channel alerts"
+                ],
+                "max_accounts": 0,
+                "auto_execution_enabled": False,
+                "api_access_enabled": False
+            },
+            "pro": {
+                "display_name": "Pro",
+                "description": "Advanced tools for serious systematic traders",
+                "price_monthly": 99.0,
+                "price_yearly": 990.0,
+                "price_monthly_ngn": 49500.0,
+                "features": [
+                    "All Starter features included",
+                    "Advanced multi-timeframe regime analysis",
+                    "Historical performance & MAE/MFE statistical distributions",
+                    "Automated trade journaling & historical replay simulator",
+                    "Priority support & dedicated notifications",
+                    "API access (read-only)"
+                ],
+                "max_accounts": 0,
+                "auto_execution_enabled": False,
+                "api_access_enabled": True
+            },
+            "premium": {
+                "display_name": "Premium",
+                "description": "Full institutional-grade platform with auto-execution",
+                "price_monthly": 299.0,
+                "price_yearly": 2990.0,
+                "price_monthly_ngn": 149500.0,
+                "features": [
+                    "All Pro features included",
+                    "Autonomous Cloud cTrader Auto-Execution",
+                    "Dynamic 1% risk position sizing engine",
+                    "Connected cTrader broker accounts (demo & live)",
+                    "Prop desk daily loss & drawdown risk guardrails",
+                    "Custom strategy backtesting & scenario simulator",
+                    "Full API access (read/write) & webhook routing",
+                    "Dedicated 1-on-1 priority support"
+                ],
+                "max_accounts": 999,
+                "auto_execution_enabled": True,
+                "api_access_enabled": True
+            }
+        }
+
+        for name, data in tier_updates.items():
+            tier = db.query(SubscriptionTier).filter(SubscriptionTier.name == name).first()
+            if tier:
+                tier.display_name = data["display_name"]
+                tier.description = data["description"]
+                tier.price_monthly = data["price_monthly"]
+                tier.price_yearly = data["price_yearly"]
+                tier.price_monthly_ngn = data["price_monthly_ngn"]
+                tier.features = data["features"]
+                tier.max_accounts = data["max_accounts"]
+                tier.auto_execution_enabled = data["auto_execution_enabled"]
+                tier.api_access_enabled = data["api_access_enabled"]
+            else:
+                db.add(SubscriptionTier(name=name, **data))
+        db.commit()
+        logger.info("Synchronized subscription tiers: modernized to cTrader, eliminated all MT5 references.")
 
     @staticmethod
     def migrate_ngn_prices(db) -> None:

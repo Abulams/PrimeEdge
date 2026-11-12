@@ -687,7 +687,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                       <CheckCircle size={15} color="#10b981" /> Spread & Slippage Caps: rejects market fills if spread widens beyond tolerance.
                     </li>
                     <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <CheckCircle size={15} color="#10b981" /> Zero shared credentials: direct cTrader OpenAPI execution without desktop terminals running (MT5 support coming soon).
+                      <CheckCircle size={15} color="#10b981" /> Zero shared credentials: direct cTrader OpenAPI execution without desktop terminals running.
                     </li>
                   </ul>
                 </div>
@@ -1251,7 +1251,7 @@ export default function LandingPage({ onEnterApp, onOpenWaitlist, isAuthenticate
                 },
                 {
                   q: "Is PrimeEdge an automated black-box EA?",
-                  a: "No. PrimeEdge is a trading decision system. It discovers high-probability session setups and computes exact mathematical invalidation stops. You review and authorize setups in the Trade Planner before they execute through the guarded cTrader bridge (MT5 support coming soon)."
+                  a: "No. PrimeEdge is a trading decision system. It discovers high-probability session setups and computes exact mathematical invalidation stops. You review and authorize setups in the Trade Planner before they execute through the guarded cTrader bridge."
                 },
                 {
                   q: "What instruments does PrimeEdge support?",
