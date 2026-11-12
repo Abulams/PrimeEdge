@@ -254,7 +254,26 @@ class RealtimeService:
                                 logger.debug(f"[Auto-Execution] Order #{in_flight_order.id} for {inst} already {in_flight_order.status} in queue ? skipping duplicate")
                                 continue
 
-                            # Guard C: Strict Active/Pending Trade Check on same instrument
+                            
+                            # Guard B2: Snapshot-Level Per-Account Dedup
+                            # Hard backstop: never create a second TradeRecord for the same
+                            # (snapshot_id, account_id) pair, regardless of lifecycle state.
+                            # This catches the case where a previous trade for this signal was
+                            # FILLED then CLOSED, and the scanner would otherwise re-enter.
+                            existing_trade_for_snap = db.query(TradeRecord).filter(
+                                TradeRecord.setup_snapshot_id == snap.id,
+                                TradeRecord.account_id == acc.id,
+                            ).first()
+                            if existing_trade_for_snap:
+                                logger.debug(
+                                    f"[Auto-Execution] Snapshot #{snap.id} already has Trade "
+                                    f"#{existing_trade_for_snap.id} "
+                                    f"(status={existing_trade_for_snap.execution_status}) "
+                                    f"for Account #{acc.login} -- hard dedup block"
+                                )
+                                continue
+
+# Guard C: Strict Active/Pending Trade Check on same instrument
                             has_active_or_pending = db.query(TradeRecord).join(
                                 SetupSnapshot, TradeRecord.setup_snapshot_id == SetupSnapshot.id
                             ).filter(
@@ -281,7 +300,36 @@ class RealtimeService:
                                 logger.debug(f"[Auto-Execution] Cooldown active for {inst} on Account #{acc.login} (last trade #{recent_trade.id} placed {elapsed_mins:.1f}m ago) ? skipping duplicate")
                                 continue
 
+                            # Guard D2: Session-Boundary Duplicate Prevention
+                            # One trade per instrument per trading session per account.
+                            # Sessions (UTC): Tokyo 00-07h, London 07-13h, NY 13-20h, After-Hours 20-24h
+                            _h = now_utc.hour
+                            if 0 <= _h < 7:    _cur_session = "TOKYO"
+                            elif 7 <= _h < 13: _cur_session = "LONDON"
+                            elif 13 <= _h < 20: _cur_session = "NEW_YORK"
+                            else:              _cur_session = "AFTER_HOURS"
+                            # Find start of current session
+                            _session_starts = {"TOKYO": 0, "LONDON": 7, "NEW_YORK": 13, "AFTER_HOURS": 20}
+                            _sess_start_h = _session_starts[_cur_session]
+                            _sess_start_dt = now_utc.replace(hour=_sess_start_h, minute=0, second=0, microsecond=0)
+                            session_trade = db.query(TradeRecord).join(
+                                SetupSnapshot, TradeRecord.setup_snapshot_id == SetupSnapshot.id
+                            ).filter(
+                                TradeRecord.account_id == acc.id,
+                                TradeRecord.entry_timestamp >= _sess_start_dt,
+                                SetupSnapshot.instrument == inst,
+                            ).first()
+                            if session_trade:
+                                logger.info(
+                                    f"[Auto-Execution] SESSION BLOCK: {inst} trade #{session_trade.id} already placed "
+                                    f"in {_cur_session} session for Account #{acc.login}. "
+                                    f"Waiting for next session before re-entry."
+                                )
+                                continue
+
                             # Guard E: Check Max Concurrent Open Trades
+                            # Count ACTIVE/PENDING DB records as a first-pass check.
+                            # The final live-broker check happens in ctrader_copier_runner.py.
                             open_count = db.query(TradeRecord).filter(
                                 TradeRecord.account_id == acc.id,
                                 TradeRecord.lifecycle_state.in_(["ACTIVE", "PENDING"]),
@@ -289,7 +337,7 @@ class RealtimeService:
                             ).count()
                             max_open = acc.max_concurrent_trades or 5
                             if open_count >= max_open:
-                                logger.debug(f"[Auto-Execution] Account #{acc.login} at max trades ({open_count}/{max_open})")
+                                logger.info(f"[Auto-Execution] Account #{acc.login} at max concurrent trades ({open_count}/{max_open}) — queuing blocked")
                                 continue
 
                             # Guard F: Block opposite-direction trade on same instrument within same 4-hour window
@@ -422,7 +470,15 @@ class RealtimeService:
                                     new_snap = JournalService.create_setup_snapshot(db, inst, source="AUTONOMOUS_CLOUD_ENGINE", direction=direction)
                                     _dispatch_snap_to_auto_accounts(new_snap)
                                 else:
-                                    _dispatch_snap_to_auto_accounts(existing_snap)
+                                    # GUARDRAIL: Never re-dispatch an existing snapshot.
+                                    # Every 5-min poll re-calling _dispatch_snap_to_auto_accounts
+                                    # on an already-filed signal causes duplicate trade storms
+                                    # (Guard B only blocks QUEUED/DISPATCHED, not FILLED).
+                                    logger.debug(
+                                        f"[Quant Engine] Signal #{existing_snap.id} "
+                                        f"({inst} {direction}) already dispatched today "
+                                        "— skipping re-dispatch to prevent duplicate trades."
+                                    )
                     except Exception as eng_err:
                         logger.error(f"[Quant Engine] Engine scan error for {inst}: {eng_err}")
             except Exception as auto_err:

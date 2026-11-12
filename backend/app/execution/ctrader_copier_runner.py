@@ -273,21 +273,51 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
                         # cTrader direction: LONG -> BUY, SHORT -> SELL
                         ct_direction = "BUY" if order.direction.upper() == "LONG" else "SELL"
 
-                        # Guard: Check live broker positions on master account before placing order
-                        # NEVER open duplicate trades of same instrument & direction
+                        # ── Live-Broker Guardrails (apply to ALL accounts) ────────────────
+                        # These run against the REAL broker state, not the local DB, so they
+                        # catch cases where the DB is stale or the scanner bypassed DB guards.
                         try:
                             live_positions = await gateway.get_open_positions(master_account_id)
-                            existing_pos = next((p for p in live_positions if p.get("symbol_id") == symbol_id), None)
-                            if existing_pos:
-                                existing_dir = existing_pos.get("direction")
+                            live_account_info = await gateway.get_account_info(master_account_id)
+
+                            # Guard LB-1: Max Concurrent Positions (hard limit: 5)
+                            # Uses LIVE broker count, not DB count which can be stale.
+                            max_concurrent = 5
+                            if len(live_positions) >= max_concurrent:
                                 logger.warning(
-                                    "Duplicate prevented on cTrader: Account %s already has active position #%s on %s (%s). Rejecting signal %s.",
-                                    master_account_id, existing_pos.get("position_id"), order.instrument, existing_dir, order.signal_id
+                                    "LIVE GUARDRAIL: Account %s has %d/%d live positions open. "
+                                    "Rejecting signal %s to enforce max concurrent cap.",
+                                    master_account_id, len(live_positions), max_concurrent, order.signal_id
                                 )
                                 with SessionLocal() as db2:
                                     db2.query(ExecutionOrderQueue).filter(ExecutionOrderQueue.id == order.id).update({
                                         "status": "REJECTED",
-                                        "error_comment": f"Duplicate prevented: active position #{existing_pos.get('position_id')} already open on broker for {order.instrument}",
+                                        "error_comment": f"MAX_CONCURRENT_EXCEEDED: {len(live_positions)}/{max_concurrent} live positions open",
+                                        "completed_at": datetime.datetime.utcnow(),
+                                    })
+                                    if order.trade_id:
+                                        from ..models import TradeRecord
+                                        db2.query(TradeRecord).filter(TradeRecord.id == order.trade_id).update({
+                                            "execution_status": "REJECTED",
+                                            "lifecycle_state": "CLOSED",
+                                            "outcome": "MAX_CONCURRENT_EXCEEDED",
+                                            "exit_reason": f"MAX_CONCURRENT_EXCEEDED_{len(live_positions)}_OF_{max_concurrent}",
+                                            "exit_timestamp": datetime.datetime.utcnow(),
+                                        })
+                                    db2.commit()
+                                continue
+
+                            # Guard LB-2: Same instrument already open (ANY direction) — prevents hedges and doubles
+                            existing_pos = next((p for p in live_positions if p.get("symbol_id") == symbol_id), None)
+                            if existing_pos:
+                                logger.warning(
+                                    "LIVE GUARDRAIL: Duplicate prevented — Account %s already has position #%s on %s. Rejecting signal %s.",
+                                    master_account_id, existing_pos.get("position_id"), order.instrument, order.signal_id
+                                )
+                                with SessionLocal() as db2:
+                                    db2.query(ExecutionOrderQueue).filter(ExecutionOrderQueue.id == order.id).update({
+                                        "status": "REJECTED",
+                                        "error_comment": f"DUPLICATE_PREVENTED: position #{existing_pos.get('position_id')} already open on broker for {order.instrument}",
                                         "completed_at": datetime.datetime.utcnow(),
                                     })
                                     if order.trade_id:
@@ -301,8 +331,77 @@ async def poll_signal_queue(gateway: CTraderGateway, master_account_id: int, mas
                                         })
                                     db2.commit()
                                 continue
+
+                            # Guard LB-3: Recalculate lot size using LIVE account balance
+                            # (stored acc.balance can be minutes or hours stale)
+                            live_balance = live_account_info.get("balance", 0.0)
+                            if live_balance and live_balance > 100:
+                                inst_upper_lb = (order.instrument or "").upper()
+                                is_index_lb = any(k in inst_upper_lb for k in ("US100","NAS100","USTEC","NDX","TECH100","UK100","GER40","SPX","US30","AUS200","DJ30","WS30","DAX"))
+                                is_gold_lb = any(k in inst_upper_lb for k in ("XAU","GOLD"))
+                                is_jpy_lb = "JPY" in inst_upper_lb
+
+                                if is_jpy_lb:
+                                    pip_val_lb = 6.5
+                                elif is_index_lb:
+                                    pip_val_lb = 1.0   # $1 per point per lot (cTrader index CFD)
+                                elif is_gold_lb:
+                                    pip_val_lb = 10.0  # $10 per pip per lot
+                                else:
+                                    pip_val_lb = 10.0  # standard FX
+
+                                risk_pct_lb = 1.0  # 1% per trade hardcoded as floor
+                                risk_amount_lb = live_balance * (risk_pct_lb / 100.0)
+
+                                # Determine SL distance from the queued order
+                                if order.stop_loss and order.entry_reference_price and order.entry_reference_price > 0:
+                                    sl_dist_lb = abs(order.entry_reference_price - order.stop_loss)
+                                else:
+                                    # Safe fallback SL distances
+                                    if is_index_lb:   sl_dist_lb = 150.0
+                                    elif is_gold_lb:  sl_dist_lb = 4.0
+                                    else:             sl_dist_lb = 0.0025
+
+                                if is_index_lb:
+                                    risk_pips_lb = sl_dist_lb  # points are 1:1
+                                elif is_jpy_lb:
+                                    risk_pips_lb = sl_dist_lb * 100.0
+                                elif is_gold_lb:
+                                    risk_pips_lb = sl_dist_lb * 10.0
+                                else:
+                                    risk_pips_lb = sl_dist_lb * 10000.0
+
+                                if risk_pips_lb > 0 and pip_val_lb > 0:
+                                    calc_lots_lb = risk_amount_lb / (risk_pips_lb * pip_val_lb)
+                                    # Hard caps per instrument class
+                                    if is_index_lb:
+                                        final_lots = max(0.1, min(round(calc_lots_lb * 10) / 10, 5.0))
+                                    elif is_gold_lb:
+                                        final_lots = max(0.01, min(round(calc_lots_lb, 2), 5.0))
+                                    else:
+                                        final_lots = max(0.01, min(round(calc_lots_lb, 2), 10.0))
+
+                                    if abs(final_lots - order.position_size_lots) > 0.5:
+                                        logger.info(
+                                            "LIVE GUARDRAIL: Recalculated lot size for signal %s: "
+                                            "queued=%.2f -> live_balance_based=%.2f (balance=%.2f, risk_pips=%.1f)",
+                                            order.signal_id, order.position_size_lots, final_lots, live_balance, risk_pips_lb
+                                        )
+                                        order.position_size_lots = final_lots
+
+                                # Absolute hard cap regardless of calculation
+                                if is_index_lb and order.position_size_lots > 5.0:
+                                    logger.warning("LIVE GUARDRAIL: Hard-capping index lots from %.2f to 5.0", order.position_size_lots)
+                                    order.position_size_lots = 5.0
+                                elif is_gold_lb and order.position_size_lots > 5.0:
+                                    logger.warning("LIVE GUARDRAIL: Hard-capping gold lots from %.2f to 5.0", order.position_size_lots)
+                                    order.position_size_lots = 5.0
+                                elif not is_index_lb and not is_gold_lb and order.position_size_lots > 10.0:
+                                    logger.warning("LIVE GUARDRAIL: Hard-capping FX lots from %.2f to 10.0", order.position_size_lots)
+                                    order.position_size_lots = 10.0
+
                         except Exception as pos_check_err:
-                            logger.warning("Could not pre-check open positions for duplicates: %s", pos_check_err)
+                            logger.warning("Could not run live broker guardrails: %s", pos_check_err)
 
                         result = await gateway.execute_market_order(
                             account_id=master_account_id,
