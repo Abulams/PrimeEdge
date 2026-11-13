@@ -57,6 +57,8 @@ class FlutterwaveService:
         tier = db.query(SubscriptionTier).filter(SubscriptionTier.name == tier_name).first()
         if not tier:
             raise ValueError(f"Tier '{tier_name}' not found")
+        if tier.price_monthly == 0:
+            raise ValueError("Free tier does not require payment")
 
         # Determine price by currency and interval
         if currency.upper() == "USD":

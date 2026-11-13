@@ -222,6 +222,22 @@ export default function PricingPage() {
 
   const handleSubscribe = async (tierName: string) => {
 
+    if (tierName === 'free') {
+
+      if (!isAuthenticated) {
+
+        window.location.href = '/register';
+
+      } else {
+
+        window.location.href = '/';
+
+      }
+
+      return;
+
+    }
+
     // 1. If not authenticated, prompt user to sign in or create account first
 
     if (!isAuthenticated) {
@@ -1258,7 +1274,7 @@ export default function PricingPage() {
 
           display: 'grid',
 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
 
           gap: '24px',
 
@@ -1484,7 +1500,7 @@ export default function PricingPage() {
 
                 }}>
 
-                  {tier.price_monthly > 0 && (
+                  {tier.price_monthly > 0 ? (
 
                     <div style={{
 
@@ -1519,6 +1535,44 @@ export default function PricingPage() {
                       <Sparkles size={11} />
 
                       50% OFF - Launch Offer
+
+                    </div>
+
+                  ) : (
+
+                    <div style={{
+
+                      display: 'inline-flex',
+
+                      alignItems: 'center',
+
+                      gap: '5px',
+
+                      background: 'rgba(16,185,129,0.15)',
+
+                      border: '1px solid rgba(16,185,129,0.4)',
+
+                      borderRadius: '12px',
+
+                      padding: '3px 10px',
+
+                      fontSize: '11px',
+
+                      fontWeight: 800,
+
+                      color: '#34d399',
+
+                      letterSpacing: '0.5px',
+
+                      textTransform: 'uppercase' as const,
+
+                      marginBottom: '8px'
+
+                    }}>
+
+                      <Check size={11} />
+
+                      Free Forever
 
                     </div>
 
@@ -1756,7 +1810,7 @@ export default function PricingPage() {
 
                     <>
 
-                      Included with Account
+                      {!isAuthenticated ? 'Start Free' : 'Included with Account'}
 
                       <ChevronRight size={16} />
 
@@ -1892,7 +1946,41 @@ export default function PricingPage() {
 
                     <td key={t.id} style={{ padding: '14px 16px', textAlign: 'center' }}>
 
-                      <CheckCircle size={18} color="#10b981" style={{ display: 'inline-block' }} />
+                      {t.name !== 'free' ? (
+
+                        <CheckCircle size={18} color="#10b981" style={{ display: 'inline-block' }} />
+
+                      ) : (
+
+                        <X size={18} color="#64748b" style={{ display: 'inline-block' }} />
+
+                      )}
+
+                    </td>
+
+                  ))}
+
+                </tr>
+
+
+
+                <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+
+                  <td style={{ padding: '14px 16px', fontSize: '13px', color: '#cbd5e1' }}>Historical Replay Simulator (Tick-by-Tick)</td>
+
+                  {tiers.map((t) => (
+
+                    <td key={t.id} style={{ padding: '14px 16px', textAlign: 'center' }}>
+
+                      {t.name === 'pro' || t.name === 'premium' ? (
+
+                        <CheckCircle size={18} color="#10b981" style={{ display: 'inline-block' }} />
+
+                      ) : (
+
+                        <X size={18} color="#64748b" style={{ display: 'inline-block' }} />
+
+                      )}
 
                     </td>
 

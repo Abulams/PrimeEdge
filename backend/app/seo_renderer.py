@@ -230,19 +230,35 @@ PRICING_CRAWLER_HTML = """
       </p>
     </div>
 
-    <section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
-      <article style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 2.5rem; display: flex; flex-direction: column;">
+    <section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem;">
+      <article style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 2rem; display: flex; flex-direction: column;">
+        <h2 style="font-size: 1.4rem; font-weight: 700; color: #ffffff; margin: 0 0 0.5rem 0;">Free</h2>
+        <p style="color: #94a3b8; font-size: 0.95rem; margin-bottom: 1.5rem;">Essential setup discovery and market regime intelligence.</p>
+        <div style="font-size: 2.5rem; font-weight: 800; color: #ffffff; margin-bottom: 1.5rem;">$0 <span style="font-size: 1rem; color: #64748b; font-weight: normal;">/ forever</span></div>
+        <ul style="list-style: none; padding: 0; margin: 0 0 2rem 0; color: #cbd5e1; font-size: 0.95rem; line-height: 2;">
+          <li>&#10003; Real-time market signals (EURUSD, GBPUSD, USDJPY, XAUUSD, US100)</li>
+          <li>&#10003; Decision Intelligence &amp; Market Regime Radar</li>
+          <li>&#10003; Empirical P25–P75 Retracement Corridor</li>
+          <li>&#10003; Historical Evidence Distributions</li>
+          <li>&#10003; Basic opportunity radar &amp; scorecards</li>
+          <li>&#10003; Community access</li>
+        </ul>
+        <a href="/register" style="margin-top: auto; display: block; text-align: center; background: rgba(255,255,255,0.06); color: #ffffff; font-weight: 600; padding: 0.85rem; border-radius: 6px; text-decoration: none; border: 1px solid rgba(255,255,255,0.12);">Start Free</a>
+      </article>
+
+      <article style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 2rem; display: flex; flex-direction: column;">
         <h2 style="font-size: 1.4rem; font-weight: 700; color: #ffffff; margin: 0 0 0.5rem 0;">Starter</h2>
         <p style="color: #94a3b8; font-size: 0.95rem; margin-bottom: 1.5rem;">Essential market intelligence for manual traders.</p>
         <div style="font-size: 2.5rem; font-weight: 800; color: #ffffff; margin-bottom: 1.5rem;">$29 <span style="font-size: 1rem; color: #64748b; font-weight: normal;">/ month</span></div>
         <ul style="list-style: none; padding: 0; margin: 0 0 2rem 0; color: #cbd5e1; font-size: 0.95rem; line-height: 2;">
-          <li>&#10003; Real-time market signals (EURUSD, GBPUSD, USDJPY, XAUUSD, US100)</li>
-          <li>&#10003; Decision Intelligence &amp; Market Regime Radar</li>
+          <li>&#10003; All Free features included</li>
+          <li>&#10003; Interactive Trade Planner &amp; Option A/B Analysis</li>
           <li>&#10003; Manual trade journaling &amp; execution logs</li>
           <li>&#10003; Evidence-based setup scoring &amp; risk matrix</li>
-          <li>&#10003; Community access &amp; Telegram channel alerts</li>
+          <li>&#10003; AI Market Analyst &amp; chat assistance</li>
+          <li>&#10003; Telegram commercial channel trade alerts</li>
         </ul>
-        <a href="/register" style="margin-top: auto; display: block; text-align: center; background: rgba(255,255,255,0.06); color: #ffffff; font-weight: 600; padding: 0.85rem; border-radius: 6px; text-decoration: none; border: 1px solid rgba(255,255,255,0.12);">Get Started with Starter</a>
+        <a href="/register?plan=starter" style="margin-top: auto; display: block; text-align: center; background: rgba(255,255,255,0.06); color: #ffffff; font-weight: 600; padding: 0.85rem; border-radius: 6px; text-decoration: none; border: 1px solid rgba(255,255,255,0.12);">Get Started with Starter</a>
       </article>
 
       <article style="background: rgba(0,229,255,0.03); border: 2px solid #00e5ff; border-radius: 12px; padding: 2.5rem; display: flex; flex-direction: column; position: relative;">

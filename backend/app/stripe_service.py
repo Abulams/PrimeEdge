@@ -40,6 +40,25 @@ class StripeService:
 
         tiers = [
             {
+                "name": "free",
+                "display_name": "Free",
+                "description": "Essential setup discovery and market regime intelligence",
+                "price_monthly": 0.0,
+                "price_yearly": 0.0,
+                "price_monthly_ngn": 0.0,
+                "features": [
+                    "Real-time market signals (EURUSD, GBPUSD, USDJPY, XAUUSD, US100)",
+                    "Decision Intelligence & Market Regime Radar",
+                    "Empirical P25–P75 Retracement Corridor",
+                    "Historical Evidence Distributions",
+                    "Basic opportunity radar & scorecards",
+                    "Community access"
+                ],
+                "max_accounts": 0,
+                "auto_execution_enabled": False,
+                "api_access_enabled": False
+            },
+            {
                 "name": "starter",
                 "display_name": "Starter",
                 "description": "Essential market intelligence for manual traders",
@@ -116,6 +135,24 @@ class StripeService:
         - Premium: Exclusive autonomous cloud cTrader execution, dynamic 1% risk sizing & connected accounts
         """
         tier_updates = {
+            "free": {
+                "display_name": "Free",
+                "description": "Essential setup discovery and market regime intelligence",
+                "price_monthly": 0.0,
+                "price_yearly": 0.0,
+                "price_monthly_ngn": 0.0,
+                "features": [
+                    "Real-time market signals (EURUSD, GBPUSD, USDJPY, XAUUSD, US100)",
+                    "Decision Intelligence & Market Regime Radar",
+                    "Empirical P25–P75 Retracement Corridor",
+                    "Historical Evidence Distributions",
+                    "Basic opportunity radar & scorecards",
+                    "Community access"
+                ],
+                "max_accounts": 0,
+                "auto_execution_enabled": False,
+                "api_access_enabled": False
+            },
             "starter": {
                 "display_name": "Starter",
                 "description": "Essential market intelligence for manual traders",
@@ -234,6 +271,8 @@ class StripeService:
         tier = db.query(SubscriptionTier).filter(SubscriptionTier.name == tier_name).first()
         if not tier:
             raise ValueError(f"Tier '{tier_name}' not found")
+        if tier.price_monthly == 0:
+            raise ValueError("Free tier does not require checkout")
 
         stripe_key = os.getenv("STRIPE_SECRET_KEY", "")
         stripe_mode = os.getenv("STRIPE_MODE", "test")

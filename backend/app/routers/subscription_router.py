@@ -61,7 +61,7 @@ class UserSubscriptionInfo(BaseModel):
 @router.get("/tiers", response_model=List[TierInfo])
 def get_available_tiers(db: Session = Depends(get_db)):
     """Get all available subscription tiers."""
-    tiers = db.query(SubscriptionTier).filter(SubscriptionTier.active == True).all()
+    tiers = db.query(SubscriptionTier).filter(SubscriptionTier.active == True).order_by(SubscriptionTier.price_monthly.asc()).all()
     
     return [
         TierInfo(
@@ -285,7 +285,8 @@ async def handle_paystack_webhook(request: Request, db: Session = Depends(get_db
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Paystack webhook error: {e}")
-        raise HTTPException(status_code=500, detail="Webhook processing failed")
+        raise HTTPException(status_code=500, detail="Webhook processing failed")
+
 
 # --- Flutterwave Routes (USD / Global) ---
 
