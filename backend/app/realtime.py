@@ -447,38 +447,55 @@ class RealtimeService:
                             continue
 
                 # Run DUAL-HORIZON engine scan across key instruments
+                # RADAR SYNCHRONIZATION & ZERO HEDGING ENFORCEMENT:
+                # 1. We sort candidates identically to the Radar (_recompute_dashboard_caches):
+                #    cand_order = {"READY": 0, "WAIT": 1, "NO EDGE": 2, "NO SETUP": 3, "INVALID": 4}
+                #    sort by (state, -confidence_score).
+                # 2. We ONLY take candidates[0] (the exact setup shown on the Radar UI).
+                # 3. We NEVER iterate over both hypotheses. The secondary direction is discarded.
+                # 4. If candidates[0] is not "READY", nothing is executed for this instrument.
                 instruments_to_scan = ["XAUUSD", "US100", "EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "AUDJPY"]
+                cand_order = {"READY": 0, "WAIT": 1, "NO EDGE": 2, "NO SETUP": 3, "INVALID": 4}
+
                 for inst in instruments_to_scan:
                     try:
                         dual_profiles = DecisionIntelligenceEngine.generate_dual_profiles(db, inst, today)
                         candidates = [p for p in [dual_profiles.get("long"), dual_profiles.get("short")] if p is not None]
 
-                        for prof_data in candidates:
-                            if prof_data and prof_data.get("status_state") == "READY":
-                                direction = prof_data.get("direction", "LONG")
+                        if not candidates:
+                            continue
 
-                                existing_snap = db.query(SetupSnapshot).filter(
-                                    SetupSnapshot.instrument == inst,
-                                    SetupSnapshot.date == today,
-                                    SetupSnapshot.snapshot_source == "AUTONOMOUS_CLOUD_ENGINE",
-                                    SetupSnapshot.direction == direction,
-                                    SetupSnapshot.status_at_snapshot == "READY"
-                                ).order_by(SetupSnapshot.id.desc()).first()
+                        # Sort to pick the single top setup displayed on the Radar UI
+                        candidates.sort(key=lambda p: (cand_order.get(p.get("status_state"), 9), -p.get("confidence_score", 0)))
+                        top_radar_setup = candidates[0]
 
-                                if not existing_snap:
-                                    logger.info(f"[Quant Engine] New READY signal detected for {inst} ({direction}) score {prof_data.get('confidence_score')}")
-                                    new_snap = JournalService.create_setup_snapshot(db, inst, source="AUTONOMOUS_CLOUD_ENGINE", direction=direction)
-                                    _dispatch_snap_to_auto_accounts(new_snap)
-                                else:
-                                    # GUARDRAIL: Never re-dispatch an existing snapshot.
-                                    # Every 5-min poll re-calling _dispatch_snap_to_auto_accounts
-                                    # on an already-filed signal causes duplicate trade storms
-                                    # (Guard B only blocks QUEUED/DISPATCHED, not FILLED).
-                                    logger.debug(
-                                        f"[Quant Engine] Signal #{existing_snap.id} "
-                                        f"({inst} {direction}) already dispatched today "
-                                        "— skipping re-dispatch to prevent duplicate trades."
-                                    )
+                        # STRICT GATE: Only execute if the top setup on the Radar is READY
+                        if not top_radar_setup or top_radar_setup.get("status_state") != "READY":
+                            continue
+
+                        direction = top_radar_setup.get("direction", "LONG")
+                        score = top_radar_setup.get("confidence_score", 0)
+
+                        # Check if this exact instrument has already been dispatched today in ANY direction
+                        existing_today_snap = db.query(SetupSnapshot).filter(
+                            SetupSnapshot.instrument == inst,
+                            SetupSnapshot.date == today,
+                            SetupSnapshot.snapshot_source == "AUTONOMOUS_CLOUD_ENGINE",
+                            SetupSnapshot.status_at_snapshot == "READY"
+                        ).first()
+
+                        if existing_today_snap:
+                            logger.debug(
+                                f"[Quant Engine] Instrument {inst} already has Snapshot #{existing_today_snap.id} "
+                                f"({existing_today_snap.direction}) dispatched today. Anti-Hedge Gate: "
+                                "skipping to guarantee exactly 1 trade per instrument."
+                            )
+                            continue
+
+                        logger.info(f"[Quant Engine] New Verified Radar READY signal for {inst} ({direction}) score {score}")
+                        new_snap = JournalService.create_setup_snapshot(db, inst, source="AUTONOMOUS_CLOUD_ENGINE", direction=direction)
+                        _dispatch_snap_to_auto_accounts(new_snap)
+
                     except Exception as eng_err:
                         logger.error(f"[Quant Engine] Engine scan error for {inst}: {eng_err}")
             except Exception as auto_err:
