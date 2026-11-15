@@ -140,7 +140,7 @@ class StripeService:
                 "description": "Essential setup discovery and market regime intelligence",
                 "price_monthly": 0.0,
                 "price_yearly": 0.0,
-                "price_monthly_ngn": 0.0,
+                "price_monthly_ngn": None,
                 "features": [
                     "Real-time market signals (EURUSD, GBPUSD, USDJPY, XAUUSD, US100)",
                     "Decision Intelligence & Market Regime Radar",
@@ -158,13 +158,14 @@ class StripeService:
                 "description": "Essential market intelligence for manual traders",
                 "price_monthly": 29.0,
                 "price_yearly": 290.0,
-                "price_monthly_ngn": 22500.0,
+                "price_monthly_ngn": None,
                 "features": [
-                    "Real-time market signals (EURUSD, GBPUSD, USDJPY, XAUUSD, US100)",
-                    "Decision Intelligence & Market Regime Radar",
+                    "All Free features included",
+                    "Interactive Trade Planner & Option A/B Analysis",
                     "Manual trade journaling & execution logs",
                     "Evidence-based setup scoring & risk matrix",
-                    "Community access & Telegram channel alerts"
+                    "AI Market Analyst & chat assistance",
+                    "Telegram commercial channel trade alerts"
                 ],
                 "max_accounts": 0,
                 "auto_execution_enabled": False,
@@ -172,31 +173,33 @@ class StripeService:
             },
             "pro": {
                 "display_name": "Pro",
-                "description": "Advanced tools for serious systematic traders",
+                "description": "Advanced tools for serious systematic traders with 1 execution account",
                 "price_monthly": 99.0,
                 "price_yearly": 990.0,
-                "price_monthly_ngn": 49500.0,
+                "price_monthly_ngn": None,
                 "features": [
                     "All Starter features included",
+                    "1 Connected cTrader Account (Auto-Execution)",
+                    "Autonomous Cloud cTrader Execution Engine",
+                    "Historical Replay Simulator (Tick-by-Tick)",
                     "Advanced multi-timeframe regime analysis",
                     "Historical performance & MAE/MFE statistical distributions",
-                    "Automated trade journaling & historical replay simulator",
                     "Priority support & dedicated notifications",
                     "API access (read-only)"
                 ],
-                "max_accounts": 0,
-                "auto_execution_enabled": False,
+                "max_accounts": 1,
+                "auto_execution_enabled": True,
                 "api_access_enabled": True
             },
             "premium": {
                 "display_name": "Premium",
-                "description": "Full institutional-grade platform with auto-execution",
+                "description": "Full institutional-grade platform with multi-account execution",
                 "price_monthly": 299.0,
                 "price_yearly": 2990.0,
-                "price_monthly_ngn": 149500.0,
+                "price_monthly_ngn": None,
                 "features": [
                     "All Pro features included",
-                    "Autonomous Cloud cTrader Auto-Execution",
+                    "Multi-Account cTrader Execution & Copier Bridge",
                     "Dynamic 1% risk position sizing engine",
                     "Connected cTrader broker accounts (demo & live)",
                     "Prop desk daily loss & drawdown risk guardrails",
@@ -204,7 +207,7 @@ class StripeService:
                     "Full API access (read/write) & webhook routing",
                     "Dedicated 1-on-1 priority support"
                 ],
-                "max_accounts": 999,
+                "max_accounts": 10,
                 "auto_execution_enabled": True,
                 "api_access_enabled": True
             }

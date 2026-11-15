@@ -1692,7 +1692,7 @@ export default function PricingPage() {
 
                       <Zap size={14} />
 
-                      Automated Execution Controls
+                      {tier.name === 'pro' ? '1 Execution Account Included' : 'Multi-Account cTrader Execution'}
 
                     </div>
 
@@ -2044,7 +2044,7 @@ export default function PricingPage() {
 
                     <td key={t.id} style={{ padding: '14px 16px', textAlign: 'center', fontSize: '13px', fontWeight: 700, color: '#fff' }}>
 
-                      {t.max_accounts >= 999 ? 'Unlimited' : t.max_accounts === 0 ? '—' : `${t.max_accounts} Account${t.max_accounts > 1 ? 's' : ''}`}
+                      {t.name === 'premium' ? 'Multi-Account' : t.max_accounts === 1 ? '1 Account' : '—'}
 
                     </td>
 

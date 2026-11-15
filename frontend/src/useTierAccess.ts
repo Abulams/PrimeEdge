@@ -80,7 +80,7 @@ export function useTierAccess(isAuthenticated: boolean): TierAccess {
     canUseJournal:   gte(tier, 'starter'),
     canUseChat:      gte(tier, 'starter'),
     canUseReplay:    gte(tier, 'pro'),
-    canUseExecution: gte(tier, 'premium'),
+    canUseExecution: gte(tier, 'pro'),
     upgradeUrl: '/pricing',
   };
 }

@@ -60,13 +60,11 @@ class FlutterwaveService:
         if tier.price_monthly == 0:
             raise ValueError("Free tier does not require payment")
 
-        # Determine price by currency and interval
-        if currency.upper() == "USD":
-            base_price = tier.price_monthly
-            amount = (base_price * 10.0) if billing_interval == "year" else base_price
-        else:
-            base_ngn = tier.price_monthly_ngn or (tier.price_monthly * 1500.0)
-            amount = (base_ngn * 10.0) if billing_interval == "year" else base_ngn
+        # Global standardization: all tiers are billed strictly in USD ($)
+        # Flutterwave automatically processes local/Naira debit & credit cards at the official bank rate
+        currency = "USD"
+        base_price = tier.price_monthly
+        amount = (base_price * 10.0) if billing_interval == "year" else base_price
 
         timestamp = int(datetime.datetime.utcnow().timestamp())
         tx_ref = f"pe_flw_{user.id}_{tier.id}_{timestamp}"

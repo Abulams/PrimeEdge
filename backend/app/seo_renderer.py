@@ -268,6 +268,7 @@ PRICING_CRAWLER_HTML = """
         <div style="font-size: 2.5rem; font-weight: 800; color: #ffffff; margin-bottom: 1.5rem;">$99 <span style="font-size: 1rem; color: #64748b; font-weight: normal;">/ month</span></div>
         <ul style="list-style: none; padding: 0; margin: 0 0 2rem 0; color: #cbd5e1; font-size: 0.95rem; line-height: 2;">
           <li>&#10003; All Starter features included</li>
+          <li>&#10003; 1 Connected cTrader Execution Account</li>
           <li>&#10003; Advanced multi-timeframe regime analysis</li>
           <li>&#10003; Historical performance &amp; MAE/MFE statistical distributions</li>
           <li>&#10003; Automated trade journaling &amp; historical replay simulator</li>
@@ -283,7 +284,7 @@ PRICING_CRAWLER_HTML = """
         <div style="font-size: 2.5rem; font-weight: 800; color: #ffffff; margin-bottom: 1.5rem;">$299 <span style="font-size: 1rem; color: #64748b; font-weight: normal;">/ month</span></div>
         <ul style="list-style: none; padding: 0; margin: 0 0 2rem 0; color: #cbd5e1; font-size: 0.95rem; line-height: 2;">
           <li>&#10003; All Pro features included</li>
-          <li>&#10003; Autonomous Cloud cTrader Auto-Execution</li>
+          <li>&#10003; Multi-Account cTrader Execution &amp; Copier Bridge</li>
           <li>&#10003; Dynamic 1% risk position sizing engine</li>
           <li>&#10003; Connected cTrader broker accounts (demo &amp; live)</li>
           <li>&#10003; Prop desk daily loss &amp; drawdown risk guardrails</li>
