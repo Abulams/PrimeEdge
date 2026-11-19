@@ -459,6 +459,12 @@ class RealtimeService:
 
                 for inst in instruments_to_scan:
                     try:
+                        # 1. Native Chop Shield Pre-Flight Check: Verify instrument has structural trend
+                        real_trend = DecisionIntelligenceEngine.get_current_trend(db, inst, as_of_date=today)
+                        if real_trend == "RANGING":
+                            logger.debug(f"🛡️ [Chop Shield] {inst} is currently in a RANGING consolidation regime (|m/std| <= 0.05) — auto-execution suppressed.")
+                            continue
+
                         dual_profiles = DecisionIntelligenceEngine.generate_dual_profiles(db, inst, today)
                         candidates = [p for p in [dual_profiles.get("long"), dual_profiles.get("short")] if p is not None]
 

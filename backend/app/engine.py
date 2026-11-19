@@ -716,7 +716,8 @@ class DecisionIntelligenceEngine:
         Falls back to broader filters if sample size is too low to guarantee statistical validity.
         If as_of_date is provided, strictly filters MarketSignature.date < as_of_date (point-in-time anti-look-ahead).
         """
-        base_filters = [MarketSignature.instrument == instrument]
+        inst_clean = "US100" if instrument.upper() in ("USTEC", "NAS100", "TECH100", "NDX") else instrument.upper()
+        base_filters = [MarketSignature.instrument == inst_clean]
         if as_of_date:
             base_filters.append(MarketSignature.date < as_of_date)
 
@@ -1175,11 +1176,14 @@ class DecisionIntelligenceEngine:
     @classmethod
     def get_current_trend(cls, db: Session, instrument: str, as_of_date: Optional[datetime.date] = None) -> str:
         """
-        Computes the current trend from real cached price data.
+        Computes the current trend from real cached price data using SignatureEngine linear regression.
         If as_of_date is provided, strictly filters PriceCache.date <= as_of_date (point-in-time anti-look-ahead).
         Falls back to RANGING if insufficient data.
         """
-        q = db.query(PriceCache.close).filter(PriceCache.instrument == instrument)
+        inst_clean = instrument.upper()
+        if inst_clean in ("USTEC", "NAS100", "TECH100", "NDX"):
+            inst_clean = "US100"
+        q = db.query(PriceCache.close).filter(PriceCache.instrument == inst_clean)
         if as_of_date:
             q = q.filter(PriceCache.date <= as_of_date)
         prices = q.order_by(PriceCache.date.desc()).limit(20).all()
@@ -1209,8 +1213,9 @@ class DecisionIntelligenceEngine:
         if not regime:
             return None
 
-        # Fetch price history for dual trend calculation
-        pq = db.query(PriceCache.close).filter(PriceCache.instrument == instrument)
+        # Normalize symbol alias (e.g. cTrader USTEC -> MSD US100)
+        inst_clean = "US100" if instrument.upper() in ("USTEC", "NAS100", "TECH100", "NDX") else instrument.upper()
+        pq = db.query(PriceCache.close).filter(PriceCache.instrument == inst_clean)
         if eval_date:
             pq = pq.filter(PriceCache.date <= eval_date)
         prices_query = pq.order_by(PriceCache.date.desc()).limit(30).all()
@@ -1233,7 +1238,7 @@ class DecisionIntelligenceEngine:
             rsi_val = 50.0
 
         matching_sigs = cls.find_similar_signatures(
-            db, instrument, trend, regime.dxy_regime, regime.risk_sentiment, as_of_date=eval_date
+            db, inst_clean, trend, regime.dxy_regime, regime.risk_sentiment, as_of_date=eval_date
         )
 
         if not matching_sigs:
@@ -1253,7 +1258,7 @@ class DecisionIntelligenceEngine:
         calibration_active = cal_result["calibration_active"]
 
         # Count intraday session enriched signatures across all signatures for this instrument
-        all_inst_sigs = db.query(MarketSignature).filter(MarketSignature.instrument == instrument).all()
+        all_inst_sigs = db.query(MarketSignature).filter(MarketSignature.instrument == inst_clean).all()
         intraday_count = sum(1 for s in all_inst_sigs if s.holding_time_minutes > 0)
 
         expected_mae = np.mean([s.mae_pips for s in matching_sigs]) if total_samples > 0 else 15.0
@@ -1655,7 +1660,10 @@ class DecisionIntelligenceEngine:
         macro_50d_trend = dual_trend_info.get("macro_trend", trend)
         trend_mismatch = is_gold and (trend != macro_50d_trend)
 
-        if total_samples < 10:
+        if trend == "RANGING":
+            status_state = "NO EDGE"
+            why_this_now = f"Chop Shield Active: 20-day linear regression slope (|m/std| <= 0.05) certifies a RANGING consolidation regime. Directional breakout/continuation setups suppressed."
+        elif total_samples < 10:
             status_state = "NO SETUP"
             why_this_now = "Current market conditions do not closely match a sufficiently reliable historical pattern."
         elif is_gold_short and (total_samples < 15 or continuation_prob < 0.40):
@@ -1795,16 +1803,42 @@ class DecisionIntelligenceEngine:
         as_of_date: Optional[datetime.date] = None
     ) -> Dict[str, Optional[Dict[str, Any]]]:
         """
-        Concurrently evaluates both LONG and SHORT candidate profiles independently.
-        Returns a dictionary containing both candidate evaluations:
-        {"long": long_profile, "short": short_profile}
+        Evaluates candidate profiles grounded in real-world market trend from SignatureEngine.
+        - If real trend is RANGING: Both directions are suppressed by the native Chop Shield (NO EDGE).
+        - If real trend is BULLISH: Long profile is prioritized; counter-trend short is suppressed.
+        - If real trend is BEARISH: Short profile is prioritized; counter-trend long is suppressed.
         """
-        long_profile = cls.generate_daily_profile_v2(db, instrument, date, trend="BULLISH", as_of_date=as_of_date)
-        short_profile = cls.generate_daily_profile_v2(db, instrument, date, trend="BEARISH", as_of_date=as_of_date)
-        return {
-            "long": long_profile,
-            "short": short_profile
-        }
+        real_trend = cls.get_current_trend(db, instrument, as_of_date=as_of_date)
+        
+        if real_trend == "RANGING":
+            # Native Chop Shield: Market is in directionless consolidation
+            ranging_profile = cls.generate_daily_profile_v2(db, instrument, date, trend="RANGING", as_of_date=as_of_date)
+            return {
+                "long": ranging_profile,
+                "short": None
+            }
+        elif real_trend == "BULLISH":
+            long_profile = cls.generate_daily_profile_v2(db, instrument, date, trend="BULLISH", as_of_date=as_of_date)
+            # Counter-trend short is suppressed in clear bull momentum
+            short_profile = cls.generate_daily_profile_v2(db, instrument, date, trend="BEARISH", as_of_date=as_of_date)
+            if short_profile and short_profile.get("status_state") == "READY":
+                short_profile["status_state"] = "NO EDGE"
+                short_profile["why_this_now"] = f"Counter-trend short suppressed: 20-day macro trend is BULLISH."
+            return {
+                "long": long_profile,
+                "short": short_profile
+            }
+        else: # BEARISH
+            short_profile = cls.generate_daily_profile_v2(db, instrument, date, trend="BEARISH", as_of_date=as_of_date)
+            # Counter-trend long is suppressed in clear bear momentum
+            long_profile = cls.generate_daily_profile_v2(db, instrument, date, trend="BULLISH", as_of_date=as_of_date)
+            if long_profile and long_profile.get("status_state") == "READY":
+                long_profile["status_state"] = "NO EDGE"
+                long_profile["why_this_now"] = f"Counter-trend long suppressed: 20-day macro trend is BEARISH."
+            return {
+                "long": long_profile,
+                "short": short_profile
+            }
 
 
 class TradePlannerEngine:
