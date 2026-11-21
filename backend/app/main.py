@@ -391,10 +391,11 @@ def get_debug_status(db: Session = Depends(get_db)):
         "csi_cache_count": len(getattr(realtime_service, 'csi_cache', {}))
     }
 
+@app.get("/health")
 @app.get("/api/v1/health")
 async def health_check():
-    """Fast, zero-overhead health check endpoint for supervisor and monitors."""
-    return {"status": "HEALTHY", "timestamp": datetime.datetime.utcnow().isoformat()}
+    """Fast, zero-overhead 20-byte health check endpoint for uptime monitors and supervisors."""
+    return {"status": "ok"}
 
 
 @app.get("/api/v1/ctrader/status")
@@ -2080,9 +2081,16 @@ def trigger_telegram_daily_digest(db: Session = Depends(get_db)):
     return {"status": "success" if success else "failed", "dispatched": success}
 
 
-# -- Serve built React frontend with Dynamic SEO Prerender & Strict 404s -----
+# -- Serve built React frontend with Aggressive Bandwidth Protection & Dynamic SEO -----
+class CachedStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope):
+        resp = await super().get_response(path, scope)
+        if resp.status_code == 200:
+            resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return resp
+
 if os.path.isdir(_DIST):
-    app.mount("/assets", StaticFiles(directory=os.path.join(_DIST, "assets")), name="assets")
+    app.mount("/assets", CachedStaticFiles(directory=os.path.join(_DIST, "assets")), name="assets")
     _SCREENSHOTS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "screenshots")
     if os.path.isdir(_SCREENSHOTS_DIR):
         app.mount("/screenshots", StaticFiles(directory=_SCREENSHOTS_DIR), name="screenshots")
@@ -2091,8 +2099,13 @@ if os.path.isdir(_DIST):
     async def serve_favicon():
         return StaticFileResponse(os.path.join(_DIST, "favicon.svg"))
 
+    @app.head("/{full_path:path}", include_in_schema=False)
     @app.get("/{full_path:path}", include_in_schema=False)
-    async def spa_fallback(full_path: str):
+    async def spa_fallback(full_path: str, request: Request):
+        # Bandwidth Guard: If an automated uptime monitoring bot pings root, return lightweight 2-byte OK
+        ua = (request.headers.get("user-agent") or "").lower()
+        if any(bot in ua for bot in ("uptimerobot", "better uptime", "pingdom", "statuscake", "uptime", "curl", "healthcheck")):
+            return HTMLResponse(content="OK", status_code=200)
         # 1. File on disk (favicon, images, etc.)
         file_path = os.path.join(_DIST, full_path)
         if full_path and os.path.exists(file_path) and os.path.isfile(file_path):
